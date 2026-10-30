@@ -25,6 +25,8 @@
     .plus{color:#b4c5b8;margin-inline:.15em}
     .choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(10px,4vw,50px);margin:0 auto}
     .level{display:flex;flex-direction:column;align-items:center;gap:20px;text-decoration:none;font-weight:500;font-size:clamp(1.2rem,3vw,2rem)}
+    .level .instruction {font-size: clamp(.78rem, 1.5vw, .95rem); font-weight: 400; line-height: 1.4; opacity: .9;}
+    .level {gap: 12px;}
     .light{width:clamp(65px,10vw,96px);height:clamp(65px,10vw,96px);border-radius:50%;display:grid;place-items:center;transition:transform .16s}
     .light::after{content:"";width:50%;height:50%;border-radius:50%;background:currentColor}
     .level:hover .light,.level:focus-visible .light{transform:scale(1.07)}
@@ -49,9 +51,29 @@
       </p>
       <h2 class="levels-title">reading levels:</h2>
       <nav class="choices" aria-label="Choose your reading level">
-        <a class="level red" href="https://github.com/thinkthoughts/news/blob/main/MATH_00.md" aria-label="Math0: local imagination"><span class="light" aria-hidden="true"></span><span>math0</span></a>
-        <a class="level yellow" href="https://github.com/thinkthoughts/news/blob/main/MATH_05.md" aria-label="Math5: local anatomy"><span class="light" aria-hidden="true"></span><span>math5</span></a>
-        <a class="level green" href="https://github.com/thinkthoughts/news/blob/main/MATH_29.md" aria-label="Math29: everything else"><span class="light" aria-hidden="true"></span><span>math29</span></a>
+        <a class="level red"
+           href="https://github.com/thinkthoughts/news/blob/main/MATH_00.md"
+           aria-label="Math0: count from zero">
+          <span class="light" aria-hidden="true"></span>
+          <span>math0</span>
+          <span class="instruction">count from zero</span>
+        </a>
+      
+        <a class="level yellow"
+           href="https://github.com/thinkthoughts/news/blob/main/MATH_05.md"
+           aria-label="Math5: pair through five to six">
+          <span class="light" aria-hidden="true"></span>
+          <span>math5</span>
+          <span class="instruction">pair through 5 to 6</span>
+        </a>
+      
+        <a class="level green"
+           href="https://github.com/thinkthoughts/news/blob/main/MATH_29.md"
+           aria-label="Math29: pair through twenty-nine to thirty">
+          <span class="light" aria-hidden="true"></span>
+          <span>math29</span>
+          <span class="instruction">pair through 29 to 30</span>
+        </a>
       </nav>
       <p class="closing">🚦 <a href="https://antiviolentintelligence.ai">Choose your <span class="yellow">#next</span> reading level: <span class="green">math29</span></a> 🚥</p>
     </section>
