@@ -70,37 +70,83 @@ fn sha256_hex(bytes: &[u8]) -> String {
         .collect()
 }
 
-/// Load a registered axiom set by id from `spec/axioms.yaml`. The file's
-/// SHA-256 must equal the recorded value, the axiom names must equal the
-/// recorded list, and every axiom's source must be the set's registered,
-/// available source.
+/// Axiom sets approved for RLT-001, pinned in the binary: (id, file, SHA-256).
+/// `spec/axioms.yaml` must agree with this table exactly. Changing an axiom
+/// therefore requires changing this source file, which is reviewed like the
+/// kernel. The pin binds content; the axioms remain assumptions.
+pub const PINNED_AXIOM_SETS: &[(&str, &str, &str)] = &[(
+    "PEANO-ADD",
+    "spec/peano.rlt",
+    "1a3f83444a06fdfbd02c9af2a5881b47137ba102a675a4e012c84be477b10a0d",
+)];
+
+/// Source statuses an axiom set may cite.
+const AXIOM_SOURCE_STATUS: [&str; 2] = ["available", "reference"];
+
+/// Load a registered axiom set by id. The id must be pinned in
+/// `PINNED_AXIOM_SETS`; `spec/axioms.yaml` must hold exactly one entry for it,
+/// naming the pinned file and hash; the file must be a regular file (no
+/// symlink) whose bytes hash to the pinned value; its axiom names must equal
+/// the entry's list; every axiom must cite the set's registered source.
 pub fn load_axiom_set(root: &Path, id: &str) -> Result<AxiomSet, String> {
+    let Some(&(_, pin_file, pin_sha)) = PINNED_AXIOM_SETS.iter().find(|(p, _, _)| *p == id) else {
+        return Err(format!("axiom set `{id}` is not pinned in this rlt binary"));
+    };
     let y = load_yaml(&root.join("spec/axioms.yaml"))?;
     let sets = y["sets"]
         .as_vec()
         .ok_or("spec/axioms.yaml: `sets` must be a list")?;
-    let entry = sets
+    let entries: Vec<_> = sets
         .iter()
-        .find(|e| e["id"].as_str() == Some(id))
-        .ok_or(format!(
-            "axiom set `{id}` is unregistered (see spec/axioms.yaml)"
-        ))?;
+        .filter(|e| e["id"].as_str() == Some(id))
+        .collect();
+    let entry = match entries.as_slice() {
+        [one] => *one,
+        [] => {
+            return Err(format!(
+                "axiom set `{id}` is unregistered (see spec/axioms.yaml)"
+            ))
+        }
+        _ => {
+            return Err(format!(
+                "axiom set `{id}` is registered {} times",
+                entries.len()
+            ))
+        }
+    };
     let field = |k: &str| {
         entry[k]
             .as_str()
             .map(str::to_string)
-            .ok_or(format!("axiom set {id}: missing `{k}`"))
+            .ok_or(format!("axiom set {id}: `{k}` must be a string"))
     };
     let (file, sha, source) = (field("file")?, field("sha256")?, field("source")?);
-    if !file.starts_with("spec/") || file.contains("..") {
-        return Err(format!("axiom set {id}: file must lie inside spec/"));
-    }
-    let bytes =
-        std::fs::read(root.join(&file)).map_err(|e| format!("axiom set {id}: {file}: {e}"))?;
-    let actual = sha256_hex(&bytes);
-    if actual != sha {
+    if file != pin_file {
         return Err(format!(
-            "axiom set {id}: {file} has SHA-256 {actual}, registered {sha}; the axiom file changed without review"
+            "axiom set {id}: file `{file}` differs from the pinned `{pin_file}`"
+        ));
+    }
+    if sha != pin_sha {
+        return Err(format!(
+            "axiom set {id}: registered SHA-256 {sha} differs from the pinned {pin_sha}"
+        ));
+    }
+    for p in [root.join("spec"), root.join(&file)] {
+        let meta = std::fs::symlink_metadata(&p)
+            .map_err(|e| format!("axiom set {id}: {}: {}", file, e.kind()))?;
+        if meta.file_type().is_symlink() {
+            return Err(format!(
+                "axiom set {id}: {} is a symbolic link; axiom files must be regular files",
+                p.strip_prefix(root).unwrap_or(&p).display()
+            ));
+        }
+    }
+    let bytes = std::fs::read(root.join(&file))
+        .map_err(|e| format!("axiom set {id}: {file}: {}", e.kind()))?;
+    let actual = sha256_hex(&bytes);
+    if actual != pin_sha {
+        return Err(format!(
+            "axiom set {id}: {file} has SHA-256 {actual}, pinned {pin_sha}; the axiom file changed without review"
         ));
     }
     let text =
@@ -110,8 +156,12 @@ pub fn load_axiom_set(root: &Path, id: &str) -> Result<AxiomSet, String> {
         .as_vec()
         .ok_or(format!("axiom set {id}: `axioms` must be a list"))?
         .iter()
-        .filter_map(|x| x.as_str().map(str::to_string))
-        .collect();
+        .map(|x| {
+            x.as_str()
+                .map(str::to_string)
+                .ok_or(format!("axiom set {id}: `axioms` must list names"))
+        })
+        .collect::<Result<_, _>>()?;
     let found: Vec<String> = axioms.iter().map(|a| a.name().to_string()).collect();
     if listed != found {
         return Err(format!(
@@ -120,11 +170,11 @@ pub fn load_axiom_set(root: &Path, id: &str) -> Result<AxiomSet, String> {
     }
     let reg = load_registry(&root.join("sources/registry.yaml"))?;
     match reg.get(&source) {
-        Some(s) if s.status == "available" => {}
+        Some(s) if AXIOM_SOURCE_STATUS.contains(&s.status.as_str()) => {}
         _ => {
             return Err(format!(
-                "axiom set {id}: source `{source}` is not an available registered source"
-            ))
+            "axiom set {id}: source `{source}` is not a registered reference or available source"
+        ))
         }
     }
     for a in &axioms {
@@ -307,7 +357,10 @@ pub fn check_file_outcome(root: &Path, file: &Path) -> CheckOutcome {
             };
             out.theorem = Some(th);
             (
-                format!("ACCEPT — {kind} relative to registered axiom set {}", set.id),
+                format!(
+                    "ACCEPT — {kind} relative to registered axiom set {}",
+                    set.id
+                ),
                 ACCEPT,
             )
         }
@@ -317,7 +370,12 @@ pub fn check_file_outcome(root: &Path, file: &Path) -> CheckOutcome {
         }
     };
     let _ = writeln!(t, "verdict         {verdict_line}");
-    let _ = writeln!(t, "  scope         the checked equation follows from the listed axioms under Γ; the axioms remain assumptions, and the reading point's meanings and physical claims keep their own separate status");
+    let scope = if code == ACCEPT {
+        "the checked equation follows from the listed axioms under Γ; the axioms remain assumptions, and the reading point's meanings and physical claims keep their own separate status"
+    } else {
+        "the kernel refused this derivation; the goal's truth stays undetermined by this proof, and the reading point's meanings and physical claims keep their own separate status"
+    };
+    let _ = writeln!(t, "  scope         {scope}");
 
     // Layer 4: physical correspondence, read from the record and reported
     // beside the verdict. The verdict never changes these statuses.
@@ -367,6 +425,18 @@ pub fn bind_relationship(
             )),
         );
     }
+    if std::fs::symlink_metadata(&path).is_ok_and(|m| m.file_type().is_symlink()) {
+        let out = CheckOutcome {
+            report: Report {
+                text: String::new(),
+                code: MALFORMED,
+            },
+            proof: None,
+            goal: None,
+            theorem: None,
+        };
+        return (out, Err(format!("proof `{}` is a symbolic link", r.proof)));
+    }
     let out = check_file_outcome(root, &path);
     let res = (|| {
         let pf = out.proof.as_ref().ok_or("proof file is malformed")?;
@@ -396,6 +466,39 @@ pub fn bind_relationship(
         let goal = out.goal.as_ref().ok_or("proof goal did not elaborate")?;
         if &stated != goal {
             return Err(format!("record states `{stated}`, proof checks `{goal}`"));
+        }
+        let pf_mode = match pf.mode {
+            Mode::Unconditional => "unconditional",
+            Mode::Conditional => "conditional",
+        };
+        if r.mode != pf_mode {
+            return Err(format!(
+                "record expects mode {}, proof requests {pf_mode}",
+                r.mode
+            ));
+        }
+        if let Some(th) = &out.theorem {
+            let mut expected: Vec<Formula> = r
+                .assumptions
+                .iter()
+                .map(|w| elaborate_formula(&Written::new(w), &conv.convention))
+                .collect::<Result<_, _>>()?;
+            let mut actual: Vec<Formula> = th.assumptions().values().cloned().collect();
+            expected.sort();
+            actual.sort();
+            if expected != actual {
+                let show = |v: &[Formula]| {
+                    v.iter()
+                        .map(|f| f.to_string())
+                        .collect::<Vec<_>>()
+                        .join("; ")
+                };
+                return Err(format!(
+                    "record expects Γ = {{ {} }}, the theorem rests on Γ = {{ {} }}",
+                    show(&expected),
+                    show(&actual)
+                ));
+            }
         }
         Ok(())
     })();
@@ -503,12 +606,22 @@ pub fn rp_report(root: &Path, id: &str) -> Report {
     for r in &rp.relationships {
         let (out, binding) = bind_relationship(root, &rp.id, r);
         let rep = &out.report;
-        let verdict = rep
-            .text
-            .lines()
-            .find(|l| l.starts_with("verdict"))
-            .map(|l| l.trim_start_matches("verdict").trim().to_string())
-            .unwrap_or_default();
+        let verdict = match (&out.theorem, rep.code) {
+            (Some(th), ACCEPT) => format!(
+                "ACCEPT — {} theorem relative to registered axiom set {}",
+                if th.is_unconditional() {
+                    "unconditional"
+                } else {
+                    "conditional"
+                },
+                out.proof
+                    .as_ref()
+                    .map(|p| p.axiom_set.as_str())
+                    .unwrap_or("?")
+            ),
+            (_, REJECT) => "REJECT".to_string(),
+            _ => "MALFORMED".to_string(),
+        };
         let gamma = out
             .theorem
             .as_ref()
@@ -555,6 +668,34 @@ pub fn rp_report(root: &Path, id: &str) -> Report {
     Report { text: t, code }
 }
 
+/// SHA-256 of the conversation sources' excerpts (see `conversation_digest`),
+/// pinned in the binary. Conversation sources have no file to check against,
+/// so their exact wording is fixed here; changing it requires a reviewed code
+/// change.
+pub const PINNED_CONVERSATION_SHA: &str =
+    "11483d5a7635e13066fb972ba602f1a5e732dc95c956be233616d7f5dca53ff2";
+
+/// Canonical digest of every `conversation` source: id, then each excerpt's
+/// text, `defines` and `split`, one field per line.
+pub fn conversation_digest(reg: &BTreeMap<String, rlt_syntax::records::Source>) -> String {
+    let mut buf = String::new();
+    for s in reg.values().filter(|s| s.status == "conversation") {
+        buf.push_str(&format!("source\t{}\n", s.id));
+        for x in &s.excerpts {
+            buf.push_str(&format!(
+                "excerpt\t{}\t{}\t{}\n",
+                x.text,
+                x.defines.as_deref().unwrap_or(""),
+                if x.whole { "whole" } else { "units" }
+            ));
+        }
+    }
+    sha256_hex(buf.as_bytes())
+}
+
+/// Correspondence record kinds.
+const CORRESPONDENCE_KINDS: [&str; 3] = ["behavior", "representation", "referent"];
+
 /// Source statuses that may document a reading-point meaning. `conversation`
 /// sources are statements made in the RLT review itself and are quoted verbatim.
 const CITABLE: [&str; 2] = ["available", "conversation"];
@@ -581,6 +722,25 @@ pub fn validate(root: &Path) -> Report {
             Err(e) => return malformed(&mut t, e),
         };
     let _ = writeln!(t, "sources         {} registered", reg.len());
+    let conv = conversation_digest(&reg);
+    if conv != PINNED_CONVERSATION_SHA {
+        problems.push(format!(
+            "conversation sources differ from the wording pinned in this binary (digest {conv}, pinned {PINNED_CONVERSATION_SHA})"
+        ));
+    }
+    for src in reg.values() {
+        if src.status == "available"
+            && !src.excerpts.is_empty()
+            && !src
+                .location
+                .starts_with("https://github.com/thinkthoughts/")
+        {
+            problems.push(format!(
+                "{}: status available with excerpts requires a GitHub file location",
+                src.id
+            ));
+        }
+    }
     for (st, n) in reg
         .values()
         .fold(BTreeMap::new(), |mut m: BTreeMap<&str, usize>, s| {
@@ -724,7 +884,15 @@ pub fn validate(root: &Path) -> Report {
                 }
             }
         }
+        let mut rel_ids: Vec<&str> = Vec::new();
         for r in &rp.relationships {
+            if rel_ids.contains(&r.id.as_str()) {
+                problems.push(format!(
+                    "{}: relationship id `{}` appears twice",
+                    rp.id, r.id
+                ));
+            }
+            rel_ids.push(&r.id);
             if !convs.contains_key(&r.convention) {
                 problems.push(format!(
                     "{}: relationship {} uses unregistered convention `{}`",
@@ -758,6 +926,21 @@ pub fn validate(root: &Path) -> Report {
                     "{}: {} status `{}` requires evidence",
                     rp.id, c.id, c.status
                 ));
+            }
+            if !CORRESPONDENCE_KINDS.contains(&c.kind.as_str()) {
+                problems.push(format!(
+                    "{}: {} kind `{}` is outside {{behavior, representation, referent}}",
+                    rp.id, c.id, c.kind
+                ));
+            }
+            for (_, r) in &c.evidence {
+                match reg.get(r) {
+                    Some(src) if src.status == "available" => {}
+                    _ => problems.push(format!(
+                        "{}: {} evidence ref `{r}` must be an available registered source",
+                        rp.id, c.id
+                    )),
+                }
             }
             for (ty, _) in &c.evidence {
                 if !status.allowed_support.contains(ty) {
@@ -849,6 +1032,19 @@ fn lean_atom(t: &rlt_kernel::Term) -> String {
     }
 }
 
+/// Value of a ground term in ℕ (for disclosure in the Lean replay only).
+fn nat_value(t: &rlt_kernel::Term) -> Option<u128> {
+    use rlt_kernel::Term;
+    match t {
+        Term::App(f, a) if f == "0" && a.is_empty() => Some(0),
+        Term::App(f, a) if f == "S" && a.len() == 1 => nat_value(&a[0])?.checked_add(1),
+        Term::App(f, a) if f == "+" && a.len() == 2 => {
+            nat_value(&a[0])?.checked_add(nat_value(&a[1])?)
+        }
+        _ => None,
+    }
+}
+
 fn lean_formula(f: &Formula) -> String {
     format!("{} = {}", lean_term(&f.lhs), lean_term(&f.rhs))
 }
@@ -860,7 +1056,7 @@ fn lean_formula(f: &Formula) -> String {
 /// Lean sees only the checked statement, never RLT's derivation.
 pub fn lean_export(root: &Path, files: &[PathBuf]) -> Report {
     let mut t = String::new();
-    let _ = writeln!(t, "/-\nGenerated by `rlt lean` from the accepted RLT proof files. Do not edit:\nregenerate with `rlt lean tests/accept/*.rlt > lean/Generated.lean`.\nEach theorem states exactly the kernel's checked goal under the kernel's\nassumption context Γ. Run: cd lean && lean Generated.lean\n-/\n\nnamespace RLTGenerated\n");
+    let _ = writeln!(t, "/-\nGenerated by `rlt lean` from the accepted RLT proof files. Do not edit:\nregenerate with `rlt lean tests/accept/*.rlt > lean/Generated.lean`.\nEach theorem states exactly the kernel's checked goal under the kernel's\nassumption context Γ. Lean checks the statement independently; it never sees\nRLT's derivation. A conditional theorem whose hypothesis is false in ℕ is\nmarked VACUOUS: Lean then proves it trivially. Run: cd lean && lean Generated.lean\n-/\n\nnamespace RLTGenerated\n");
     let mut code = ACCEPT;
     for f in files {
         let out = check_file_outcome(root, f);
@@ -888,6 +1084,21 @@ pub fn lean_export(root: &Path, files: &[PathBuf]) -> Report {
         } else {
             "omega"
         };
+        let false_hyps: Vec<&str> = th
+            .assumptions()
+            .iter()
+            .filter(|(_, phi)| {
+                matches!((nat_value(&phi.lhs), nat_value(&phi.rhs)), (Some(a), Some(b)) if a != b)
+            })
+            .map(|(n, _)| n.as_str())
+            .collect();
+        if !false_hyps.is_empty() {
+            let _ = writeln!(
+                t,
+                "-- VACUOUS REPLAY: hypothesis {} is false in ℕ, so `omega` proves any statement from it.\n-- This theorem confirms only that the statement is stated with RLT's Γ; it adds no evidence.",
+                false_hyps.join(", ")
+            );
+        }
         let _ = writeln!(
             t,
             "-- {}  (axiom set: {})\ntheorem {name}{hyps} : {} := by {tactic}\n",

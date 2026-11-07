@@ -1,12 +1,13 @@
 sources         22 registered
   ambiguous     1
-  available     15
+  available     12
   conversation  2
   missing       4
+  reference     3
 conventions     NAT-DEC, PIPIPI, PRIME-COUNT, REAL-PI
 PiπΠ            6 source conventions traced, 2 unresolved items recorded without definition
-reading point   math0: 11 meanings, 2 relationships, 4 correspondence records, 1 lifts
-reading point   math29: 13 meanings, 1 relationships, 1 correspondence records, 0 lifts
-reading point   math5: 11 meanings, 2 relationships, 4 correspondence records, 1 lifts
+reading point   math0: 13 meanings, 2 relationships, 4 correspondence records, 1 lifts
+reading point   math29: 15 meanings, 1 relationships, 1 correspondence records, 0 lifts
+reading point   math5: 13 meanings, 2 relationships, 4 correspondence records, 1 lifts
 verdict         VALID — records consistent
 exit 0

@@ -42,7 +42,7 @@ conventions:
     implemented_in: "correspondence/status.yaml, cli/src/lib.rs (validate)"
   - id: PI-5
     stated:
-      - "Admissible generalizations trail leading specifications. &middot; Pi&pi;&Pi;"
+      - "Admissible generalizations trail leading specifications. · PiπΠ"   # source text: "… &middot; Pi&pi;&Pi;", entities decoded
     source: TRANSLATEPI-INDEX
     binding: "Lifts run from a leading specification toward a generalization."
     implemented_in: "readingpoints/*.yaml (lift direction: from this record, to another)"

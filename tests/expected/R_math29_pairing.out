@@ -4,6 +4,8 @@ reading point   math29
   meaning       "math29: Pairing through 29 to 30."  [USER-2026-11-07]
   meaning       "Math29 comprehension (now) specifies +1 reading level: everything else."  [NEWS-MATH29]
   meaning       "Math29: everything else"  [RLT-INIT]
+  meaning       "Math29 reading level"  [RLT-INIT]
+  meaning       "math29"  [RLT-INDEX]
   meaning       "#math29 = #antiviolent"  [RLT-INIT]
   meaning       "Math29 reading level"  [RLT-INDEX]
   meaning       "Math29: pair through twenty-nine to thirty"  [RLT-INDEX]

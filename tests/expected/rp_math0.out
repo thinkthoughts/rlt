@@ -3,6 +3,8 @@ meanings (verbatim; `rlt validate` checks each against its source and checks com
   "math0: Pairing (1+1) with imagination."  [USER-2026-11-07]
   "Math0 comprehension (now) specifies +1 reading level: local imagination."  [NEWS-MATH00]
   "Math0: local imagination"  [RLT-INIT]
+  "Math0 reading level"  [RLT-INIT]
+  "math0"  [RLT-INDEX]
   "Math0 reading level"  [RLT-INDEX]
   "Math0: count from zero"  [RLT-INDEX]
   "count from zero"  [RLT-INDEX]

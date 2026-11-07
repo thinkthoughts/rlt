@@ -106,6 +106,14 @@ fn step(e: &Sexp) -> Result<Step, String> {
     })
 }
 
+/// Assumption names: identifiers, so they print unambiguously in reports
+/// and in the generated Lean replay.
+fn is_ident(s: &str) -> bool {
+    let mut cs = s.chars();
+    matches!(cs.next(), Some(c) if c.is_ascii_alphabetic() || c == '_')
+        && cs.all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
 /// Axiom-set ids: upper-case letters, digits and `-`.
 fn is_set_id(s: &str) -> bool {
     !s.is_empty()
@@ -172,10 +180,17 @@ pub fn parse_proof_file(src: &str) -> Result<ProofFile, String> {
         steps: Vec::new(),
     };
     let mut mode_seen = false;
+    let mut seen_keys: Vec<String> = Vec::new();
     for f in fields {
         let (key, rest) = f
             .head()
             .ok_or(format!("field: expected (key value…), found {f:?}"))?;
+        if key != "assume" {
+            if seen_keys.iter().any(|k| k == key) {
+                return Err(format!("field ({key} …) appears twice"));
+            }
+            seen_keys.push(key.to_string());
+        }
         match key {
             "id" => pf.id = string_of(rest, key)?,
             "readingpoint" => pf.readingpoint = Some(record_id(string_of(rest, key)?)?),
@@ -201,8 +216,13 @@ pub fn parse_proof_file(src: &str) -> Result<ProofFile, String> {
                 }
             }
             "assume" => match rest {
-                [Sexp::Sym(name), Sexp::Str(w)] => {
+                [Sexp::Sym(name), Sexp::Str(w)] if is_ident(name) => {
                     pf.assumptions.push((name.clone(), Written::new(w)))
+                }
+                [Sexp::Sym(name), _] => {
+                    return Err(format!(
+                        "assumption name `{name}`: use an identifier [A-Za-z_][A-Za-z0-9_]*"
+                    ))
                 }
                 _ => return Err("(assume NAME \"written formula\")".into()),
             },
@@ -298,6 +318,22 @@ mod tests {
             .contains("paths are refused"));
         let bad = OK.replace("(axioms PEANO-ADD)", "(axioms ../x)");
         assert!(parse_proof_file(&bad).is_err());
+    }
+
+    #[test]
+    fn duplicate_fields_and_odd_assumption_names_are_refused() {
+        let dup = OK.replace(
+            "(axioms PEANO-ADD)",
+            "(axioms PEANO-ADD) (axioms PEANO-ADD)",
+        );
+        assert!(parse_proof_file(&dup)
+            .unwrap_err()
+            .contains("appears twice"));
+        let odd = OK.replace(
+            "(mode unconditional)",
+            r#"(mode unconditional) (assume -/ "1 = 1")"#,
+        );
+        assert!(parse_proof_file(&odd).unwrap_err().contains("identifier"));
     }
 
     #[test]

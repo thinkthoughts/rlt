@@ -17,17 +17,32 @@ pub fn load_yaml(path: &Path) -> Result<Yaml, String> {
 }
 
 /// An optional string field: absent is fine, any other type is an error.
+/// Record strings print on one report line: control characters are refused
+/// (line breaks inside source excerpts are allowed; they collapse in units).
+fn clean(v: &str, key: &str, ctx: &str, allow_newline: bool) -> Result<String, String> {
+    match v
+        .chars()
+        .find(|c| c.is_control() && !(allow_newline && *c == '\n'))
+    {
+        Some(c) => Err(format!(
+            "{ctx}: field `{key}` holds control character U+{:04X}",
+            c as u32
+        )),
+        None => Ok(v.to_string()),
+    }
+}
+
 fn opt(y: &Yaml, key: &str, ctx: &str) -> Result<Option<String>, String> {
     match &y[key] {
         Yaml::BadValue | Yaml::Null => Ok(None),
-        Yaml::String(v) => Ok(Some(v.clone())),
+        Yaml::String(v) => Ok(Some(clean(v, key, ctx, false)?)),
         _ => Err(format!("{ctx}: field `{key}` must be a string")),
     }
 }
 
 fn req(y: &Yaml, key: &str, ctx: &str) -> Result<String, String> {
     match &y[key] {
-        Yaml::String(v) => Ok(v.clone()),
+        Yaml::String(v) => clean(v, key, ctx, false),
         Yaml::BadValue | Yaml::Null => Err(format!("{ctx}: missing string field `{key}`")),
         _ => Err(format!("{ctx}: field `{key}` must be a string")),
     }
@@ -55,41 +70,85 @@ fn strings(y: &Yaml, key: &str, ctx: &str) -> Result<Vec<String>, String> {
 }
 
 /// Inline tags are transparent inside a unit; other tags delimit units.
-const INLINE_TAGS: [&str; 7] = ["a", "strong", "em", "b", "i", "code", "sup"];
+const INLINE_TAGS: [&str; 8] = ["a", "strong", "em", "b", "i", "code", "sup", "sub"];
 
 fn collapse(s: &str) -> String {
     s.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-/// The verbatim units of an excerpt. Inline tags (a, strong, em, …) are
-/// removed with their text kept; every other tag delimits units. With
-/// `whole`, all tags are transparent and the excerpt is one unit. Whitespace
-/// runs collapse to one space. A meaning must equal a unit exactly.
+/// HTML tag names recognized as markup. Any other `<` is ordinary text, so
+/// prose such as `0 < 5` stays intact.
+const HTML_TAGS: [&str; 22] = [
+    "a", "b", "i", "em", "strong", "code", "sup", "sub", "span", "p", "div", "br", "button", "nav",
+    "section", "li", "ul", "ol", "h1", "h2", "h3", "label",
+];
+
+/// Decode the HTML entities that occur in RLT's sources.
+fn decode_entities(s: &str) -> String {
+    s.replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&nbsp;", " ")
+        .replace("&middot;", "·")
+        .replace("&pi;", "π")
+        .replace("&Pi;", "Π")
+        .replace("&amp;", "&")
+}
+
+/// If `rest` starts with a recognized HTML tag, return (tag name, byte length).
+fn html_tag(rest: &str) -> Option<(String, usize)> {
+    let body = rest.strip_prefix('<')?;
+    let body = body.strip_prefix('/').unwrap_or(body);
+    let name: String = body
+        .chars()
+        .take_while(|c| c.is_ascii_alphanumeric())
+        .collect();
+    let after = body[name.len()..].chars().next()?;
+    if !HTML_TAGS.contains(&name.to_ascii_lowercase().as_str()) || !matches!(after, '>' | ' ' | '/')
+    {
+        return None;
+    }
+    // The tag ends at the first '>' outside a quoted attribute value.
+    let mut quote: Option<char> = None;
+    for (k, c) in rest.char_indices() {
+        match (quote, c) {
+            (None, '"' | '\'') => quote = Some(c),
+            (Some(q), c) if c == q => quote = None,
+            (None, '>') => return Some((name.to_ascii_lowercase(), k + 1)),
+            _ => {}
+        }
+    }
+    None
+}
+
+/// The verbatim units of an excerpt. Recognized inline tags (a, strong, em,
+/// b, i, code, sup, sub) are removed with their text kept; other recognized
+/// tags delimit units; any other `<` is text. With `whole`, all tags are
+/// transparent and the excerpt is one unit. Whitespace runs collapse to one
+/// space, then HTML entities are decoded. A meaning must equal a unit exactly.
 pub fn units(text: &str, whole: bool) -> Vec<String> {
     let mut out = Vec::new();
     let mut cur = String::new();
-    let mut rest = text;
-    while let Some(i) = rest.find('<') {
-        let Some(j) = rest[i..].find('>') else { break };
-        cur.push_str(&rest[..i]);
-        let tag = &rest[i + 1..i + j];
-        let name: String = tag
-            .trim_start_matches('/')
-            .chars()
-            .take_while(|c| c.is_ascii_alphanumeric())
-            .collect::<String>()
-            .to_ascii_lowercase();
-        if !whole && !INLINE_TAGS.contains(&name.as_str()) {
-            let u = collapse(&cur);
-            if !u.is_empty() {
-                out.push(u);
+    let mut i = 0;
+    while i < text.len() {
+        let rest = &text[i..];
+        if let Some((name, len)) = html_tag(rest) {
+            if !whole && !INLINE_TAGS.contains(&name.as_str()) {
+                let u = decode_entities(&collapse(&cur));
+                if !u.is_empty() {
+                    out.push(u);
+                }
+                cur.clear();
             }
-            cur.clear();
+            i += len;
+        } else {
+            let ch = rest.chars().next().unwrap();
+            cur.push(ch);
+            i += ch.len_utf8();
         }
-        rest = &rest[i + j + 1..];
     }
-    cur.push_str(rest);
-    let u = collapse(&cur);
+    let u = decode_entities(&collapse(&cur));
     if !u.is_empty() {
         out.push(u);
     }
@@ -127,12 +186,16 @@ pub fn load_registry(path: &Path) -> Result<BTreeMap<String, Source>, String> {
         for x in list(e, "excerpts", &id)? {
             excerpts.push(match x {
                 Yaml::String(t) => Excerpt {
-                    text: t.clone(),
+                    text: clean(t, "excerpt", &id, true)?,
                     defines: None,
                     whole: false,
                 },
                 Yaml::Hash(_) => Excerpt {
-                    text: req(x, "text", &id)?,
+                    text: match &x["text"] {
+                        // Registry excerpts may span lines of the source file.
+                        Yaml::String(v) => clean(v, "text", &id, true)?,
+                        _ => return Err(format!("{id}: excerpt `text` must be a string")),
+                    },
                     defines: opt(x, "defines", &id)?,
                     whole: match opt(x, "split", &id)?.as_deref() {
                         None | Some("units") => false,
@@ -244,6 +307,10 @@ pub struct Relationship {
     pub written: String,
     pub convention: String,
     pub proof: String,
+    /// `unconditional` or `conditional`: what the record claims about Γ.
+    pub mode: String,
+    /// Written forms of the assumptions Γ the result is expected to rest on.
+    pub assumptions: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -277,6 +344,16 @@ pub struct ReadingPoint {
 pub fn load_readingpoint(path: &Path) -> Result<ReadingPoint, String> {
     let y = load_yaml(path)?;
     let id = req(&y, "id", &path.display().to_string())?;
+    let stem = path
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_default();
+    if id != stem {
+        return Err(format!(
+            "{}: record id `{id}` differs from its file name `{stem}`",
+            path.display()
+        ));
+    }
     let meaning = |e: &Yaml, key: &str| -> Result<Meaning, String> {
         Ok(Meaning {
             text: req(e, key, &id)?,
@@ -300,6 +377,8 @@ pub fn load_readingpoint(path: &Path) -> Result<ReadingPoint, String> {
                     written: req(e, "written", &id)?,
                     convention: req(e, "convention", &id)?,
                     proof: req(e, "proof", &id)?,
+                    mode: req(e, "mode", &id)?,
+                    assumptions: strings(e, "assumptions", &id)?,
                 })
             })
             .collect::<Result<_, String>>()?,
@@ -357,6 +436,26 @@ mod tests {
             r#"<span class="red">#Practice</span> the <span class="yellow">#obvious</span>"#;
         assert_eq!(units(closing, true), vec!["#Practice the #obvious"]);
         assert_eq!(units("a\n  b", false), vec!["a b"]);
+        // Prose comparisons stay intact; entities decode after splitting.
+        assert_eq!(
+            units("If 0 < 5 then 5 > 3 holds.", false),
+            vec!["If 0 < 5 then 5 > 3 holds."]
+        );
+        assert_eq!(
+            units(r#"<a href="x>y">link</a> text"#, false),
+            vec!["link text"]
+        );
+        assert_eq!(
+            units("If 0 &lt; 5 then 5 &gt; 3 holds.", false),
+            vec!["If 0 < 5 then 5 > 3 holds."]
+        );
+        assert_eq!(
+            units(
+                r#"<span class="equation">(0 ≠ 5) ∧ (5 &lt; 29)</span>"#,
+                false
+            ),
+            vec!["(0 ≠ 5) ∧ (5 < 29)"]
+        );
     }
 
     #[test]

@@ -14,6 +14,10 @@ meanings:
   - text: "Math0: local imagination"
     source: RLT-INIT
   - text: "Math0 reading level"
+    source: RLT-INIT
+  - text: "math0"
+    source: RLT-INDEX
+  - text: "Math0 reading level"
     source: RLT-INDEX
   - text: "Math0: count from zero"
     source: RLT-INDEX
@@ -43,10 +47,13 @@ relationships:
     written: "1 + 1 = 2"
     convention: NAT-DEC
     proof: tests/accept/T4_math0_pairing.rlt
+    mode: unconditional
   - id: math0.fiction
     written: "1 + 1 + 1 + 1 + 1 = 0"
     convention: NAT-DEC
     proof: tests/accept/T5a_math0_fiction_conditional.rlt
+    mode: conditional
+    assumptions: ["1 + 1 + 1 + 1 + 1 = 0"]
 
 correspondence:
   - id: math0.imagining

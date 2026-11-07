@@ -1,14 +1,18 @@
 RLT-001 verification
-commit   6c156191f27e9970ee415c968ddec0754d900c89
+commit   32e2b0e5a589638c0576f3dbb4763e7dfcdd697b
 rustc    rustc 1.97.0 (2d8144b78 2026-07-07)
+
+== format and lints
+fmt      ok
+clippy   ok
 
 == build
 ok
 
 == cargo test (unit + golden)
-test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
 test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 == proof files (expect accept → exit 0, reject → exit 1)
 tests/accept/R_math29_pairing.rlt                    exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD
@@ -44,6 +48,7 @@ Lean (version 4.34.0-rc2, x86_64-unknown-linux-gnu, commit 6a10ac8c22beadecabdbb
 'RLT001.T5c' does not depend on any axioms
 'RLT001.T5b_unconditional_false' does not depend on any axioms
 ok
+Generated.lean is current
 
 == source excerpts
 0 problem(s)

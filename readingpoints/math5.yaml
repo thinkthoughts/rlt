@@ -10,6 +10,10 @@ meanings:
   - text: "Math5: local anatomy"
     source: RLT-INIT
   - text: "Math5 reading level"
+    source: RLT-INIT
+  - text: "math5"
+    source: RLT-INDEX
+  - text: "Math5 reading level"
     source: RLT-INDEX
   - text: "Math5: pair through five to six"
     source: RLT-INDEX
@@ -39,10 +43,12 @@ relationships:
     written: "5 + 1 = 6"
     convention: NAT-DEC
     proof: tests/accept/T1_math5_pairing.rlt
+    mode: unconditional
   - id: math5.count
     written: "1 + 1 + 1 + 1 + 1 = 5"
     convention: NAT-DEC
     proof: tests/accept/R_math5_count.rlt
+    mode: unconditional
 
 correspondence:
   - id: math5.counting

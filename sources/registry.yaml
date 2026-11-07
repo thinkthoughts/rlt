@@ -5,7 +5,10 @@
 #
 # status:
 #   available     file at a recorded commit; excerpts are checked against it by
-#                 scripts/check_excerpts.py
+#                 scripts/check_excerpts.py (an available source must have
+#                 a GitHub file location and excerpts)
+#   reference     cited literature or a repository referenced as a whole, with no
+#                 excerpts; it can ground an axiom set, never a reading-point meaning
 #   conversation  a statement made in the RLT review conversation, quoted verbatim;
 #                 it has no file to check against
 #   ambiguous     referenced, not verified at a commit; it cannot document a meaning
@@ -89,6 +92,11 @@ sources:
       - {text: "<span class=\"yellow\">a driver (math5)</span>", defines: math5}
       - {text: "<span class=\"green\">their immediate context (math29)</span>", defines: math29}
       - {text: "<a href=\"https://antiviolentintelligence.ai\"><span class=\"red\">#Practice</span> the <span class=\"yellow\">#obvious</span> reading level: <span class=\"green\">#math29</span></a>", defines: math29, split: whole}
+      - {text: "<span>math0</span>", defines: math0}
+      - {text: "<span>math5</span>", defines: math5}
+      - {text: "<span>math29</span>", defines: math29}
+      - "Practice three reading levels——math0, math5, and math29: writing, reading, and reporting reading points."
+      - "<p>Between reading points (<strong>RP</strong>), a reading level test (<strong>RLT</strong>) specifies exactly three reading levels: <span class=\"red\">math0</span>, <span class=\"yellow\">math5</span>, and <span class=\"green\">math29</span>.</p>"
       - "<p>That is (for instance): a specific stop sign, as a reading point identifier (<strong>RPI</strong>), specifies <span class=\"red\">where to stop (math0)</span>, <span class=\"yellow\">a driver (math5)</span>, and <span class=\"green\">their immediate context (math29)</span>.</p>"
 
   - id: RLT-INIT
@@ -97,6 +105,9 @@ sources:
     commit: 838417682c8c3c8dfe05b3094e6fc17cdf53fe5c
     status: available
     excerpts:
+      - {text: "Math0 reading level", defines: math0}
+      - {text: "Math5 reading level", defines: math5}
+      - {text: "Math29 reading level", defines: math29}
       - {text: "Math0: local imagination", defines: math0}
       - {text: "Math5: local anatomy", defines: math5}
       - {text: "Math29: everything else", defines: math29}
@@ -118,6 +129,7 @@ sources:
       - {text: "Math29 · Investigate", defines: math29}
       - {text: "The symbol ∧ means “and.” Both statements are true: zero differs from five, and five is less than twenty-nine. Choose a subject and examine its claims.", defines: math29}
       - "Reading levels describe choices, not people."
+      - "Choose your reading level: Math0, Math5, or Math29. A reading point begins with your choice."
 
   - id: RPI-0001
     title: lean-coprime-matchings RPI-0001 documentation layers (Identify / Constrain / Verify)
@@ -185,19 +197,19 @@ sources:
     title: General Divisor Theorem (Lean formalization, v1.0.0)
     location: https://github.com/thinkthoughts/general-divisor-theorem/tree/ec66260
     commit: ec66260
-    status: available
+    status: reference
     note: supplies the mod-30 residue theorem for later congruence work; RLT-001 uses none of it
 
   - id: PEANO
     title: Dedekind–Peano recursion equations for addition (x + 0 = x; x + S y = S(x + y))
     location: R. Dedekind, Was sind und was sollen die Zahlen? (1888); G. Peano, Arithmetices principia (1889)
-    status: available
+    status: reference
     note: foundational; the two equations are the registered axiom set PEANO-ADD (spec/axioms.yaml)
 
   - id: FOUNDATIONAL-EQUALITY
     title: Equational logic rules (reflexivity, symmetry, transitivity, congruence, instantiation)
     location: standard first-order equational logic (Birkhoff, 1935)
-    status: available
+    status: reference
     note: the kernel rules refl, symm, trans, cong, inst; hyp is the assumption rule of sequent calculus
 
   - id: CHATGPT-RLT-DISCUSSION

@@ -3,6 +3,8 @@ meanings (verbatim; `rlt validate` checks each against its source and checks com
   "math5: Pairing through 5 to 6."  [USER-2026-11-07]
   "Math5 comprehension (now) specifies +1 reading level: local anatomy."  [NEWS-MATH05]
   "Math5: local anatomy"  [RLT-INIT]
+  "Math5 reading level"  [RLT-INIT]
+  "math5"  [RLT-INDEX]
   "Math5 reading level"  [RLT-INDEX]
   "Math5: pair through five to six"  [RLT-INDEX]
   "pair through 5 to 6"  [RLT-INDEX]

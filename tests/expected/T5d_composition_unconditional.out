@@ -4,6 +4,8 @@ reading point   math0
   meaning       "math0: Pairing (1+1) with imagination."  [USER-2026-11-07]
   meaning       "Math0 comprehension (now) specifies +1 reading level: local imagination."  [NEWS-MATH00]
   meaning       "Math0: local imagination"  [RLT-INIT]
+  meaning       "Math0 reading level"  [RLT-INIT]
+  meaning       "math0"  [RLT-INDEX]
   meaning       "Math0 reading level"  [RLT-INDEX]
   meaning       "Math0: count from zero"  [RLT-INDEX]
   meaning       "count from zero"  [RLT-INDEX]
@@ -29,7 +31,7 @@ axiom set       PEANO-ADD (spec/peano.rlt, source PEANO)
   status        assumed: the SHA-256 binds these axioms' exact content to the approved file; their mathematical truth and any physical correspondence remain assumptions
 steps           3
 verdict         REJECT — unconditional goal requested, but the result depends on assumptions ["h"]
-  scope         the checked equation follows from the listed axioms under Γ; the axioms remain assumptions, and the reading point's meanings and physical claims keep their own separate status
+  scope         the kernel refused this derivation; the goal's truth stays undetermined by this proof, and the reading point's meanings and physical claims keep their own separate status
 physical        math0.imagining [behavior]: unestablished (evidence: 0)
 physical        math0.emoji [representation]: inapplicable (evidence: 0)
 physical        math0.lungs [referent]: unestablished (evidence: 0)

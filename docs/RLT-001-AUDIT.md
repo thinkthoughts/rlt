@@ -1,4 +1,8 @@
-# RLT-001 — Independent audit and fixes
+# RLT-001 — Independent audits and fixes
+
+Two independent adversarial audits: the first of `76de973` (fixed in `687f5e8`), the second of `32e2b0e` (fixed in the commit after it; see §2).
+
+## 1. First audit
 
 **Audit.** A separate Claude instance, with no access to the implementation history, audited commit `76de973` adversarially from a clean clone. It reproduced the original results (30 tests, `verify.sh` "all checks hold") and wrote 68 counterexample proof files plus record and script fixtures.
 
@@ -19,7 +23,7 @@
 | 9 | minor | The axiom path could point outside the repo and echo foreign file content (f21); a reading-point id could contain `../` (f23) | No axiom paths; record ids are restricted to `[a-z0-9._-]` with no `..`; read errors report only the error kind | fixed |
 | 10 | minor | The Lean replay was hand-written; its run command failed without a default toolchain | `rlt lean` generates `lean/Generated.lean` from the accepted proofs' checked goals and Γ, and a test keeps it current; `verify.sh` runs Lean inside `lean/` | fixed |
 | 11 | minor | REAL-PI and PRIME-COUNT cited a source that states neither reading; the PI-4 binding redefined the source's "Verified" | Both are marked `origin: rlt-authored` with zero sources, enforced by `validate`. PI-4 now leaves the source's Verified (Comparator-accepted Lean lifts) unmapped. | fixed |
-| 12 | note | `check_excerpts.py` needed an undocumented `rlt` clone; no unit tests for `proof.rs`/`records.rs`; unpinned CI toolchain; an arithmetic ACCEPT printed beside reading-point meanings with no scope note | Usage documents all six clones; 4 + 2 unit tests added; `rust-toolchain.toml` pins 1.97.0; CI clones the sources and runs the excerpt check; every verdict carries the line "scope: the verdict concerns the checked equation only; it establishes neither the reading point's meanings nor any physical claim" | fixed |
+| 12 | note | `check_excerpts.py` needed an undocumented `rlt` clone; no unit tests for `proof.rs`/`records.rs`; unpinned CI toolchain; an arithmetic ACCEPT printed beside reading-point meanings with no scope note | Usage documents all six clones; 4 + 2 unit tests added; `rust-toolchain.toml` pins 1.97.0; CI clones the sources and runs the excerpt check; every verdict carries a scope line (wording revised after the second audit, §2 finding 1) | fixed |
 
 Kept as audited (sound): K20 (an unused `hyp` step), K24 (a step label equal to an axiom name), K26 (`(S 1)` against `2`), K27 (conditional mode with Γ = ∅, reported as unconditional) and f34 (numeral at the limit) are valid derivations and stay accepted.
 
@@ -28,7 +32,7 @@ Kept as audited (sound): K20 (an unused `hyp` step), K24 (a step label equal to 
 ```
 cargo test --release            43 passed (kernel 19, syntax 13, golden 11)
 cargo clippy -D warnings        clean
-cargo fmt --check               clean
+cargo fmt --check               (claimed clean here; the second audit showed it failed at 687f5e8 — see §2)
 tests/audit (68 files)          5 accept, 24 reject, 39 malformed — each as recorded in expected.tsv
 proof files                     6 accept (exit 0), 4 reject (exit 1)
 rlt validate                    VALID
@@ -42,3 +46,46 @@ scripts/verify.sh               RESULT all checks hold, exit 0; exit 1 when any 
 - The kernel is parametric in its axioms. Soundness relative to Peano addition rests on the registered set `PEANO-ADD` and its loader, both reviewed like kernel code.
 - Conversation sources (`USER-2026-11-07`, `RLT-000-REFINEMENT`) are quoted verbatim but have no file to check against.
 - A second independent review of these fixes, by a fresh auditor working from `687f5e8`, would close the loop before merge.
+
+## 2. Second audit (of `32e2b0e`)
+
+A new Claude instance audited `32e2b0e` from a fresh clone, with no access to the first audit's scratch files. It confirmed that the kernel held against every probe, that proof files can no longer choose axioms, that the hash covers exactly the bytes parsed, and that all 68 first-audit counterexamples stay blocked. It recommended against merging until four blocking findings were fixed. All findings below are fixed, and every counterexample is a test in `cli/tests/golden.rs` (`a2_*`) or a case in the `verify.sh` breakage matrix.
+
+| # | Severity | Finding | Fix | Status |
+|---|---|---|---|---|
+| 1 | major, blocking | Every REJECT printed "the checked equation follows from the listed axioms" (C02) | The scope line depends on the verdict. A REJECT reads "the kernel refused this derivation; the goal's truth stays undetermined by this proof" | fixed (`a2_c02_…`) |
+| 2 | major, blocking | CI failed `cargo fmt --check` at every fix commit, so later steps never ran; the audit document claimed fmt was clean | Tree formatted. `verify.sh` now runs fmt and clippy; the false claim above is corrected | fixed, pending a green CI run on GitHub |
+| 3 | major, blocking | A newline in `(id "…")` forged report lines; `rp` read the first `verdict` text line (C01) | Control characters are refused in proof-file strings and symbols and in record strings (registry excerpts may span source lines). `rp` takes verdicts from the structured outcome | fixed (`a2_c01_…`) |
+| 4 | major, blocking | Replacing `math5.yaml` with a copy of `math0.yaml` passed validation (C03) | A reading-point record's `id` must equal its file name | fixed (`a2_c03_…`) |
+| 5 | major | Fidelity was relative to the registry: truncating or deleting a meaning in both registry and record passed, as did inventing one through a conversation source or `PEANO` (C04) | `check_excerpts.py` now requires every tagged excerpt to be a whole unit of its source (bounded by line ends, tags or quotes), and every source line naming a reading point to be covered by an excerpt. Conversation wording is pinned in the binary by SHA-256. `PEANO` and the other literature or whole-repository citations are status `reference`, which can ground an axiom set but never a meaning. An `available` source with excerpts needs a file location | fixed (`a2_c04_…`; C04 a–b caught by `check_excerpts.py`, which `verify.sh` requires) |
+| 6 | minor | `verify.sh` passed when Lean was missing, a Lean file used `sorry`, fmt or clippy failed, or the source directory was absent; `UPDATE_GOLDEN=0` rewrote goldens; a reused target directory tested another tree | Each stage now fails; skipping Lean or the excerpts needs an explicit flag and exits 3; only `UPDATE_GOLDEN=1` rewrites; tests resolve the repository root at run time; `tee` is awaited before exit | fixed (breakage matrix below) |
+| 7 | minor | Assumption names reached Lean unescaped, so `a/-` … `-/` could comment out a theorem (C06 ii) | Assumption names must be identifiers | fixed (`a2_c06_…`) |
+| 8 | minor | The conditional Lean replays are vacuous (their hypotheses are false in ℕ), and this was undisclosed (C06 i) | `Generated.lean` marks each such theorem `VACUOUS REPLAY`, and its header explains why | fixed (disclosed) |
+| 9 | minor | Registry variants: duplicate set ids, symlinks, `spec/./`, dropped list items, a value stored in the same repository (C07) | Approved sets are pinned in the binary (id, file, SHA-256). The registry must match exactly once; symbolic links and non-string list items are refused | fixed (`a2_c07_…`) |
+| 10 | minor | A relationship record stated no expected mode or Γ (C05) | Records state `mode` and `assumptions`; both are bound to the theorem | fixed (`a2_c05_…`) |
+| 11 | minor | Evidence refs could be anything, and `kind` was free text (C09) | Evidence refs must be available registered sources; `kind` ∈ {behavior, representation, referent}. Relabelling a record's kind stays possible, as a reviewable edit | fixed (`a2_c09_…`) |
+| 12 | minor | `units()` split prose at `<`, and a `>` inside a quoted attribute broke parsing (C08) | Only recognized HTML tag names count as markup; tags end outside quotes; entities are decoded (`(0 ≠ 5) ∧ (5 < 29)`) | fixed (`units` unit tests) |
+| 13 | note | Symlinked proof files, `05 + 01 = 06`, duplicate relationship ids and duplicate proof-file fields were accepted; the README and audit text quoted the old scope line; `PEANO` was `available` with no file; elan came from an unpinned URL | Each is refused or corrected; the elan installer is pinned to v4.2.4 | fixed (`a2_c10_…`) |
+
+### `verify.sh` breakage matrix (each case run in a fresh copy)
+
+| Case | Exit |
+|---|---|
+| control, no breakage | 0 |
+| failing unit test | 1 |
+| changed golden file (shared target directory; also with `UPDATE_GOLDEN=0`) | 1 |
+| a reject file that now accepts | 1 |
+| `sorry` in a Lean file | 1 |
+| stale `Generated.lean` | 1 |
+| fmt violation | 1 |
+| clippy violation | 1 |
+| Lean not installed | 1 |
+| Lean skipped with `RLT_ALLOW_NO_LEAN=1` | 3 (SKIPPED) |
+| no source directory | 1 |
+| excerpts skipped with `RLT_SKIP_EXCERPTS=1` | 3 (SKIPPED) |
+
+### Remaining boundaries
+
+- The kernel is parametric in its axioms. Trust in axioms rests on the pinned table, the loader and the files it locks, all reviewed like kernel code. Pinning binds content; the axioms remain assumptions.
+- Conversation wording is pinned, and so cannot change without a reviewed code change. The pin cannot show that the wording matches what was said; that rests on the review record.
+- A correspondence record's `kind` is declared by its author; relabelling it is a visible, reviewable edit.

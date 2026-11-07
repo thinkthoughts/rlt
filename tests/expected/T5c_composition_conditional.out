@@ -4,6 +4,8 @@ reading point   math0
   meaning       "math0: Pairing (1+1) with imagination."  [USER-2026-11-07]
   meaning       "Math0 comprehension (now) specifies +1 reading level: local imagination."  [NEWS-MATH00]
   meaning       "Math0: local imagination"  [RLT-INIT]
+  meaning       "Math0 reading level"  [RLT-INIT]
+  meaning       "math0"  [RLT-INDEX]
   meaning       "Math0 reading level"  [RLT-INDEX]
   meaning       "Math0: count from zero"  [RLT-INDEX]
   meaning       "count from zero"  [RLT-INDEX]

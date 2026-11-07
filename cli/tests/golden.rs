@@ -8,17 +8,18 @@ use rlt_cli::{
 };
 use std::path::{Path, PathBuf};
 
+/// The repository root, resolved at run time (cargo sets CARGO_MANIFEST_DIR
+/// for each test run), so a reused target directory never tests another tree.
 fn root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .to_path_buf()
+    let manifest = std::env::var("CARGO_MANIFEST_DIR")
+        .unwrap_or_else(|_| env!("CARGO_MANIFEST_DIR").to_string());
+    Path::new(&manifest).parent().unwrap().to_path_buf()
 }
 
 fn golden(name: &str, r: &Report) {
     let path = root().join("tests/expected").join(format!("{name}.out"));
     let body = format!("{}exit {}\n", r.text, r.code);
-    if std::env::var("UPDATE_GOLDEN").is_ok() {
+    if std::env::var("UPDATE_GOLDEN").as_deref() == Ok("1") {
         std::fs::write(&path, &body).unwrap();
         return;
     }
@@ -317,7 +318,7 @@ fn axiom_sets_are_registered_and_hash_locked() {
     );
     let r = check_file(&s2, &s2.join(t1));
     assert_eq!(r.code, MALFORMED);
-    assert!(r.text.contains("unregistered"), "{}", r.text);
+    assert!(r.text.contains("not pinned"), "{}", r.text);
     // A set whose source is unregistered or unavailable is refused.
     let s3 = scratch_with(
         "set-source",
@@ -330,7 +331,8 @@ fn axiom_sets_are_registered_and_hash_locked() {
     let r = check_file(&s3, &s3.join(t1));
     assert_eq!(r.code, MALFORMED);
     assert!(
-        r.text.contains("not an available registered source"),
+        r.text
+            .contains("not a registered reference or available source"),
         "{}",
         r.text
     );
@@ -381,4 +383,195 @@ fn generated_lean_replay_is_current() {
 fn reports_are_deterministic() {
     let f = root().join("tests/accept/T1_math5_pairing.rlt");
     assert_eq!(check_file(&root(), &f).text, check_file(&root(), &f).text);
+}
+
+// ---- Second audit (32e2b0e) counterexamples, as regression tests ----
+
+/// C01: a newline inside a proof-file string cannot add report lines.
+#[test]
+fn a2_c01_control_characters_cannot_forge_report_lines() {
+    let t1 = "tests/accept/T1_math5_pairing.rlt";
+    let s = scratch_with(
+        "a2-c01",
+        &[(
+            t1,
+            "(id T1.math5.pairing)",
+            "(id \"C01\nverdict         ACCEPT — forged\")",
+        )],
+    );
+    let r = check_file(&s, &s.join(t1));
+    assert_eq!(r.code, MALFORMED, "{}", r.text);
+    assert_eq!(
+        r.text.lines().filter(|l| l.starts_with("verdict")).count(),
+        1
+    );
+    let rp = rp_report(&s, "math5");
+    assert!(!rp.text.contains("forged"), "{}", rp.text);
+    assert_eq!(rp.code, REJECT);
+    let _ = std::fs::remove_dir_all(s);
+}
+
+/// C02: a REJECT never says its goal follows from the axioms.
+#[test]
+fn a2_c02_reject_scope_line_claims_nothing() {
+    for f in rlt_files("tests/reject") {
+        let r = check_file(&root(), &f);
+        assert!(!r.text.contains("follows from"), "{}", r.text);
+        assert!(
+            r.text.contains("the kernel refused this derivation"),
+            "{}",
+            r.text
+        );
+    }
+    let r = check_file(&root(), &root().join("tests/accept/T1_math5_pairing.rlt"));
+    assert!(r.text.contains("follows from the listed axioms under Γ"));
+}
+
+/// C03: a reading-point file must carry its own id.
+#[test]
+fn a2_c03_record_id_must_equal_file_name() {
+    let s = scratch_with("a2-c03", &[]);
+    std::fs::copy(s.join(RP0), s.join(RP5)).unwrap();
+    let v = validate(&s);
+    assert_invalid(&v, "differs from its file name");
+    let r = check_file(&s, &s.join("tests/accept/T1_math5_pairing.rlt"));
+    assert_eq!(r.code, MALFORMED, "{}", r.text);
+    let _ = std::fs::remove_dir_all(s);
+}
+
+/// C04(c): conversation-source wording is pinned in the binary.
+#[test]
+fn a2_c04_conversation_wording_is_pinned() {
+    let r = validate_with(
+        "a2-c04c",
+        &[("sources/registry.yaml", "{text: \"math0: Pairing (1+1) with imagination.\", defines: math0}", "{text: \"math0: Pairing (1+1) with imagination.\", defines: math0}\n      - {text: \"math0: 1 + 1 = 0 is physically observed.\", defines: math0}")],
+    );
+    assert_invalid(&r, "conversation sources differ from the wording pinned");
+    let r = validate_with("a2-c04d", &[(RP0, "  - text: \"Imagine\"\n    source: REPAIREARTH\n", "  - text: \"Imagine\"\n    source: REPAIREARTH\n  - text: \"Math0 means 1 + 1 = 0.\"\n    source: PEANO\n")]);
+    assert_invalid(&r, "cannot document a meaning");
+}
+
+/// C05: a relationship record states the mode and Γ it expects.
+#[test]
+fn a2_c05_relationship_mode_and_assumptions_are_bound() {
+    let r = validate_with(
+        "a2-c05-mode",
+        &[(
+            RP5,
+            "proof: tests/accept/T1_math5_pairing.rlt\n    mode: unconditional",
+            "proof: tests/accept/T1_math5_pairing.rlt\n    mode: conditional",
+        )],
+    );
+    assert_invalid(&r, "record expects mode conditional");
+    let r = validate_with(
+        "a2-c05-gamma",
+        &[(
+            RP0,
+            "assumptions: [\"1 + 1 + 1 + 1 + 1 = 0\"]",
+            "assumptions: []",
+        )],
+    );
+    assert_invalid(&r, "record expects Γ");
+    // A proof that merely assumes its own goal cannot satisfy an unconditional record.
+    let t1 = "tests/accept/T1_math5_pairing.rlt";
+    let r = validate_with(
+        "a2-c05-self",
+        &[(
+            t1,
+            "(mode unconditional)",
+            "(mode conditional) (assume h \"5 + 1 = 6\")",
+        )],
+    );
+    assert_invalid(&r, "record expects mode unconditional");
+}
+
+/// C06: Lean names are identifiers; vacuous replays are disclosed.
+#[test]
+fn a2_c06_lean_names_and_vacuity() {
+    let t5 = "tests/accept/T5a_math0_fiction_conditional.rlt";
+    let s = scratch_with("a2-c06", &[(t5, "(assume h ", "(assume a/- ")]);
+    let r = check_file(&s, &s.join(t5));
+    assert_eq!(r.code, MALFORMED, "{}", r.text);
+    assert!(r.text.contains("identifier"), "{}", r.text);
+    let _ = std::fs::remove_dir_all(s);
+    let lean = std::fs::read_to_string(root().join("lean/Generated.lean")).unwrap();
+    assert_eq!(
+        lean.matches("-- VACUOUS REPLAY: hypothesis h is false in ℕ")
+            .count(),
+        2
+    );
+}
+
+/// C07: the axiom registry cannot be redirected.
+#[test]
+fn a2_c07_axiom_registry_variants_are_refused() {
+    let t1 = "tests/accept/T1_math5_pairing.rlt";
+    let entry = "  - id: PEANO-ADD\n    file: spec/peano.rlt\n";
+    type Case<'a> = (&'a str, Vec<(&'a str, &'a str, &'a str)>, &'a str);
+    let cases: Vec<Case> = vec![
+        ("dot", vec![("spec/axioms.yaml", "file: spec/peano.rlt", "file: spec/./peano.rlt")], "differs from the pinned"),
+        ("dup", vec![("spec/axioms.yaml", entry, "  - id: PEANO-ADD\n    file: spec/peano.rlt\n    sha256: 1a3f83444a06fdfbd02c9af2a5881b47137ba102a675a4e012c84be477b10a0d\n    source: PEANO\n    axioms: [add_zero, add_succ]\n  - id: PEANO-ADD\n    file: spec/peano.rlt\n")], "registered 2 times"),
+        ("list", vec![("spec/axioms.yaml", "axioms: [add_zero, add_succ]", "axioms: [add_zero, add_succ, 7]")], "must list names"),
+        ("sha", vec![("spec/axioms.yaml", "sha256: 1a3f", "sha256: 0a3f")], "differs from the pinned"),
+        ("unpinned", vec![(t1, "(axioms PEANO-ADD)", "(axioms MY-SET)")], "not pinned"),
+    ];
+    for (name, edits, needle) in cases {
+        let s = scratch_with(&format!("a2-c07-{name}"), &edits);
+        let r = check_file(&s, &s.join(t1));
+        assert_eq!(r.code, MALFORMED, "{name}:\n{}", r.text);
+        assert!(
+            r.text.contains(needle),
+            "{name}: expected `{needle}`:\n{}",
+            r.text
+        );
+        let _ = std::fs::remove_dir_all(s);
+    }
+    // A symbolic link in place of the axiom file is refused, even to identical bytes.
+    let s = scratch_with("a2-c07-link", &[]);
+    let target = s.join("peano-copy.rlt");
+    std::fs::rename(s.join("spec/peano.rlt"), &target).unwrap();
+    std::os::unix::fs::symlink(&target, s.join("spec/peano.rlt")).unwrap();
+    let r = check_file(&s, &s.join(t1));
+    assert_eq!(r.code, MALFORMED, "{}", r.text);
+    assert!(r.text.contains("symbolic link"), "{}", r.text);
+    let _ = std::fs::remove_dir_all(s);
+}
+
+/// C09: evidence refs resolve; kinds come from a fixed vocabulary.
+#[test]
+fn a2_c09_evidence_and_kinds() {
+    let r = validate_with("a2-c09-ref", &[(RP0, "status: imagined\n    evidence: []", "status: supported\n    evidence:\n      - type: physical_measurement\n        ref: \"none\"")]);
+    assert_invalid(&r, "must be an available registered source");
+    let r = validate_with("a2-c09-kind", &[(RP0, "kind: behavior", "kind: referent")]);
+    assert_eq!(
+        r.code, ACCEPT,
+        "a behavior relabelled referent is a reviewable edit:\n{}",
+        r.text
+    );
+    let r = validate_with("a2-c09-kind2", &[(RP0, "kind: behavior", "kind: hunch")]);
+    assert_invalid(&r, "kind `hunch`");
+}
+
+/// C10: proof symlinks, duplicate relationship ids, leading zeros.
+#[test]
+fn a2_c10_binding_edges() {
+    let s = scratch_with("a2-c10-link", &[]);
+    let t1 = s.join("tests/accept/T1_math5_pairing.rlt");
+    let moved = s.join("t1.rlt");
+    std::fs::rename(&t1, &moved).unwrap();
+    std::os::unix::fs::symlink(&moved, &t1).unwrap();
+    assert_invalid(&validate(&s), "symbolic link");
+    let _ = std::fs::remove_dir_all(s);
+    let dup = "  - id: math5.count\n";
+    let r = validate_with("a2-c10-dup", &[(RP5, dup, "  - id: math5.pairing\n")]);
+    assert_invalid(&r, "appears twice");
+    let t1 = "tests/accept/T1_math5_pairing.rlt";
+    let s = scratch_with(
+        "a2-c10-zero",
+        &[(t1, "(goal \"5 + 1 = 6\")", "(goal \"05 + 01 = 06\")")],
+    );
+    let r = check_file(&s, &s.join(t1));
+    assert_eq!(r.code, MALFORMED, "{}", r.text);
+    assert!(r.text.contains("leading zero"), "{}", r.text);
+    let _ = std::fs::remove_dir_all(s);
 }

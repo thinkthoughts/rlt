@@ -133,6 +133,9 @@ impl Parser<'_> {
                 self.expect(")")?;
                 Ok(t)
             }
+            Some(tok) if tok.len() > 1 && tok.starts_with('0') => Err(format!(
+                "NAT-DEC: numeral `{tok}` has a leading zero; write it without one"
+            )),
             Some(tok) if tok.chars().all(|c| c.is_ascii_digit()) => {
                 let n: u64 = tok
                     .parse()

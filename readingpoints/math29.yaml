@@ -9,6 +9,10 @@ meanings:
     source: NEWS-MATH29
   - text: "Math29: everything else"
     source: RLT-INIT
+  - text: "Math29 reading level"
+    source: RLT-INIT
+  - text: "math29"
+    source: RLT-INDEX
   - text: "#math29 = #antiviolent"
     source: RLT-INIT
   - text: "Math29 reading level"
@@ -35,7 +39,7 @@ examples:
     source: NEWS-MATH29
   - written: "{1, 7, 11, 13, 17, 19, 23, 29}: 17111317192329"
     source: NEWS-MATH29
-  - written: "(0 ≠ 5) ∧ (5 &lt; 29)"
+  - written: "(0 ≠ 5) ∧ (5 < 29)"
     source: REPAIREARTH
   - written: "their immediate context (math29)"
     source: RLT-INDEX
@@ -45,6 +49,7 @@ relationships:
     written: "29 + 1 = 30"
     convention: NAT-DEC
     proof: tests/accept/R_math29_pairing.rlt
+    mode: unconditional
 
 correspondence:
   - id: math29.context

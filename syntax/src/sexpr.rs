@@ -34,6 +34,18 @@ impl Sexp {
 pub const MAX_DEPTH: usize = 256;
 
 pub fn parse_all(src: &str) -> Result<Vec<Sexp>, String> {
+    // Control characters other than line breaks and tabs between tokens are
+    // refused everywhere; inside strings and symbols every control character is
+    // refused, so no input can add lines to a report.
+    if let Some(c) = src
+        .chars()
+        .find(|c| c.is_control() && !matches!(c, '\n' | '\r' | '\t'))
+    {
+        return Err(format!(
+            "control character U+{:04X} in proof file",
+            c as u32
+        ));
+    }
     let chars: Vec<char> = src.chars().collect();
     let mut pos = 0;
     let mut out = Vec::new();
@@ -104,6 +116,13 @@ fn parse_one(c: &[char], pos: &mut usize, depth: usize) -> Result<Sexp, String> 
             while *pos < c.len() && c[*pos] != '"' {
                 if c[*pos] == '\\' && *pos + 1 < c.len() {
                     *pos += 1;
+                }
+                if c[*pos].is_control() {
+                    return Err(format!(
+                        "control character U+{:04X} inside a string on line {}",
+                        c[*pos] as u32,
+                        line_of(c, *pos)
+                    ));
                 }
                 s.push(c[*pos]);
                 *pos += 1;
