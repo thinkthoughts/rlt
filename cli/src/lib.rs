@@ -258,12 +258,10 @@ pub fn check_file_outcome(root: &Path, file: &Path) -> CheckOutcome {
     };
     let _ = writeln!(
         t,
-        "axiom set       {} ({}, sha256 {}, source {})",
-        set.id,
-        set.file,
-        &set.sha256[..16],
-        set.source
+        "axiom set       {} ({}, source {})",
+        set.id, set.file, set.source
     );
+    let _ = writeln!(t, "  sha256        {}", set.sha256);
     for a in &set.axioms {
         let _ = writeln!(
             t,
@@ -273,6 +271,7 @@ pub fn check_file_outcome(root: &Path, file: &Path) -> CheckOutcome {
             a.equation()
         );
     }
+    let _ = writeln!(t, "  status        assumed: the SHA-256 binds these axioms' exact content to the approved file; their mathematical truth and any physical correspondence remain assumptions");
     let _ = writeln!(t, "steps           {}", po.steps.len());
     out.goal = Some(po.goal.clone());
 
@@ -308,7 +307,7 @@ pub fn check_file_outcome(root: &Path, file: &Path) -> CheckOutcome {
             };
             out.theorem = Some(th);
             (
-                format!("ACCEPT — {kind} from registered axiom set {}", set.id),
+                format!("ACCEPT — {kind} relative to registered axiom set {}", set.id),
                 ACCEPT,
             )
         }
@@ -318,7 +317,7 @@ pub fn check_file_outcome(root: &Path, file: &Path) -> CheckOutcome {
         }
     };
     let _ = writeln!(t, "verdict         {verdict_line}");
-    let _ = writeln!(t, "  scope         the verdict concerns the checked equation only; it establishes neither the reading point's meanings nor any physical claim");
+    let _ = writeln!(t, "  scope         the checked equation follows from the listed axioms under Γ; the axioms remain assumptions, and the reading point's meanings and physical claims keep their own separate status");
 
     // Layer 4: physical correspondence, read from the record and reported
     // beside the verdict. The verdict never changes these statuses.

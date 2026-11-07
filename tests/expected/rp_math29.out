@@ -19,7 +19,7 @@ examples (written)
   "(0 ≠ 5) ∧ (5 &lt; 29)"  [REPAIREARTH]
   "their immediate context (math29)"  [RLT-INDEX]
 relationships (attached results, checked now)
-  math29.pairing  "29 + 1 = 30" under NAT-DEC  →  ACCEPT — unconditional theorem from registered axiom set PEANO-ADD, Γ = ∅  (tests/accept/R_math29_pairing.rlt)
+  math29.pairing  "29 + 1 = 30" under NAT-DEC  →  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD, Γ = ∅  (tests/accept/R_math29_pairing.rlt)
 physical correspondence (evidence-graded, independent of verdicts)
   math29.context [referent] unestablished — "a driver's immediate context at a specific stop sign" (evidence: 0)
 PiπΠ lifts

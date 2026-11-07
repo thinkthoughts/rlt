@@ -16,8 +16,8 @@ examples (written)
   "1 + 1 + 1 + 1 + 1 = 5"  [REPAIREARTH]
   "a driver (math5)"  [RLT-INDEX]
 relationships (attached results, checked now)
-  math5.pairing  "5 + 1 = 6" under NAT-DEC  →  ACCEPT — unconditional theorem from registered axiom set PEANO-ADD, Γ = ∅  (tests/accept/T1_math5_pairing.rlt)
-  math5.count  "1 + 1 + 1 + 1 + 1 = 5" under NAT-DEC  →  ACCEPT — unconditional theorem from registered axiom set PEANO-ADD, Γ = ∅  (tests/accept/R_math5_count.rlt)
+  math5.pairing  "5 + 1 = 6" under NAT-DEC  →  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD, Γ = ∅  (tests/accept/T1_math5_pairing.rlt)
+  math5.count  "1 + 1 + 1 + 1 + 1 = 5" under NAT-DEC  →  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD, Γ = ∅  (tests/accept/R_math5_count.rlt)
 physical correspondence (evidence-graded, independent of verdicts)
   math5.counting [behavior] unestablished — "a person counts five identifiable objects (agent: a counter; place, time and context unspecified)" (evidence: 0)
   math5.lungs [referent] unestablished — "a grandma's left and right lungs supporting breathing" (evidence: 0)

@@ -19,15 +19,17 @@ convention      NAT-DEC (authority: interpretation)
 checked goal    5 + 1 = 6
   kernel form   +(S(S(S(S(S(0))))), S(0)) = S(S(S(S(S(S(0))))))
 mode            unconditional (requires Γ = ∅)
-axiom set       PEANO-ADD (spec/peano.rlt, sha256 1a3f83444a06fdfb, source PEANO)
+axiom set       PEANO-ADD (spec/peano.rlt, source PEANO)
+  sha256        1a3f83444a06fdfbd02c9af2a5881b47137ba102a675a4e012c84be477b10a0d
   axiom         add_zero : ∀ x. x + 0 = x
   axiom         add_succ : ∀ x y. x + S(y) = S(x + y)
+  status        assumed: the SHA-256 binds these axioms' exact content to the approved file; their mathematical truth and any physical correspondence remain assumptions
 steps           4
 proved          5 + 1 = 6
 assumptions     Γ = ∅
 axioms used     add_succ, add_zero
-verdict         ACCEPT — unconditional theorem from registered axiom set PEANO-ADD
-  scope         the verdict concerns the checked equation only; it establishes neither the reading point's meanings nor any physical claim
+verdict         ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD
+  scope         the checked equation follows from the listed axioms under Γ; the axioms remain assumptions, and the reading point's meanings and physical claims keep their own separate status
 physical        math5.counting [behavior]: unestablished (evidence: 0)
 physical        math5.lungs [referent]: unestablished (evidence: 0)
 physical        math5.gas-exchange [referent]: unestablished (evidence: 0)

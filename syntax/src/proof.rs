@@ -293,14 +293,19 @@ mod tests {
     #[test]
     fn axiom_paths_are_refused() {
         let bad = OK.replace("(axioms PEANO-ADD)", r#"(axioms "spec/peano.rlt")"#);
-        assert!(parse_proof_file(&bad).unwrap_err().contains("paths are refused"));
+        assert!(parse_proof_file(&bad)
+            .unwrap_err()
+            .contains("paths are refused"));
         let bad = OK.replace("(axioms PEANO-ADD)", "(axioms ../x)");
         assert!(parse_proof_file(&bad).is_err());
     }
 
     #[test]
     fn record_ids_reject_traversal() {
-        let bad = OK.replace("(readingpoint math5)", r#"(readingpoint "../../etc/hostname")"#);
+        let bad = OK.replace(
+            "(readingpoint math5)",
+            r#"(readingpoint "../../etc/hostname")"#,
+        );
         assert!(parse_proof_file(&bad).unwrap_err().contains("record id"));
         assert!(record_id("math5.pairing".into()).is_ok());
         assert!(record_id("a/b".into()).is_err());
@@ -308,9 +313,15 @@ mod tests {
 
     #[test]
     fn oversized_files_are_refused_before_building_terms() {
-        let wide = OK.replace("(refl 1)", &format!("(refl {})", "(S ".repeat(10) + "1000" + &")".repeat(10)));
+        let wide = OK.replace(
+            "(refl 1)",
+            &format!("(refl {})", "(S ".repeat(10) + "1000" + &")".repeat(10)),
+        );
         assert!(parse_proof_file(&wide).is_ok());
-        let huge = OK.replace("(steps", &format!("(steps {}", "(x (= 999 999) (refl 999)) ".repeat(1200)));
+        let huge = OK.replace(
+            "(steps",
+            &format!("(steps {}", "(x (= 999 999) (refl 999)) ".repeat(1200)),
+        );
         assert!(parse_proof_file(&huge).unwrap_err().contains("term nodes"));
     }
 }

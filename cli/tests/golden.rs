@@ -338,7 +338,7 @@ fn axiom_sets_are_registered_and_hash_locked() {
     let r = check_file(&root(), &root().join(t1));
     assert!(r
         .text
-        .contains("ACCEPT — unconditional theorem from registered axiom set PEANO-ADD"));
+        .contains("ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD"));
     for d in [s, s2, s3] {
         let _ = std::fs::remove_dir_all(d);
     }
