@@ -1,5 +1,5 @@
 RLT-001 verification
-commit   32e2b0e5a589638c0576f3dbb4763e7dfcdd697b
+commit   88fbdf0256dc4a577cb20039126169c471abd03b
 rustc    rustc 1.97.0 (2d8144b78 2026-07-07)
 
 == format and lints
@@ -10,7 +10,7 @@ clippy   ok
 ok
 
 == cargo test (unit + golden)
-test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
 test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
