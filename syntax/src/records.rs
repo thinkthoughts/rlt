@@ -16,16 +16,98 @@ pub fn load_yaml(path: &Path) -> Result<Yaml, String> {
     Ok(docs.remove(0))
 }
 
-fn s(y: &Yaml, key: &str) -> Option<String> {
-    y[key].as_str().map(str::to_string)
+/// An optional string field: absent is fine, any other type is an error.
+fn opt(y: &Yaml, key: &str, ctx: &str) -> Result<Option<String>, String> {
+    match &y[key] {
+        Yaml::BadValue | Yaml::Null => Ok(None),
+        Yaml::String(v) => Ok(Some(v.clone())),
+        _ => Err(format!("{ctx}: field `{key}` must be a string")),
+    }
 }
 
 fn req(y: &Yaml, key: &str, ctx: &str) -> Result<String, String> {
-    s(y, key).ok_or_else(|| format!("{ctx}: missing string field `{key}`"))
+    match &y[key] {
+        Yaml::String(v) => Ok(v.clone()),
+        Yaml::BadValue | Yaml::Null => Err(format!("{ctx}: missing string field `{key}`")),
+        _ => Err(format!("{ctx}: field `{key}` must be a string")),
+    }
 }
 
-fn list<'a>(y: &'a Yaml, key: &str) -> &'a [Yaml] {
-    y[key].as_vec().map(|v| v.as_slice()).unwrap_or(&[])
+/// A list field: absent means empty; present with any other type is an error,
+/// so a mistyped field cannot make records vanish silently.
+fn list<'a>(y: &'a Yaml, key: &str, ctx: &str) -> Result<&'a [Yaml], String> {
+    match &y[key] {
+        Yaml::BadValue | Yaml::Null => Ok(&[]),
+        Yaml::Array(v) => Ok(v.as_slice()),
+        _ => Err(format!("{ctx}: field `{key}` must be a list")),
+    }
+}
+
+fn strings(y: &Yaml, key: &str, ctx: &str) -> Result<Vec<String>, String> {
+    list(y, key, ctx)?
+        .iter()
+        .map(|x| {
+            x.as_str()
+                .map(str::to_string)
+                .ok_or(format!("{ctx}: `{key}` must list strings"))
+        })
+        .collect()
+}
+
+/// Inline tags are transparent inside a unit; other tags delimit units.
+const INLINE_TAGS: [&str; 7] = ["a", "strong", "em", "b", "i", "code", "sup"];
+
+fn collapse(s: &str) -> String {
+    s.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// The verbatim units of an excerpt. Inline tags (a, strong, em, …) are
+/// removed with their text kept; every other tag delimits units. With
+/// `whole`, all tags are transparent and the excerpt is one unit. Whitespace
+/// runs collapse to one space. A meaning must equal a unit exactly.
+pub fn units(text: &str, whole: bool) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut cur = String::new();
+    let mut rest = text;
+    while let Some(i) = rest.find('<') {
+        let Some(j) = rest[i..].find('>') else { break };
+        cur.push_str(&rest[..i]);
+        let tag = &rest[i + 1..i + j];
+        let name: String = tag
+            .trim_start_matches('/')
+            .chars()
+            .take_while(|c| c.is_ascii_alphanumeric())
+            .collect::<String>()
+            .to_ascii_lowercase();
+        if !whole && !INLINE_TAGS.contains(&name.as_str()) {
+            let u = collapse(&cur);
+            if !u.is_empty() {
+                out.push(u);
+            }
+            cur.clear();
+        }
+        rest = &rest[i + j + 1..];
+    }
+    cur.push_str(rest);
+    let u = collapse(&cur);
+    if !u.is_empty() {
+        out.push(u);
+    }
+    out
+}
+
+#[derive(Clone, Debug)]
+pub struct Excerpt {
+    pub text: String,
+    /// The reading point this excerpt documents, if any.
+    pub defines: Option<String>,
+    pub whole: bool,
+}
+
+impl Excerpt {
+    pub fn units(&self) -> Vec<String> {
+        units(&self.text, self.whole)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -33,21 +115,42 @@ pub struct Source {
     pub id: String,
     pub status: String,
     pub location: String,
-    pub excerpts: Vec<String>,
+    pub excerpts: Vec<Excerpt>,
 }
 
 pub fn load_registry(path: &Path) -> Result<BTreeMap<String, Source>, String> {
     let y = load_yaml(path)?;
     let mut out = BTreeMap::new();
-    for e in list(&y, "sources") {
+    for e in list(&y, "sources", "registry")? {
         let id = req(e, "id", "source")?;
+        let mut excerpts = Vec::new();
+        for x in list(e, "excerpts", &id)? {
+            excerpts.push(match x {
+                Yaml::String(t) => Excerpt {
+                    text: t.clone(),
+                    defines: None,
+                    whole: false,
+                },
+                Yaml::Hash(_) => Excerpt {
+                    text: req(x, "text", &id)?,
+                    defines: opt(x, "defines", &id)?,
+                    whole: match opt(x, "split", &id)?.as_deref() {
+                        None | Some("units") => false,
+                        Some("whole") => true,
+                        Some(o) => return Err(format!("{id}: split `{o}` must be units or whole")),
+                    },
+                },
+                _ => {
+                    return Err(format!(
+                        "{id}: an excerpt is a string or {{text, defines?, split?}}"
+                    ))
+                }
+            });
+        }
         let src = Source {
             status: req(e, "status", &id)?,
-            location: s(e, "location").unwrap_or_default(),
-            excerpts: list(e, "excerpts")
-                .iter()
-                .filter_map(|x| x.as_str().map(str::to_string))
-                .collect(),
+            location: opt(e, "location", &id)?.unwrap_or_default(),
+            excerpts,
             id: id.clone(),
         };
         if out.insert(id.clone(), src).is_some() {
@@ -63,6 +166,7 @@ pub struct ConventionRecord {
     pub reading: Vec<String>,
     pub sources: Vec<String>,
     pub authority: String,
+    pub origin: Option<String>,
 }
 
 pub fn load_convention(path: &Path) -> Result<ConventionRecord, String> {
@@ -82,15 +186,10 @@ pub fn load_convention(path: &Path) -> Result<ConventionRecord, String> {
             elaborator: req(&y, "elaborator", &id)?,
             symbols,
         },
-        reading: list(&y, "reading")
-            .iter()
-            .filter_map(|x| x.as_str().map(str::to_string))
-            .collect(),
-        sources: list(&y, "sources")
-            .iter()
-            .filter_map(|x| x.as_str().map(str::to_string))
-            .collect(),
+        reading: strings(&y, "reading", &id)?,
+        sources: strings(&y, "sources", &id)?,
         authority: req(&y, "authority", &id)?,
+        origin: opt(&y, "origin", &id)?,
     })
 }
 
@@ -123,18 +222,13 @@ pub struct StatusVocabulary {
 
 pub fn load_status(path: &Path) -> Result<StatusVocabulary, String> {
     let y = load_yaml(path)?;
-    let strs = |k: &str| {
-        list(&y, k)
-            .iter()
-            .filter_map(|x| x.as_str().map(str::to_string))
-            .collect()
-    };
+    let ctx = "status.yaml";
     Ok(StatusVocabulary {
-        correspondence: strs("correspondence_status"),
-        lift: strs("lift_status"),
-        allowed_support: strs("allowed_support"),
-        without_evidence: strs("status_without_evidence"),
-        referent_only: strs("referent_only_status"),
+        correspondence: strings(&y, "correspondence_status", ctx)?,
+        lift: strings(&y, "lift_status", ctx)?,
+        allowed_support: strings(&y, "allowed_support", ctx)?,
+        without_evidence: strings(&y, "status_without_evidence", ctx)?,
+        referent_only: strings(&y, "referent_only_status", ctx)?,
     })
 }
 
@@ -190,15 +284,15 @@ pub fn load_readingpoint(path: &Path) -> Result<ReadingPoint, String> {
         })
     };
     Ok(ReadingPoint {
-        meanings: list(&y, "meanings")
+        meanings: list(&y, "meanings", &id)?
             .iter()
             .map(|e| meaning(e, "text"))
             .collect::<Result<_, _>>()?,
-        examples: list(&y, "examples")
+        examples: list(&y, "examples", &id)?
             .iter()
             .map(|e| meaning(e, "written"))
             .collect::<Result<_, _>>()?,
-        relationships: list(&y, "relationships")
+        relationships: list(&y, "relationships", &id)?
             .iter()
             .map(|e| {
                 Ok(Relationship {
@@ -209,7 +303,7 @@ pub fn load_readingpoint(path: &Path) -> Result<ReadingPoint, String> {
                 })
             })
             .collect::<Result<_, String>>()?,
-        correspondence: list(&y, "correspondence")
+        correspondence: list(&y, "correspondence", &id)?
             .iter()
             .map(|e| {
                 Ok(Correspondence {
@@ -217,15 +311,15 @@ pub fn load_readingpoint(path: &Path) -> Result<ReadingPoint, String> {
                     kind: req(e, "kind", &id)?,
                     description: req(e, "description", &id)?,
                     status: req(e, "status", &id)?,
-                    evidence: list(e, "evidence")
+                    evidence: list(e, "evidence", &id)?
                         .iter()
                         .map(|v| Ok((req(v, "type", &id)?, req(v, "ref", &id)?)))
                         .collect::<Result<_, String>>()?,
-                    source: s(e, "source"),
+                    source: opt(e, "source", &id)?,
                 })
             })
             .collect::<Result<_, String>>()?,
-        lifts: list(&y, "lifts")
+        lifts: list(&y, "lifts", &id)?
             .iter()
             .map(|e| {
                 Ok(Lift {
@@ -238,4 +332,39 @@ pub fn load_readingpoint(path: &Path) -> Result<ReadingPoint, String> {
             .collect::<Result<_, String>>()?,
         id,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn block_tags_delimit_units_inline_tags_do_not() {
+        let x = r#"<span class="name">Investigate</span><span class="desc">Zero differs from five, <strong>and</strong> five is less than 29.</span>"#;
+        assert_eq!(
+            units(x, false),
+            vec![
+                "Investigate",
+                "Zero differs from five, and five is less than 29."
+            ]
+        );
+        let md = r#"For instance (<a href="https://c5.now/">nonfiction</a>): A 🫁 lungs emoji represents human lungs."#;
+        assert_eq!(
+            units(md, false),
+            vec!["For instance (nonfiction): A 🫁 lungs emoji represents human lungs."]
+        );
+        let closing =
+            r#"<span class="red">#Practice</span> the <span class="yellow">#obvious</span>"#;
+        assert_eq!(units(closing, true), vec!["#Practice the #obvious"]);
+        assert_eq!(units("a\n  b", false), vec!["a b"]);
+    }
+
+    #[test]
+    fn mistyped_list_fields_are_errors() {
+        let y = YamlLoader::load_from_str("correspondence: \"see elsewhere\"")
+            .unwrap()
+            .remove(0);
+        assert!(list(&y, "correspondence", "t").is_err());
+        assert!(list(&y, "absent", "t").unwrap().is_empty());
+    }
 }

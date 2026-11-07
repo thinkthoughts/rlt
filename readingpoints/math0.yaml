@@ -1,17 +1,22 @@
 # Reading point math0 (component F).
-# Meanings are kept verbatim from their sources; every documented meaning is
-# retained. Relationships are attached results: their verdicts are computed
+# Meanings and examples are whole verbatim units of source excerpts tagged for
+# this reading point (sources/registry.yaml); `rlt validate` checks each one and
+# checks that every tagged unit is present. Relationships are attached results: their verdicts are computed
 # by the kernel each time (`rlt rp math0`), and this file stores none.
 
 id: math0
 
 meanings:
-  - text: "Pairing (1+1) with imagination."
+  - text: "math0: Pairing (1+1) with imagination."
     source: USER-2026-11-07
-  - text: "local imagination"
+  - text: "Math0 comprehension (now) specifies +1 reading level: local imagination."
     source: NEWS-MATH00
-  - text: "local imagination"
+  - text: "Math0: local imagination"
     source: RLT-INIT
+  - text: "Math0 reading level"
+    source: RLT-INDEX
+  - text: "Math0: count from zero"
+    source: RLT-INDEX
   - text: "count from zero"
     source: RLT-INDEX
   - text: "MATH0 · FICTION"
@@ -20,9 +25,13 @@ meanings:
     source: REPAIREARTH
   - text: "An intentionally false equation. Explore an imaginary reading."
     source: REPAIREARTH
+  - text: "Math0 · Imagine"
+    source: REPAIREARTH
+  - text: "Five ones equal five in ordinary arithmetic. This zero equation is deliberately fictional. What happens when a claim changes the count?"
+    source: REPAIREARTH
 
 examples:
-  - written: "A 🫁 lungs emoji represents human lungs. The emoji itself neither breathes nor exhales CO₂."
+  - written: "For instance (nonfiction): A 🫁 lungs emoji represents human lungs. The emoji itself neither breathes nor exhales CO₂."
     source: NEWS-MATH00
   - written: "1 + 1 + 1 + 1 + 1 = 0"
     source: REPAIREARTH

@@ -30,6 +30,9 @@ impl Sexp {
     }
 }
 
+/// Maximum list nesting depth accepted by the reader.
+pub const MAX_DEPTH: usize = 256;
+
 pub fn parse_all(src: &str) -> Result<Vec<Sexp>, String> {
     let chars: Vec<char> = src.chars().collect();
     let mut pos = 0;
@@ -39,7 +42,7 @@ pub fn parse_all(src: &str) -> Result<Vec<Sexp>, String> {
         if pos >= chars.len() {
             return Ok(out);
         }
-        out.push(parse_one(&chars, &mut pos)?);
+        out.push(parse_one(&chars, &mut pos, 0)?);
     }
 }
 
@@ -65,13 +68,19 @@ fn line_of(c: &[char], pos: usize) -> usize {
         + 1
 }
 
-fn parse_one(c: &[char], pos: &mut usize) -> Result<Sexp, String> {
+fn parse_one(c: &[char], pos: &mut usize, depth: usize) -> Result<Sexp, String> {
     skip_ws(c, pos);
     if *pos >= c.len() {
         return Err("unexpected end of input".into());
     }
     match c[*pos] {
         '(' => {
+            if depth >= MAX_DEPTH {
+                return Err(format!(
+                    "nesting deeper than {MAX_DEPTH} on line {}",
+                    line_of(c, *pos)
+                ));
+            }
             let start = *pos;
             *pos += 1;
             let mut items = Vec::new();
@@ -84,7 +93,7 @@ fn parse_one(c: &[char], pos: &mut usize) -> Result<Sexp, String> {
                     *pos += 1;
                     return Ok(Sexp::List(items));
                 }
-                items.push(parse_one(c, pos)?);
+                items.push(parse_one(c, pos, depth + 1)?);
             }
         }
         ')' => Err(format!("unexpected ')' on line {}", line_of(c, *pos))),
@@ -142,5 +151,10 @@ mod tests {
             ])
         );
         assert!(parse_all("(a").is_err());
+    }
+    #[test]
+    fn deep_nesting_is_refused_without_overflow() {
+        let deep = "(".repeat(20_000) + &")".repeat(20_000);
+        assert!(parse_all(&deep).unwrap_err().contains("nesting deeper"));
     }
 }

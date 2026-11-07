@@ -10,6 +10,6 @@
   (goal "1 + 1 + 1 + 1 + 1 = 0")
   (assume h "1 + 1 + 1 + 1 + 1 = 0")
   (mode conditional)
-  (axioms "spec/peano.rlt")
+  (axioms PEANO-ADD)
   (steps
     (s1 (= (+ (+ (+ (+ 1 1) 1) 1) 1) 0) (hyp h))))

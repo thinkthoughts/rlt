@@ -60,12 +60,16 @@ impl Axiom {
     }
 }
 
-/// Γ ⊢ concl, plus the axioms used. Constructed only by the rules in this module.
+/// Γ ⊢ concl, plus the full content (name, equation, source) of every axiom
+/// used. Constructed only by the rules in this module. Recording axiom content,
+/// not just names, lets a consumer compare the axioms a theorem rests on with
+/// the axioms it trusts: an outside `Axiom` that merely reuses a registered
+/// name stays distinguishable.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Theorem {
     hyps: BTreeMap<String, Formula>,
     concl: Formula,
-    axioms: BTreeSet<String>,
+    axioms: BTreeMap<String, Axiom>,
 }
 
 impl Theorem {
@@ -76,7 +80,8 @@ impl Theorem {
     pub fn assumptions(&self) -> &BTreeMap<String, Formula> {
         &self.hyps
     }
-    pub fn axioms_used(&self) -> &BTreeSet<String> {
+    /// Every axiom this theorem rests on, by name, with its full content.
+    pub fn axioms_used(&self) -> &BTreeMap<String, Axiom> {
         &self.axioms
     }
     pub fn is_unconditional(&self) -> bool {
@@ -84,9 +89,11 @@ impl Theorem {
     }
 }
 
-fn union(ths: &[&Theorem]) -> Result<(BTreeMap<String, Formula>, BTreeSet<String>), String> {
+type Context = (BTreeMap<String, Formula>, BTreeMap<String, Axiom>);
+
+fn union(ths: &[&Theorem]) -> Result<Context, String> {
     let mut hyps: BTreeMap<String, Formula> = BTreeMap::new();
-    let mut axioms = BTreeSet::new();
+    let mut axioms: BTreeMap<String, Axiom> = BTreeMap::new();
     for th in ths {
         for (name, f) in &th.hyps {
             if let Some(prev) = hyps.get(name) {
@@ -98,7 +105,16 @@ fn union(ths: &[&Theorem]) -> Result<(BTreeMap<String, Formula>, BTreeSet<String
             }
             hyps.insert(name.clone(), f.clone());
         }
-        axioms.extend(th.axioms.iter().cloned());
+        for (name, ax) in &th.axioms {
+            if let Some(prev) = axioms.get(name) {
+                if prev != ax {
+                    return Err(format!(
+                        "axiom name `{name}` refers to two different axioms"
+                    ));
+                }
+            }
+            axioms.insert(name.clone(), ax.clone());
+        }
     }
     Ok((hyps, axioms))
 }
@@ -109,7 +125,7 @@ pub fn refl(t: &Term) -> Result<Theorem, String> {
     Ok(Theorem {
         hyps: BTreeMap::new(),
         concl: Formula::new(t.clone(), t.clone()),
-        axioms: BTreeSet::new(),
+        axioms: BTreeMap::new(),
     })
 }
 
@@ -205,8 +221,8 @@ pub fn inst(ax: &Axiom, bindings: &[(String, Term)]) -> Result<Theorem, String> 
             return Err(format!("inst {}: variable `{v}` is unbound", ax.name));
         }
     }
-    let mut axioms = BTreeSet::new();
-    axioms.insert(ax.name.clone());
+    let mut axioms = BTreeMap::new();
+    axioms.insert(ax.name.clone(), ax.clone());
     Ok(Theorem {
         hyps: BTreeMap::new(),
         concl: Formula::new(
@@ -226,7 +242,7 @@ pub fn hyp(name: &str, phi: &Formula) -> Result<Theorem, String> {
     Ok(Theorem {
         hyps,
         concl: phi.clone(),
-        axioms: BTreeSet::new(),
+        axioms: BTreeMap::new(),
     })
 }
 
@@ -319,8 +335,33 @@ mod tests {
         let s2 = inst(&add_zero(), &[("x".into(), n(1))]).unwrap();
         let t = trans(&s1, &cong("S", &[&s2]).unwrap()).unwrap();
         assert_eq!(
-            t.axioms_used().iter().cloned().collect::<Vec<_>>(),
+            t.axioms_used().keys().cloned().collect::<Vec<_>>(),
             vec!["add_succ", "add_zero"]
+        );
+    }
+
+    #[test]
+    fn a_forged_axiom_reusing_a_registered_name_stays_distinguishable() {
+        // An outside caller can build an Axiom named `add_zero` with a false
+        // equation; the theorem records its content, so it differs from the
+        // registered add_zero and the two cannot be combined.
+        let forged = Axiom::new(
+            "add_zero",
+            vec![],
+            Formula::new(Term::numeral(1), Term::numeral(2)),
+            "test",
+        )
+        .unwrap();
+        let bad = inst(&forged, &[]).unwrap();
+        assert_ne!(bad.axioms_used()["add_zero"], add_zero());
+        let good = inst(&add_zero(), &[("x".into(), n(1))]).unwrap();
+        assert!(trans(&good, &bad).is_err() || trans(&bad, &good).is_err());
+        let r = refl(&n(2)).unwrap();
+        assert!(trans(&trans(&bad, &r).unwrap(), &r).is_ok());
+        let both = cong("+", &[&good, &bad]);
+        assert!(
+            both.is_err(),
+            "same axiom name with two contents must be refused"
         );
     }
 

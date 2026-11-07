@@ -3,9 +3,10 @@
 
 usage: python3 -I scripts/check_excerpts.py CHECKOUTS_DIR
 
-CHECKOUTS_DIR holds clones named after the GitHub repositories
-(news, rlt, translatepi, antiviolence, residue-manifold-learning,
-specification-grammar), each checked out at the commit the registry records.
+CHECKOUTS_DIR holds clones named after the GitHub repositories, including
+rlt itself: news, rlt, translatepi, antiviolence, residue-manifold-learning,
+specification-grammar. Each excerpt is read with `git show COMMIT:PATH`, so the
+clones may be at any revision as long as they contain the recorded commits.
 Sources without a GitHub file location (conversation records, foundational
 references, missing sources) are listed as skipped.
 """
@@ -28,7 +29,8 @@ bad = 0
 for s in reg["sources"]:
     m = pat.match(s.get("location", ""))
     if not m or not s.get("excerpts"):
-        print(f"skip     {s['id']} ({s['status']})")
+        why = "quoted from the review conversation; no file to check" if s["status"] == "conversation" else s["status"]
+        print(f"skip     {s['id']} ({why})")
         continue
     repo, commit, path = m.groups()
     try:
@@ -42,8 +44,10 @@ for s in reg["sources"]:
         continue
     # Compare with runs of whitespace collapsed, so HTML indentation and
     # line breaks inside a passage match the single-line excerpt.
+    # Haystacks: the file text, plus (for JSON) each decoded string value on its
+    # own, so an excerpt can never be stitched together from separate strings.
+    haystacks = [text]
     if path.endswith(".json"):
-        # JSON files store strings escaped; search the decoded string values too.
         import json
 
         def strings(v):
@@ -56,10 +60,12 @@ for s in reg["sources"]:
                 for w in v:
                     yield from strings(w)
 
-        text = text + "\n" + "\n".join(strings(json.loads(text)))
-    flat = " ".join(text.split())
+        haystacks += list(strings(json.loads(text)))
     for x in s["excerpts"]:
-        ok = x in text or " ".join(x.split()) in flat
+        x = x["text"] if isinstance(x, dict) else x
+        # Exact match, or match with whitespace runs collapsed (HTML indentation
+        # and line breaks inside one passage), within a single haystack.
+        ok = any(x in h or " ".join(x.split()) in " ".join(h.split()) for h in haystacks)
         print(f"{'ok' if ok else 'MISSING':8} {s['id']}: {x[:70]!r}")
         bad += 0 if ok else 1
 print(f"\n{bad} problem(s)")

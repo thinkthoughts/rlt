@@ -1,0 +1,7 @@
+(rlt-proof
+  (id K10_inst_var_term)
+  (convention NAT-DEC)
+  (goal "5 + 0 = 5")
+  (mode unconditional)
+  (axioms PEANO-ADD)
+  (steps (s1 (= (+ y 0) y) (inst add_zero (x y)))))

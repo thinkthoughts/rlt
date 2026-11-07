@@ -1,0 +1,7 @@
+(rlt-proof
+  (id K22_refl_unknown_const)
+  (convention NAT-DEC)
+  (goal "1 = 1")
+  (mode unconditional)
+  (axioms PEANO-ADD)
+  (steps (s1 (= pi pi) (refl pi))))

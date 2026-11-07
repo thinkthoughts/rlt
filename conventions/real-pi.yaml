@@ -1,11 +1,12 @@
 id: REAL-PI
-title: π as the real constant (test convention for PI-1)
+title: π as the real constant (RLT-authored test convention exercising PI-1)
 elaborator: symbol
 authority: interpretation
 symbols:
   "π": REAL-PI.pi
 reading:
   - "π denotes the real constant, the ratio of a circle's circumference to its diameter."
-sources: [TRANSLATEPI-261018]
+sources: []
+origin: rlt-authored   # RLT test reading; translatepi.ai states neither reading of π (it states PI-1 only)
 limits:
   - "Written-layer test convention: REAL-PI.pi sits outside the RLT-001 kernel signature."

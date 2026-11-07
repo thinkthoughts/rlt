@@ -1,13 +1,17 @@
 RLT check       tests/accept/R_math5_count.rlt
 proof id        R.math5.count
 reading point   math5
-  meaning       "Pairing through 5 to 6."  [USER-2026-11-07]
-  meaning       "local anatomy"  [NEWS-MATH05]
-  meaning       "local anatomy"  [RLT-INIT]
+  meaning       "math5: Pairing through 5 to 6."  [USER-2026-11-07]
+  meaning       "Math5 comprehension (now) specifies +1 reading level: local anatomy."  [NEWS-MATH05]
+  meaning       "Math5: local anatomy"  [RLT-INIT]
+  meaning       "Math5 reading level"  [RLT-INDEX]
+  meaning       "Math5: pair through five to six"  [RLT-INDEX]
   meaning       "pair through 5 to 6"  [RLT-INDEX]
   meaning       "MATH5 · COUNTING"  [REPAIREARTH]
   meaning       "Identify"  [REPAIREARTH]
   meaning       "Count objects. Specify people, properties, and context."  [REPAIREARTH]
+  meaning       "Math5 · Identify"  [REPAIREARTH]
+  meaning       "Count five identifiable objects. Specify what one object means and observe any physical context."  [REPAIREARTH]
 relationship    math5.count
 written goal    "1 + 1 + 1 + 1 + 1 = 5"
   tokens        1 · + · 1 · + · 1 · + · 1 · + · 1 · = · 5
@@ -15,14 +19,15 @@ convention      NAT-DEC (authority: interpretation)
 checked goal    (((1 + 1) + 1) + 1) + 1 = 5
   kernel form   +(+(+(+(S(0), S(0)), S(0)), S(0)), S(0)) = S(S(S(S(S(0)))))
 mode            unconditional (requires Γ = ∅)
-axiom file      spec/peano.rlt
-  axiom         add_zero : ∀ x. x + 0 = x  [PEANO]
-  axiom         add_succ : ∀ x y. x + S(y) = S(x + y)  [PEANO]
+axiom set       PEANO-ADD (spec/peano.rlt, sha256 1a3f83444a06fdfb, source PEANO)
+  axiom         add_zero : ∀ x. x + 0 = x
+  axiom         add_succ : ∀ x y. x + S(y) = S(x + y)
 steps           23
 proved          (((1 + 1) + 1) + 1) + 1 = 5
 assumptions     Γ = ∅
 axioms used     add_succ, add_zero
-verdict         ACCEPT — unconditional theorem
+verdict         ACCEPT — unconditional theorem from registered axiom set PEANO-ADD
+  scope         the verdict concerns the checked equation only; it establishes neither the reading point's meanings nor any physical claim
 physical        math5.counting [behavior]: unestablished (evidence: 0)
 physical        math5.lungs [referent]: unestablished (evidence: 0)
 physical        math5.gas-exchange [referent]: unestablished (evidence: 0)

@@ -1,0 +1,7 @@
+(rlt-proof
+  (id K12_zero_with_args)
+  (convention NAT-DEC)
+  (goal "0 = 0")
+  (mode unconditional)
+  (axioms PEANO-ADD)
+  (steps (s1 (= (0 1) (0 1)) (refl (0 1)))))

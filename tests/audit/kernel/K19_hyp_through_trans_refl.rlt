@@ -1,0 +1,8 @@
+(rlt-proof
+  (id K19_hyp_through_trans_refl)
+  (convention NAT-DEC)
+  (goal "1 + 1 = 3")
+  (mode unconditional)
+  (axioms PEANO-ADD)
+  (assume h "1 + 1 = 3")
+  (steps (s1 (= (+ 1 1) 3) (hyp h)) (s2 (= 3 3) (refl 3)) (s3 (= (+ 1 1) 3) (trans s1 s2))))

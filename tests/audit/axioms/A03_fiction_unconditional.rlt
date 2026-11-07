@@ -1,0 +1,13 @@
+; Same content as tests/reject/T5b_math0_fiction_unconditional.rlt, with the
+; assumption h moved into a self-chosen axiom file. T5b is REJECTed; this is ACCEPTed.
+(rlt-proof
+  (id T5b.math0.fiction.unconditional)
+  (readingpoint math0)
+  (relationship math0.fiction)
+  (context F0 fiction)
+  (convention NAT-DEC)
+  (goal "1 + 1 + 1 + 1 + 1 = 0")
+  (mode unconditional)
+  (axioms "/home/claude/audit/counterexamples/axioms/fiction_as_axiom.rlt")
+  (steps
+    (s1 (= (+ (+ (+ (+ 1 1) 1) 1) 1) 0) (inst h))))

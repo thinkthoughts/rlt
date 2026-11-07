@@ -3,23 +3,37 @@
 id: math29
 
 meanings:
-  - text: "Pairing through 29 to 30."
+  - text: "math29: Pairing through 29 to 30."
     source: USER-2026-11-07
-  - text: "everything else"
+  - text: "Math29 comprehension (now) specifies +1 reading level: everything else."
     source: NEWS-MATH29
-  - text: "everything else"
+  - text: "Math29: everything else"
     source: RLT-INIT
+  - text: "#math29 = #antiviolent"
+    source: RLT-INIT
+  - text: "Math29 reading level"
+    source: RLT-INDEX
+  - text: "Math29: pair through twenty-nine to thirty"
+    source: RLT-INDEX
   - text: "pair through 29 to 30"
+    source: RLT-INDEX
+  - text: "#Practice the #obvious reading level: #math29"
     source: RLT-INDEX
   - text: "MATH29 · READING POINT"
     source: REPAIREARTH
   - text: "Investigate"
     source: REPAIREARTH
+  - text: "Zero differs from five, and five is less than 29."
+    source: REPAIREARTH
+  - text: "Math29 · Investigate"
+    source: REPAIREARTH
+  - text: "The symbol ∧ means “and.” Both statements are true: zero differs from five, and five is less than twenty-nine. Choose a subject and examine its claims."
+    source: REPAIREARTH
 
 examples:
-  - written: "(1+1) × 3 × 5 = 30 > 29, where every prime > 5 resists division by 2, 3, and 5 and corresponds to one of eight residue classes modulo 30:"
+  - written: "For instance (nonfiction): (1+1) × 3 × 5 = 30 > 29, where every prime > 5 resists division by 2, 3, and 5 and corresponds to one of eight residue classes modulo 30:"
     source: NEWS-MATH29
-  - written: "{1, 7, 11, 13, 17, 19, 23, 29}"
+  - written: "{1, 7, 11, 13, 17, 19, 23, 29}: 17111317192329"
     source: NEWS-MATH29
   - written: "(0 ≠ 5) ∧ (5 &lt; 29)"
     source: REPAIREARTH

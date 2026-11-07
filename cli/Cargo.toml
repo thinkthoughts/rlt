@@ -17,3 +17,4 @@ path = "src/lib.rs"
 [dependencies]
 rlt-kernel = { path = "../kernel" }
 rlt-syntax = { path = "../syntax" }
+sha2 = "0.10"

@@ -13,7 +13,10 @@ mkdir -p verification
 fail=0
 rlt=target/release/rlt
 
-{
+# Log to the results file and the terminal without a subshell, so that
+# `fail` set below reaches the final `exit`.
+exec > >(tee "$out") 2>&1
+
   echo "RLT-001 verification"
   echo "commit   $(git rev-parse HEAD 2>/dev/null || echo unknown)"
   echo "rustc    $(rustc --version)"
@@ -23,8 +26,9 @@ rlt=target/release/rlt
   cargo build --release -q && echo "ok" || { echo "FAILED"; fail=1; }
 
   echo; echo "== cargo test (unit + golden)"
-  if cargo test --release -q 2>&1 | grep -E "^test result" | grep -v " 0 passed"; then :; fi
-  cargo test --release -q >/dev/null 2>&1 || { echo "FAILED"; fail=1; }
+  tests_log=$(cargo test --release -q 2>&1); tests_code=$?
+  echo "$tests_log" | grep -E "^test result" | grep -v " 0 passed"
+  [ $tests_code = 0 ] || { echo "FAILED"; echo "$tests_log" | tail -20; fail=1; }
 
   echo; echo "== proof files (expect accept → exit 0, reject → exit 1)"
   for f in tests/accept/*.rlt tests/reject/*.rlt; do
@@ -43,23 +47,26 @@ rlt=target/release/rlt
   done
 
   echo; echo "== records"
-  "$rlt" validate | grep -E '^(PiπΠ|verdict)' ; [ "${PIPESTATUS[0]}" = 0 ] || fail=1
+  validate_log=$("$rlt" validate); validate_code=$?
+  echo "$validate_log" | grep -E '^(PiπΠ|problem|verdict)'
+  [ $validate_code = 0 ] || fail=1
 
   echo; echo "== Lean replay (independent, outside the trusted base)"
   if command -v lean >/dev/null 2>&1 || [ -x "$HOME/.elan/bin/lean" ]; then
     lean_bin=$(command -v lean || echo "$HOME/.elan/bin/lean")
-    "$lean_bin" --version
-    (cd lean && "$lean_bin" RLT001.lean) && echo "ok" || { echo "FAILED"; fail=1; }
+    # Run inside lean/ so elan selects lean/lean-toolchain.
+    (cd lean && "$lean_bin" --version && "$lean_bin" RLT001.lean && "$lean_bin" Generated.lean) && echo "ok" || { echo "FAILED"; fail=1; }
   else
     echo "skipped (lean unavailable)"
   fi
 
   if [ $# -ge 1 ]; then
     echo; echo "== source excerpts"
-    python3 -I scripts/check_excerpts.py "$1" | tail -1 || fail=1
+    excerpts_log=$(python3 -I scripts/check_excerpts.py "$1"); excerpts_code=$?
+    echo "$excerpts_log" | grep -E "^(MISSING|ERROR)"; echo "$excerpts_log" | tail -1
+    [ $excerpts_code = 0 ] || fail=1
   fi
 
   echo
   [ $fail = 0 ] && echo "RESULT   all checks hold" || echo "RESULT   FAILURES above"
-} 2>&1 | tee "$out"
 exit $fail

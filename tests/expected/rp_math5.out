@@ -1,19 +1,23 @@
 reading point   math5
-meanings (verbatim, all retained)
-  "Pairing through 5 to 6."  [USER-2026-11-07]
-  "local anatomy"  [NEWS-MATH05]
-  "local anatomy"  [RLT-INIT]
+meanings (verbatim; `rlt validate` checks each against its source and checks completeness)
+  "math5: Pairing through 5 to 6."  [USER-2026-11-07]
+  "Math5 comprehension (now) specifies +1 reading level: local anatomy."  [NEWS-MATH05]
+  "Math5: local anatomy"  [RLT-INIT]
+  "Math5 reading level"  [RLT-INDEX]
+  "Math5: pair through five to six"  [RLT-INDEX]
   "pair through 5 to 6"  [RLT-INDEX]
   "MATH5 · COUNTING"  [REPAIREARTH]
   "Identify"  [REPAIREARTH]
   "Count objects. Specify people, properties, and context."  [REPAIREARTH]
+  "Math5 · Identify"  [REPAIREARTH]
+  "Count five identifiable objects. Specify what one object means and observe any physical context."  [REPAIREARTH]
 examples (written)
-  "A grandma's left lung works with her right lung to support breathing and the exchange of O₂ and CO₂. A CO₂ molecule and an O₂ molecule together consist of 1+1+1+1+1 = 5 atoms."  [NEWS-MATH05]
+  "For instance (nonfiction): A grandma's left lung works with her right lung to support breathing and the exchange of O₂ and CO₂. A CO₂ molecule and an O₂ molecule together consist of 1+1+1+1+1 = 5 atoms."  [NEWS-MATH05]
   "1 + 1 + 1 + 1 + 1 = 5"  [REPAIREARTH]
   "a driver (math5)"  [RLT-INDEX]
 relationships (attached results, checked now)
-  math5.pairing  "5 + 1 = 6" under NAT-DEC  →  ACCEPT — unconditional theorem, Γ = ∅  (tests/accept/T1_math5_pairing.rlt)
-  math5.count  "1 + 1 + 1 + 1 + 1 = 5" under NAT-DEC  →  ACCEPT — unconditional theorem, Γ = ∅  (tests/accept/R_math5_count.rlt)
+  math5.pairing  "5 + 1 = 6" under NAT-DEC  →  ACCEPT — unconditional theorem from registered axiom set PEANO-ADD, Γ = ∅  (tests/accept/T1_math5_pairing.rlt)
+  math5.count  "1 + 1 + 1 + 1 + 1 = 5" under NAT-DEC  →  ACCEPT — unconditional theorem from registered axiom set PEANO-ADD, Γ = ∅  (tests/accept/R_math5_count.rlt)
 physical correspondence (evidence-graded, independent of verdicts)
   math5.counting [behavior] unestablished — "a person counts five identifiable objects (agent: a counter; place, time and context unspecified)" (evidence: 0)
   math5.lungs [referent] unestablished — "a grandma's left and right lungs supporting breathing" (evidence: 0)

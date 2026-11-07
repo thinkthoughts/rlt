@@ -6,7 +6,7 @@
   (convention NAT-DEC)
   (goal "29 + 1 = 30")
   (mode unconditional)
-  (axioms "spec/peano.rlt")
+  (axioms PEANO-ADD)
   (steps
     (s1 (= (+ 29 (S 0)) (S (+ 29 0)))  (inst add_succ (x 29) (y 0)))
     (s2 (= (+ 29 0) 29)                (inst add_zero (x 29)))

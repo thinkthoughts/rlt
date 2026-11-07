@@ -7,7 +7,7 @@ reading:
   - "PI-1 · same π symbol ≠ same specification — RLT: a written expression denotes a term only under a named convention."
   - "PI-2 · the lift is carried by explicit relations — RLT: a lift lists its relations as checked or pending relationships."
   - "PI-3 · conditional arrows retain their premises — RLT: kernel theorems are sequents Γ ⊢ φ."
-  - "PI-4 · lift states Proposed, Specified, Verified — RLT: Verified requires a kernel theorem."
+  - "PI-4 · lift states Proposed, Specified, Verified — RLT: its own `verified` requires kernel theorems; the source's Verified is left unmapped."
   - "PI-5 · admissible generalizations trail leading specifications — RLT: lifts run from a leading specification."
   - "PI-6 · conceivable ≠ measured — RLT: an imagined referent keeps status imagined."
 
@@ -38,7 +38,7 @@ conventions:
       - "13 Specified · 3 Proposed"
       - "Verified lifts"
     source: TRANSLATEPI-LEAN4
-    binding: "Lift status vocabulary {proposed, specified, verified}; `rlt validate` refuses `verified` in RLT-001."
+    binding: "RLT uses its own lift statuses {proposed, specified, verified}, where RLT `verified` means every relation of the lift is a kernel theorem; `rlt validate` refuses `verified` in RLT-001. The source's \"Verified\" (Lean lifts accepted by a Linux-isolated Comparator) is a different specification; RLT records it and maps nothing onto it."
     implemented_in: "correspondence/status.yaml, cli/src/lib.rs (validate)"
   - id: PI-5
     stated:

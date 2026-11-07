@@ -1,0 +1,7 @@
+(rlt-proof
+  (id K21_claim_var)
+  (convention NAT-DEC)
+  (goal "1 = 1")
+  (mode unconditional)
+  (axioms PEANO-ADD)
+  (steps (s1 (= x x) (refl 1))))

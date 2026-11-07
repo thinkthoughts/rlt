@@ -1,0 +1,8 @@
+(rlt-proof
+  (id K03_self_ref)
+  (convention NAT-DEC)
+  (goal "5 + 1 = 6")
+  (mode unconditional)
+  (axioms PEANO-ADD)
+  (steps
+    (s1 (= (+ 5 1) 6) (trans s1 s1))))

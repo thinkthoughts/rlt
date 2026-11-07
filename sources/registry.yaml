@@ -1,27 +1,42 @@
 # RLT source registry (component A).
 #
 # Each source has an id, a location, the commit or date it was read at, a
-# status (available | missing | ambiguous), and verbatim excerpts copied from
-# the file at that commit. Reading-point meanings and examples must appear
-# inside an excerpt of the source they cite (`rlt validate` checks this).
-# A source is an input to interpretation; a source never proves a statement.
+# status, and verbatim excerpts copied from the file at that commit.
+#
+# status:
+#   available     file at a recorded commit; excerpts are checked against it by
+#                 scripts/check_excerpts.py
+#   conversation  a statement made in the RLT review conversation, quoted verbatim;
+#                 it has no file to check against
+#   ambiguous     referenced, not verified at a commit; it cannot document a meaning
+#   missing       known to exist or be needed, not available; it cannot document a meaning
+#
+# An excerpt is a string (context only) or {text, defines, split}:
+#   defines   the reading point this excerpt documents
+#   split     units (default): block tags delimit units, inline tags (a, strong,
+#             em, b, i, code, sup) are transparent; whole: the excerpt is one unit
+# `rlt validate` requires (1) every meaning and example of a reading point to
+# equal a whole unit of an excerpt, from its cited source, tagged for that
+# reading point, and (2) every unit of every tagged excerpt to appear in the
+# reading point's record. A source is an input to interpretation; a source
+# never proves a statement.
 
 sources:
 
   - id: USER-2026-11-07
     title: Foundational reading-point definitions supplied for RLT-000
     location: RLT-000 review conversation, 2026-11-07
-    status: available
+    status: conversation
     excerpts:
-      - "math0: Pairing (1+1) with imagination."
-      - "math5: Pairing through 5 to 6."
-      - "math29: Pairing through 29 to 30."
+      - {text: "math0: Pairing (1+1) with imagination.", defines: math0}
+      - {text: "math5: Pairing through 5 to 6.", defines: math5}
+      - {text: "math29: Pairing through 29 to 30.", defines: math29}
       - "These are names for mathematical reading points, not conventional educational reading-grade scores."
 
   - id: RLT-000-REFINEMENT
     title: RLT-000 final specification refinement and approval
     location: RLT-000 review conversation, 2026-11-07
-    status: available
+    status: conversation
     excerpts:
       - "Treat imagination as physically situated human behavior without treating imagined objects as physically established."
       - "Keep `imagined` separate from mathematical validity and physical evidence status. An imagined expression may be represented and examined without its physical referent being established."
@@ -33,8 +48,8 @@ sources:
     commit: 1ffd5ea9886386dc0b16c13499ecfe2ed59fd9e9
     status: available
     excerpts:
-      - "Math0 comprehension (now) specifies +1 reading level: local imagination."
-      - "For instance (<a href=\"https://c5.now/\">nonfiction</a>): A 🫁 lungs emoji represents human lungs. The emoji itself neither breathes nor exhales CO₂."
+      - {text: "Math0 comprehension (now) specifies +1 reading level: local imagination.", defines: math0}
+      - {text: "For instance (<a href=\"https://c5.now/\">nonfiction</a>): A 🫁 lungs emoji represents human lungs. The emoji itself neither breathes nor exhales CO₂.", defines: math0}
 
   - id: NEWS-MATH05
     title: MATH_05.md
@@ -42,8 +57,8 @@ sources:
     commit: 1ffd5ea9886386dc0b16c13499ecfe2ed59fd9e9
     status: available
     excerpts:
-      - "Math5 comprehension (now) specifies +1 reading level: local anatomy."
-      - "For instance (<a href=\"https://c5.now/\">nonfiction</a>): A grandma's left lung works with her right lung to support breathing and the exchange of O₂ and CO₂. A CO₂ molecule and an O₂ molecule together consist of 1+1+1+1+1 = 5 atoms."
+      - {text: "Math5 comprehension (now) specifies +1 reading level: local anatomy.", defines: math5}
+      - {text: "For instance (<a href=\"https://c5.now/\">nonfiction</a>): A grandma's left lung works with her right lung to support breathing and the exchange of O₂ and CO₂. A CO₂ molecule and an O₂ molecule together consist of 1+1+1+1+1 = 5 atoms.", defines: math5}
 
   - id: NEWS-MATH29
     title: MATH_29.md
@@ -51,9 +66,9 @@ sources:
     commit: 1ffd5ea9886386dc0b16c13499ecfe2ed59fd9e9
     status: available
     excerpts:
-      - "Math29 comprehension (now) specifies +1 reading level: everything else."
-      - "For instance (<a href=\"https://c5.now/\">nonfiction</a>): (1+1) × 3 × 5 = 30 > 29, where every prime > 5 resists division by 2, 3, and 5 and corresponds to one of eight residue classes modulo 30:"
-      - "{1, 7, 11, 13, 17, 19, 23, 29}: 17111317192329"
+      - {text: "Math29 comprehension (now) specifies +1 reading level: everything else.", defines: math29}
+      - {text: "For instance (<a href=\"https://c5.now/\">nonfiction</a>): (1+1) × 3 × 5 = 30 > 29, where every prime > 5 resists division by 2, 3, and 5 and corresponds to one of eight residue classes modulo 30:", defines: math29}
+      - {text: "{1, 7, 11, 13, 17, 19, 23, 29}: 17111317192329", defines: math29}
 
   - id: RLT-INDEX
     title: rlt/index.html (current site page)
@@ -61,9 +76,19 @@ sources:
     commit: 838417682c8c3c8dfe05b3094e6fc17cdf53fe5c
     status: available
     excerpts:
-      - "<span class=\"instruction\">count from zero</span>"
-      - "<span class=\"instruction\">pair through 5 to 6</span>"
-      - "<span class=\"instruction\">pair through 29 to 30</span>"
+      - {text: "Math0 reading level", defines: math0}
+      - {text: "Math5 reading level", defines: math5}
+      - {text: "Math29 reading level", defines: math29}
+      - {text: "Math0: count from zero", defines: math0}
+      - {text: "Math5: pair through five to six", defines: math5}
+      - {text: "Math29: pair through twenty-nine to thirty", defines: math29}
+      - {text: "<span class=\"instruction\">count from zero</span>", defines: math0}
+      - {text: "<span class=\"instruction\">pair through 5 to 6</span>", defines: math5}
+      - {text: "<span class=\"instruction\">pair through 29 to 30</span>", defines: math29}
+      - {text: "<span class=\"red\">where to stop (math0)</span>", defines: math0}
+      - {text: "<span class=\"yellow\">a driver (math5)</span>", defines: math5}
+      - {text: "<span class=\"green\">their immediate context (math29)</span>", defines: math29}
+      - {text: "<a href=\"https://antiviolentintelligence.ai\"><span class=\"red\">#Practice</span> the <span class=\"yellow\">#obvious</span> reading level: <span class=\"green\">#math29</span></a>", defines: math29, split: whole}
       - "<p>That is (for instance): a specific stop sign, as a reading point identifier (<strong>RPI</strong>), specifies <span class=\"red\">where to stop (math0)</span>, <span class=\"yellow\">a driver (math5)</span>, and <span class=\"green\">their immediate context (math29)</span>.</p>"
 
   - id: RLT-INIT
@@ -72,9 +97,10 @@ sources:
     commit: 838417682c8c3c8dfe05b3094e6fc17cdf53fe5c
     status: available
     excerpts:
-      - "aria-label=\"Math0: local imagination\""
-      - "aria-label=\"Math5: local anatomy\""
-      - "aria-label=\"Math29: everything else\""
+      - {text: "Math0: local imagination", defines: math0}
+      - {text: "Math5: local anatomy", defines: math5}
+      - {text: "Math29: everything else", defines: math29}
+      - {text: "<a href=\"https://antiviolentintelligence.ai\">#math29 = #antiviolent</a>", defines: math29}
 
   - id: REPAIREARTH
     title: repairearth.ai Reading Point · 001
@@ -82,9 +108,15 @@ sources:
     commit: a4aa40d4b71bbcf633db04bf87866178af419f89
     status: available
     excerpts:
-      - "<span class=\"num\">MATH0 · FICTION</span><span class=\"equation\">1 + 1 + 1 + 1 + 1 = 0</span><span class=\"name\">Imagine</span><span class=\"desc\">An intentionally false equation. Explore an imaginary reading.</span>"
-      - "<span class=\"num\">MATH5 · COUNTING</span><span class=\"equation\">1 + 1 + 1 + 1 + 1 = 5</span><span class=\"name\">Identify</span><span class=\"desc\">Count objects. Specify people, properties, and context.</span>"
-      - "<span class=\"num\">MATH29 · READING POINT</span><span class=\"equation\">(0 ≠ 5) ∧ (5 &lt; 29)</span><span class=\"name\">Investigate</span>"
+      - {text: "<span class=\"num\">MATH0 · FICTION</span><span class=\"equation\">1 + 1 + 1 + 1 + 1 = 0</span><span class=\"name\">Imagine</span><span class=\"desc\">An intentionally false equation. Explore an imaginary reading.</span>", defines: math0}
+      - {text: "<span class=\"num\">MATH5 · COUNTING</span><span class=\"equation\">1 + 1 + 1 + 1 + 1 = 5</span><span class=\"name\">Identify</span><span class=\"desc\">Count objects. Specify people, properties, and context.</span>", defines: math5}
+      - {text: "<span class=\"num\">MATH29 · READING POINT</span><span class=\"equation\">(0 ≠ 5) ∧ (5 &lt; 29)</span><span class=\"name\">Investigate</span><span class=\"desc\">Zero differs from five, <strong>and</strong> five is less than 29.</span>", defines: math29}
+      - {text: "Math0 · Imagine", defines: math0}
+      - {text: "Five ones equal five in ordinary arithmetic. This zero equation is deliberately fictional. What happens when a claim changes the count?", defines: math0}
+      - {text: "Math5 · Identify", defines: math5}
+      - {text: "Count five identifiable objects. Specify what one object means and observe any physical context.", defines: math5}
+      - {text: "Math29 · Investigate", defines: math29}
+      - {text: "The symbol ∧ means “and.” Both statements are true: zero differs from five, and five is less than twenty-nine. Choose a subject and examine its claims.", defines: math29}
       - "Reading levels describe choices, not people."
 
   - id: RPI-0001
@@ -160,7 +192,7 @@ sources:
     title: Dedekind–Peano recursion equations for addition (x + 0 = x; x + S y = S(x + y))
     location: R. Dedekind, Was sind und was sollen die Zahlen? (1888); G. Peano, Arithmetices principia (1889)
     status: available
-    note: foundational; the two equations are registered axioms in spec/peano.rlt
+    note: foundational; the two equations are the registered axiom set PEANO-ADD (spec/axioms.yaml)
 
   - id: FOUNDATIONAL-EQUALITY
     title: Equational logic rules (reflexivity, symmetry, transitivity, congruence, instantiation)

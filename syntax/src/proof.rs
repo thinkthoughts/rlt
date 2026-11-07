@@ -19,12 +19,13 @@ pub struct ProofFile {
     pub goal: Written,
     pub mode: Mode,
     pub assumptions: Vec<(String, Written)>,
-    pub axioms_file: String,
+    /// Id of a registered axiom set (spec/axioms.yaml); never a path.
+    pub axiom_set: String,
     pub steps: Vec<Step>,
 }
 
 /// Largest numeral accepted in proof syntax (kernel numerals are unary).
-pub const MAX_NUMERAL: u64 = 10_000;
+pub const MAX_NUMERAL: u64 = 1_000;
 
 /// A term in proof syntax: integers are numerals; `(S t)`, `(+ a b)`;
 /// other symbols become constants, which the kernel's sort check judges.
@@ -105,8 +106,53 @@ fn step(e: &Sexp) -> Result<Step, String> {
     })
 }
 
+/// Axiom-set ids: upper-case letters, digits and `-`.
+fn is_set_id(s: &str) -> bool {
+    !s.is_empty()
+        && s.chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '-')
+}
+
+/// Record ids (reading points, relationships): lower-case letters, digits, `.`, `_`, `-`;
+/// no path separators and no `..`.
+pub fn record_id(s: String) -> Result<String, String> {
+    let ok = !s.is_empty()
+        && !s.starts_with('.')
+        && !s.contains("..")
+        && s.chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || ".-_".contains(c));
+    if ok {
+        Ok(s)
+    } else {
+        Err(format!(
+            "record id `{s}`: use lower-case letters, digits, `.`, `_`, `-`"
+        ))
+    }
+}
+
+/// Upper bound on the term nodes a proof file may build (numerals are unary).
+pub const MAX_FILE_NODES: u64 = 1_000_000;
+
+fn node_budget(e: &Sexp) -> u64 {
+    match e {
+        Sexp::Int(n) => n.saturating_add(1),
+        Sexp::List(v) => v
+            .iter()
+            .fold(1u64, |acc, x| acc.saturating_add(node_budget(x))),
+        _ => 1,
+    }
+}
+
 pub fn parse_proof_file(src: &str) -> Result<ProofFile, String> {
     let top = parse_all(src)?;
+    let budget = top
+        .iter()
+        .fold(0u64, |a, e| a.saturating_add(node_budget(e)));
+    if budget > MAX_FILE_NODES {
+        return Err(format!(
+            "proof file would build {budget} term nodes, above the limit {MAX_FILE_NODES}"
+        ));
+    }
     let [root] = top.as_slice() else {
         return Err("a proof file holds exactly one (rlt-proof …) form".into());
     };
@@ -122,7 +168,7 @@ pub fn parse_proof_file(src: &str) -> Result<ProofFile, String> {
         goal: Written::new(""),
         mode: Mode::Unconditional,
         assumptions: Vec::new(),
-        axioms_file: String::new(),
+        axiom_set: String::new(),
         steps: Vec::new(),
     };
     let mut mode_seen = false;
@@ -132,10 +178,13 @@ pub fn parse_proof_file(src: &str) -> Result<ProofFile, String> {
             .ok_or(format!("field: expected (key value…), found {f:?}"))?;
         match key {
             "id" => pf.id = string_of(rest, key)?,
-            "readingpoint" => pf.readingpoint = Some(string_of(rest, key)?),
-            "relationship" => pf.relationship = Some(string_of(rest, key)?),
+            "readingpoint" => pf.readingpoint = Some(record_id(string_of(rest, key)?)?),
+            "relationship" => pf.relationship = Some(record_id(string_of(rest, key)?)?),
             "convention" => pf.convention = string_of(rest, key)?,
-            "axioms" => pf.axioms_file = string_of(rest, key)?,
+            "axioms" => match rest {
+                [Sexp::Sym(id)] if is_set_id(id) => pf.axiom_set = id.clone(),
+                _ => return Err("(axioms SET-ID): name a registered axiom set, e.g. (axioms PEANO-ADD); paths are refused".into()),
+            },
             "goal" => pf.goal = Written::new(&string_of(rest, key)?),
             "context" => match rest {
                 [Sexp::Sym(name), Sexp::Sym(kind)] => {
@@ -164,7 +213,7 @@ pub fn parse_proof_file(src: &str) -> Result<ProofFile, String> {
     for (k, empty) in [
         ("id", pf.id.is_empty()),
         ("convention", pf.convention.is_empty()),
-        ("axioms", pf.axioms_file.is_empty()),
+        ("axioms", pf.axiom_set.is_empty()),
         ("goal", pf.goal.text.is_empty()),
     ] {
         if empty {
@@ -224,4 +273,44 @@ pub fn parse_axiom_file(src: &str) -> Result<Vec<Axiom>, String> {
             Axiom::new(name, vars.clone(), formula(eq, &vars)?, &source)
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const OK: &str = r#"(rlt-proof (id t) (readingpoint math5) (relationship math5.pairing)
+        (convention NAT-DEC) (goal "1 = 1") (mode unconditional) (axioms PEANO-ADD)
+        (steps (s1 (= 1 1) (refl 1))))"#;
+
+    #[test]
+    fn a_well_formed_file_parses() {
+        let pf = parse_proof_file(OK).unwrap();
+        assert_eq!(pf.axiom_set, "PEANO-ADD");
+        assert_eq!(pf.steps.len(), 1);
+    }
+
+    #[test]
+    fn axiom_paths_are_refused() {
+        let bad = OK.replace("(axioms PEANO-ADD)", r#"(axioms "spec/peano.rlt")"#);
+        assert!(parse_proof_file(&bad).unwrap_err().contains("paths are refused"));
+        let bad = OK.replace("(axioms PEANO-ADD)", "(axioms ../x)");
+        assert!(parse_proof_file(&bad).is_err());
+    }
+
+    #[test]
+    fn record_ids_reject_traversal() {
+        let bad = OK.replace("(readingpoint math5)", r#"(readingpoint "../../etc/hostname")"#);
+        assert!(parse_proof_file(&bad).unwrap_err().contains("record id"));
+        assert!(record_id("math5.pairing".into()).is_ok());
+        assert!(record_id("a/b".into()).is_err());
+    }
+
+    #[test]
+    fn oversized_files_are_refused_before_building_terms() {
+        let wide = OK.replace("(refl 1)", &format!("(refl {})", "(S ".repeat(10) + "1000" + &")".repeat(10)));
+        assert!(parse_proof_file(&wide).is_ok());
+        let huge = OK.replace("(steps", &format!("(steps {}", "(x (= 999 999) (refl 999)) ".repeat(1200)));
+        assert!(parse_proof_file(&huge).unwrap_err().contains("term nodes"));
+    }
 }

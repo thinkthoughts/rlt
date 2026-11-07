@@ -3,12 +3,16 @@
 id: math5
 
 meanings:
-  - text: "Pairing through 5 to 6."
+  - text: "math5: Pairing through 5 to 6."
     source: USER-2026-11-07
-  - text: "local anatomy"
+  - text: "Math5 comprehension (now) specifies +1 reading level: local anatomy."
     source: NEWS-MATH05
-  - text: "local anatomy"
+  - text: "Math5: local anatomy"
     source: RLT-INIT
+  - text: "Math5 reading level"
+    source: RLT-INDEX
+  - text: "Math5: pair through five to six"
+    source: RLT-INDEX
   - text: "pair through 5 to 6"
     source: RLT-INDEX
   - text: "MATH5 · COUNTING"
@@ -17,9 +21,13 @@ meanings:
     source: REPAIREARTH
   - text: "Count objects. Specify people, properties, and context."
     source: REPAIREARTH
+  - text: "Math5 · Identify"
+    source: REPAIREARTH
+  - text: "Count five identifiable objects. Specify what one object means and observe any physical context."
+    source: REPAIREARTH
 
 examples:
-  - written: "A grandma's left lung works with her right lung to support breathing and the exchange of O₂ and CO₂. A CO₂ molecule and an O₂ molecule together consist of 1+1+1+1+1 = 5 atoms."
+  - written: "For instance (nonfiction): A grandma's left lung works with her right lung to support breathing and the exchange of O₂ and CO₂. A CO₂ molecule and an O₂ molecule together consist of 1+1+1+1+1 = 5 atoms."
     source: NEWS-MATH05
   - written: "1 + 1 + 1 + 1 + 1 = 5"
     source: REPAIREARTH

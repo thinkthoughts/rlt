@@ -1,4 +1,4 @@
-use rlt_cli::{check_file, rp_report, validate, written_report, MALFORMED};
+use rlt_cli::{check_file, lean_export, rp_report, validate, written_report, MALFORMED};
 use std::path::PathBuf;
 
 const USAGE: &str = "\
@@ -7,10 +7,21 @@ usage:
   rlt written A CONV_A B CONV_B          written identity and elaboration of two expressions
   rlt rp ID                              a reading point: meanings, relationships, correspondence
   rlt validate                           consistency of sources, conventions and records
+  rlt lean FILE...                       Lean 4 replay of the accepted statements
 options:
   --root DIR                             repository root (default: current directory)";
 
 fn main() {
+    // Kernel terms are trees and numerals are unary chains; give the checker a
+    // generous stack so every input within the parser limits completes.
+    let worker = std::thread::Builder::new()
+        .stack_size(64 * 1024 * 1024)
+        .spawn(run)
+        .expect("spawn checker thread");
+    std::process::exit(worker.join().unwrap_or(MALFORMED));
+}
+
+fn run() -> i32 {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
     let mut root = PathBuf::from(".");
     if let Some(i) = args.iter().position(|a| a == "--root") {
@@ -42,6 +53,12 @@ fn main() {
             print!("{}", r.text);
             r.code
         }
+        Some("lean") if args.len() >= 2 => {
+            let files: Vec<PathBuf> = args[1..].iter().map(|f| root.join(f)).collect();
+            let r = lean_export(&root, &files);
+            print!("{}", r.text);
+            r.code
+        }
         Some("validate") if args.len() == 1 => {
             let r = validate(&root);
             print!("{}", r.text);
@@ -52,5 +69,5 @@ fn main() {
             MALFORMED
         }
     };
-    std::process::exit(code);
+    code
 }

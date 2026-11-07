@@ -6,7 +6,7 @@ statements RLT's kernel accepted or rejected, using Lean's own `Nat`.
 It sits outside RLT's trusted computing base: agreement between the two
 checkers is evidence, and RLT's verdicts come from rlt-kernel alone.
 
-Run: lean lean/RLT001.lean
+Run: cd lean && lean RLT001.lean   (elan selects lean/lean-toolchain)
 -/
 
 namespace RLT001

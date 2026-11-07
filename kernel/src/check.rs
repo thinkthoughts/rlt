@@ -137,6 +137,12 @@ fn apply(
 pub fn check(proof: &ProofObject, axioms: &[Axiom]) -> Verdict {
     let mut registered: BTreeMap<String, Axiom> = BTreeMap::new();
     for a in axioms {
+        if RULES.contains(&a.name()) {
+            return reject(
+                None,
+                format!("axiom name `{}` collides with a rule name", a.name()),
+            );
+        }
         if registered.insert(a.name().to_string(), a.clone()).is_some() {
             return reject(None, format!("axiom `{}` registered twice", a.name()));
         }
@@ -153,6 +159,12 @@ pub fn check(proof: &ProofObject, axioms: &[Axiom]) -> Verdict {
         }
         if declared.insert(name.clone(), f.clone()).is_some() {
             return reject(None, format!("assumption `{name}` declared twice"));
+        }
+        if axioms.contains_key(name) || RULES.contains(&name.as_str()) {
+            return reject(
+                None,
+                format!("assumption name `{name}` collides with an axiom or rule name"),
+            );
         }
     }
     let mut done: BTreeMap<String, Theorem> = BTreeMap::new();

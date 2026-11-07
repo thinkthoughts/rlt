@@ -1,0 +1,7 @@
+(rlt-proof
+  (id K11_inst_illsorted)
+  (convention NAT-DEC)
+  (goal "5 + 0 = 5")
+  (mode unconditional)
+  (axioms PEANO-ADD)
+  (steps (s1 (= (+ (S 1 2) 0) (S 1 2)) (inst add_zero (x (S 1 2))))))

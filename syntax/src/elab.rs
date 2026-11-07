@@ -28,6 +28,8 @@ pub fn elaborate_term(w: &Written, conv: &Convention) -> Result<Term, String> {
             let mut p = Parser {
                 toks: &w.tokens,
                 pos: 0,
+                depth: 0,
+                numeral_total: 0,
             };
             let t = p.expr()?;
             p.end()?;
@@ -61,6 +63,8 @@ pub fn elaborate_formula(w: &Written, conv: &Convention) -> Result<Formula, Stri
     let mut p = Parser {
         toks: &w.tokens,
         pos: 0,
+        depth: 0,
+        numeral_total: 0,
     };
     let lhs = p.expr()?;
     p.expect("=")?;
@@ -69,9 +73,15 @@ pub fn elaborate_formula(w: &Written, conv: &Convention) -> Result<Formula, Stri
     Ok(Formula::new(lhs, rhs))
 }
 
+/// Maximum parenthesis depth and total numeral size accepted by NAT-DEC.
+pub const MAX_PAREN_DEPTH: usize = 256;
+pub const MAX_NUMERAL_TOTAL: u64 = 200_000;
+
 struct Parser<'a> {
     toks: &'a [String],
     pos: usize,
+    depth: usize,
+    numeral_total: u64,
 }
 
 impl Parser<'_> {
@@ -111,8 +121,15 @@ impl Parser<'_> {
     fn atom(&mut self) -> Result<Term, String> {
         match self.peek() {
             Some("(") => {
+                if self.depth >= MAX_PAREN_DEPTH {
+                    return Err(format!(
+                        "NAT-DEC: parentheses nested deeper than {MAX_PAREN_DEPTH}"
+                    ));
+                }
                 self.pos += 1;
+                self.depth += 1;
                 let t = self.expr()?;
+                self.depth -= 1;
                 self.expect(")")?;
                 Ok(t)
             }
@@ -120,9 +137,16 @@ impl Parser<'_> {
                 let n: u64 = tok
                     .parse()
                     .map_err(|e| format!("NAT-DEC numeral `{tok}`: {e}"))?;
-                if n > 10_000 {
+                if n > crate::proof::MAX_NUMERAL {
                     return Err(format!(
-                        "NAT-DEC: numeral {n} exceeds the RLT-001 unary limit 10000"
+                        "NAT-DEC: numeral {n} exceeds the RLT-001 unary limit {}",
+                        crate::proof::MAX_NUMERAL
+                    ));
+                }
+                self.numeral_total += n;
+                if self.numeral_total > MAX_NUMERAL_TOTAL {
+                    return Err(format!(
+                        "NAT-DEC: numerals total more than {MAX_NUMERAL_TOTAL} in one expression"
                     ));
                 }
                 self.pos += 1;
