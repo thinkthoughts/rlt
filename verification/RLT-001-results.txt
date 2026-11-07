@@ -1,5 +1,5 @@
 RLT-001 verification
-commit   838417682c8c3c8dfe05b3094e6fc17cdf53fe5c
+commit   2428e3a39ca0b2ee106fa8379ca5396870ae8dce
 rustc    rustc 1.97.0 (2d8144b78 2026-07-07)
 
 == build
@@ -7,7 +7,7 @@ ok
 
 == cargo test (unit + golden)
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
-test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 == proof files (expect accept → exit 0, reject → exit 1)
