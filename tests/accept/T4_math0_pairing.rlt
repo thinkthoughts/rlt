@@ -1,0 +1,16 @@
+; T4 · accept — math0 relationship 1 + 1 = 2. The written expressions "1+1"
+; and "2" are distinct (tests/written/T4_written.args); this proof establishes
+; their mathematical equality under NAT-DEC.
+(rlt-proof
+  (id T4.math0.pairing)
+  (readingpoint math0)
+  (relationship math0.pairing)
+  (convention NAT-DEC)
+  (goal "1 + 1 = 2")
+  (mode unconditional)
+  (axioms "spec/peano.rlt")
+  (steps
+    (s1 (= (+ 1 (S 0)) (S (+ 1 0)))  (inst add_succ (x 1) (y 0)))
+    (s2 (= (+ 1 0) 1)                (inst add_zero (x 1)))
+    (s3 (= (S (+ 1 0)) (S 1))        (cong S s2))
+    (s4 (= (+ 1 (S 0)) (S 1))        (trans s1 s3))))

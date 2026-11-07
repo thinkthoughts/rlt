@@ -1,0 +1,19 @@
+[package]
+name = "rlt"
+description = "RLT command-line checker"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "rlt"
+path = "src/main.rs"
+
+[lib]
+name = "rlt_cli"
+path = "src/lib.rs"
+
+[dependencies]
+rlt-kernel = { path = "../kernel" }
+rlt-syntax = { path = "../syntax" }

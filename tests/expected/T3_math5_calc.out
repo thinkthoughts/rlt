@@ -1,0 +1,28 @@
+RLT check       tests/reject/T3_math5_calc.rlt
+proof id        T3.math5.calc
+reading point   math5
+  meaning       "Pairing through 5 to 6."  [USER-2026-11-07]
+  meaning       "local anatomy"  [NEWS-MATH05]
+  meaning       "local anatomy"  [RLT-INIT]
+  meaning       "pair through 5 to 6"  [RLT-INDEX]
+  meaning       "MATH5 · COUNTING"  [REPAIREARTH]
+  meaning       "Identify"  [REPAIREARTH]
+  meaning       "Count objects. Specify people, properties, and context."  [REPAIREARTH]
+relationship    math5.pairing
+written goal    "5 + 1 = 6"
+  tokens        5 · + · 1 · = · 6
+convention      NAT-DEC (authority: interpretation)
+checked goal    5 + 1 = 6
+  kernel form   +(S(S(S(S(S(0))))), S(0)) = S(S(S(S(S(S(0))))))
+mode            unconditional (requires Γ = ∅)
+axiom file      spec/peano.rlt
+  axiom         add_zero : ∀ x. x + 0 = x  [PEANO]
+  axiom         add_succ : ∀ x y. x + S(y) = S(x + y)  [PEANO]
+steps           1
+verdict         REJECT at step s1 — rule `calc` is unregistered (registered: refl, symm, trans, cong, inst, hyp)
+physical        math5.counting [behavior]: unestablished (evidence: 0)
+physical        math5.lungs [referent]: unestablished (evidence: 0)
+physical        math5.gas-exchange [referent]: unestablished (evidence: 0)
+physical        math5.atoms [referent]: unestablished (evidence: 0)
+  note          physical statuses come from evidence records; the kernel verdict leaves them unchanged
+exit 1

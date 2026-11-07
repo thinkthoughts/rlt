@@ -1,0 +1,11 @@
+[package]
+name = "rlt-syntax"
+description = "RLT untrusted layer: written expressions, conventions, elaboration, proof-file and record parsing"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+rlt-kernel = { path = "../kernel" }
+yaml-rust2 = "0.10"

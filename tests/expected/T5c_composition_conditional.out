@@ -1,0 +1,34 @@
+RLT check       tests/accept/T5c_composition_conditional.rlt
+proof id        T5c.composition.conditional
+reading point   math0
+  meaning       "Pairing (1+1) with imagination."  [USER-2026-11-07]
+  meaning       "local imagination"  [NEWS-MATH00]
+  meaning       "local imagination"  [RLT-INIT]
+  meaning       "count from zero"  [RLT-INDEX]
+  meaning       "MATH0 · FICTION"  [REPAIREARTH]
+  meaning       "Imagine"  [REPAIREARTH]
+  meaning       "An intentionally false equation. Explore an imaginary reading."  [REPAIREARTH]
+context         F1 (fiction)
+written goal    "1 + 1 + 1 = 3 + 1"
+  tokens        1 · + · 1 · + · 1 · = · 3 · + · 1
+written assume  h : "1 + 1 = 3"
+convention      NAT-DEC (authority: interpretation)
+checked goal    (1 + 1) + 1 = 3 + 1
+  kernel form   +(+(S(0), S(0)), S(0)) = +(S(S(S(0))), S(0))
+declared        h : 1 + 1 = 3
+  kernel form   +(S(0), S(0)) = S(S(S(0)))
+mode            conditional (Γ ⊆ declared assumptions)
+axiom file      spec/peano.rlt
+  axiom         add_zero : ∀ x. x + 0 = x  [PEANO]
+  axiom         add_succ : ∀ x y. x + S(y) = S(x + y)  [PEANO]
+steps           3
+proved          (1 + 1) + 1 = 3 + 1
+assumptions     Γ = { h : 1 + 1 = 3 }
+axioms used     none
+verdict         ACCEPT — conditional theorem
+physical        math0.imagining [behavior]: unestablished (evidence: 0)
+physical        math0.emoji [representation]: inapplicable (evidence: 0)
+physical        math0.lungs [referent]: unestablished (evidence: 0)
+physical        math0.emoji-breathing [referent]: imagined (evidence: 0)
+  note          physical statuses come from evidence records; the kernel verdict leaves them unchanged
+exit 0

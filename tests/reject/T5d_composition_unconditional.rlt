@@ -1,0 +1,16 @@
+; T5d · reject — T5c requested as an unconditional theorem.
+; From the imagined assumption h : 1 + 1 = 3, cong over + carries h into
+; (1 + 1) + 1 = 3 + 1; h survives composition, so the request is refused.
+(rlt-proof
+  (id T5d.composition.unconditional)
+  (readingpoint math0)
+  (context F1 fiction)
+  (convention NAT-DEC)
+  (goal "1 + 1 + 1 = 3 + 1")
+  (assume h "1 + 1 = 3")
+  (mode unconditional)
+  (axioms "spec/peano.rlt")
+  (steps
+    (s1 (= (+ 1 1) 3)              (hyp h))
+    (s2 (= 1 1)                    (refl 1))
+    (s3 (= (+ (+ 1 1) 1) (+ 3 1))  (cong + s1 s2))))

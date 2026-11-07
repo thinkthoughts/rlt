@@ -1,0 +1,10 @@
+[package]
+name = "rlt-kernel"
+description = "RLT trusted proof kernel: equational sequents over Peano numerals"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# The kernel is the trusted computing base. It has zero dependencies by design.
+[dependencies]

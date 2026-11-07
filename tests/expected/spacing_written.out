@@ -1,0 +1,8 @@
+written A       "1+1"  tokens: 1 · + · 1
+written B       "1 + 1"  tokens: 1 · + · 1
+written ≡w      identical
+elaborated A    1 + 1 under NAT-DEC  kernel form: +(S(0), S(0))
+elaborated B    1 + 1 under NAT-DEC  kernel form: +(S(0), S(0))
+terms           structurally identical
+equality        decided only by a kernel proof (`rlt check`); this report proves nothing
+exit 0

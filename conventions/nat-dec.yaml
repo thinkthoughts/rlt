@@ -1,0 +1,13 @@
+id: NAT-DEC
+title: Decimal natural-number arithmetic
+elaborator: nat-dec
+authority: interpretation   # selects a reading of notation; proofs come only from the kernel
+reading:
+  - "A run of decimal digits n denotes the numeral S^n(0)."
+  - "+ denotes addition on the natural numbers and groups to the left: a + b + c reads (a + b) + c."
+  - "= denotes equality on the natural numbers."
+  - "Parentheses group."
+sources: [PEANO]
+limits:
+  - "RLT-001 numerals are unary in the kernel and capped at 10000."
+  - "×, <, >, ≠, ∧, mod and units are outside NAT-DEC in RLT-001."

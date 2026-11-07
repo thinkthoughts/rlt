@@ -1,0 +1,12 @@
+; T3 · reject — the calculator case: the claimed equation is true, and the
+; step cites an unregistered rule `calc` instead of a derivation.
+(rlt-proof
+  (id T3.math5.calc)
+  (readingpoint math5)
+  (relationship math5.pairing)
+  (convention NAT-DEC)
+  (goal "5 + 1 = 6")
+  (mode unconditional)
+  (axioms "spec/peano.rlt")
+  (steps
+    (s1 (= (+ 5 1) 6) (calc))))

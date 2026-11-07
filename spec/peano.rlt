@@ -1,0 +1,5 @@
+; Registered axioms for RLT-001 (trusted inputs, printed with every result).
+; (axiom NAME (VARS…) (= LHS RHS) (source SOURCE-ID))
+
+(axiom add_zero (x)   (= (+ x 0) x)                 (source PEANO))
+(axiom add_succ (x y) (= (+ x (S y)) (S (+ x y)))   (source PEANO))

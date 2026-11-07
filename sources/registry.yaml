@@ -1,0 +1,189 @@
+# RLT source registry (component A).
+#
+# Each source has an id, a location, the commit or date it was read at, a
+# status (available | missing | ambiguous), and verbatim excerpts copied from
+# the file at that commit. Reading-point meanings and examples must appear
+# inside an excerpt of the source they cite (`rlt validate` checks this).
+# A source is an input to interpretation; a source never proves a statement.
+
+sources:
+
+  - id: USER-2026-11-07
+    title: Foundational reading-point definitions supplied for RLT-000
+    location: RLT-000 review conversation, 2026-11-07
+    status: available
+    excerpts:
+      - "math0: Pairing (1+1) with imagination."
+      - "math5: Pairing through 5 to 6."
+      - "math29: Pairing through 29 to 30."
+      - "These are names for mathematical reading points, not conventional educational reading-grade scores."
+
+  - id: RLT-000-REFINEMENT
+    title: RLT-000 final specification refinement and approval
+    location: RLT-000 review conversation, 2026-11-07
+    status: available
+    excerpts:
+      - "Treat imagination as physically situated human behavior without treating imagined objects as physically established."
+      - "Keep `imagined` separate from mathematical validity and physical evidence status. An imagined expression may be represented and examined without its physical referent being established."
+      - "A theorem may be reported as unconditional only when its assumption context is empty."
+
+  - id: NEWS-MATH00
+    title: MATH_00.md
+    location: https://github.com/thinkthoughts/news/blob/1ffd5ea9886386dc0b16c13499ecfe2ed59fd9e9/MATH_00.md
+    commit: 1ffd5ea9886386dc0b16c13499ecfe2ed59fd9e9
+    status: available
+    excerpts:
+      - "Math0 comprehension (now) specifies +1 reading level: local imagination."
+      - "For instance (<a href=\"https://c5.now/\">nonfiction</a>): A 🫁 lungs emoji represents human lungs. The emoji itself neither breathes nor exhales CO₂."
+
+  - id: NEWS-MATH05
+    title: MATH_05.md
+    location: https://github.com/thinkthoughts/news/blob/1ffd5ea9886386dc0b16c13499ecfe2ed59fd9e9/MATH_05.md
+    commit: 1ffd5ea9886386dc0b16c13499ecfe2ed59fd9e9
+    status: available
+    excerpts:
+      - "Math5 comprehension (now) specifies +1 reading level: local anatomy."
+      - "For instance (<a href=\"https://c5.now/\">nonfiction</a>): A grandma's left lung works with her right lung to support breathing and the exchange of O₂ and CO₂. A CO₂ molecule and an O₂ molecule together consist of 1+1+1+1+1 = 5 atoms."
+
+  - id: NEWS-MATH29
+    title: MATH_29.md
+    location: https://github.com/thinkthoughts/news/blob/1ffd5ea9886386dc0b16c13499ecfe2ed59fd9e9/MATH_29.md
+    commit: 1ffd5ea9886386dc0b16c13499ecfe2ed59fd9e9
+    status: available
+    excerpts:
+      - "Math29 comprehension (now) specifies +1 reading level: everything else."
+      - "For instance (<a href=\"https://c5.now/\">nonfiction</a>): (1+1) × 3 × 5 = 30 > 29, where every prime > 5 resists division by 2, 3, and 5 and corresponds to one of eight residue classes modulo 30:"
+      - "{1, 7, 11, 13, 17, 19, 23, 29}: 17111317192329"
+
+  - id: RLT-INDEX
+    title: rlt/index.html (current site page)
+    location: https://github.com/thinkthoughts/rlt/blob/838417682c8c3c8dfe05b3094e6fc17cdf53fe5c/index.html
+    commit: 838417682c8c3c8dfe05b3094e6fc17cdf53fe5c
+    status: available
+    excerpts:
+      - "<span class=\"instruction\">count from zero</span>"
+      - "<span class=\"instruction\">pair through 5 to 6</span>"
+      - "<span class=\"instruction\">pair through 29 to 30</span>"
+      - "<p>That is (for instance): a specific stop sign, as a reading point identifier (<strong>RPI</strong>), specifies <span class=\"red\">where to stop (math0)</span>, <span class=\"yellow\">a driver (math5)</span>, and <span class=\"green\">their immediate context (math29)</span>.</p>"
+
+  - id: RLT-INIT
+    title: rlt/init.html (initial site page)
+    location: https://github.com/thinkthoughts/rlt/blob/838417682c8c3c8dfe05b3094e6fc17cdf53fe5c/init.html
+    commit: 838417682c8c3c8dfe05b3094e6fc17cdf53fe5c
+    status: available
+    excerpts:
+      - "aria-label=\"Math0: local imagination\""
+      - "aria-label=\"Math5: local anatomy\""
+      - "aria-label=\"Math29: everything else\""
+
+  - id: REPAIREARTH
+    title: repairearth.ai Reading Point · 001
+    location: https://github.com/thinkthoughts/translatepi/blob/a4aa40d4b71bbcf633db04bf87866178af419f89/sites/repairearth.ai/index.html
+    commit: a4aa40d4b71bbcf633db04bf87866178af419f89
+    status: available
+    excerpts:
+      - "<span class=\"num\">MATH0 · FICTION</span><span class=\"equation\">1 + 1 + 1 + 1 + 1 = 0</span><span class=\"name\">Imagine</span><span class=\"desc\">An intentionally false equation. Explore an imaginary reading.</span>"
+      - "<span class=\"num\">MATH5 · COUNTING</span><span class=\"equation\">1 + 1 + 1 + 1 + 1 = 5</span><span class=\"name\">Identify</span><span class=\"desc\">Count objects. Specify people, properties, and context.</span>"
+      - "<span class=\"num\">MATH29 · READING POINT</span><span class=\"equation\">(0 ≠ 5) ∧ (5 &lt; 29)</span><span class=\"name\">Investigate</span>"
+      - "Reading levels describe choices, not people."
+
+  - id: RPI-0001
+    title: lean-coprime-matchings RPI-0001 documentation layers (Identify / Constrain / Verify)
+    location: https://github.com/thinkthoughts/lean-coprime-matchings (specs/RPI-0001.md)
+    status: ambiguous
+    note: related usage of the names math0/math5/math29 as documentation layers; read from a prior session, unverified at a commit here
+
+  - id: TRANSLATEPI-261018
+    title: translatepi.ai homepage, 2026-10-18 edition
+    location: https://github.com/thinkthoughts/translatepi/blob/a4aa40d4b71bbcf633db04bf87866178af419f89/sites/translatepi.ai/index_261018.html
+    commit: a4aa40d4b71bbcf633db04bf87866178af419f89
+    status: available
+    excerpts:
+      - "\\pi\\ \\text{symbol} \\longrightarrow \\text{usage} \\longrightarrow \\text{specified relation} \\longrightarrow \\text{translation}"
+      - "same \\(\\pi\\) symbol \\(\\neq\\) same specification"
+      - "specified parts → relation → motion"
+      - "The lift is carried by explicit relations, not the shared symbol alone."
+
+  - id: TRANSLATEPI-LEAN4
+    title: translatepi.ai/lean4 verification survey
+    location: https://github.com/thinkthoughts/translatepi/blob/a4aa40d4b71bbcf633db04bf87866178af419f89/sites/translatepi.ai/lean4/index.html
+    commit: a4aa40d4b71bbcf633db04bf87866178af419f89
+    status: available
+    excerpts:
+      - "PiπΠ · conditional arrows retain their premises"
+      - "13 Specified · 3 Proposed"
+      - "Verified lifts"
+      - "LIFT-0001 · core-only control"
+
+  - id: TRANSLATEPI-INDEX
+    title: translatepi.ai homepage (current)
+    location: https://github.com/thinkthoughts/translatepi/blob/a4aa40d4b71bbcf633db04bf87866178af419f89/sites/translatepi.ai/index.html
+    commit: a4aa40d4b71bbcf633db04bf87866178af419f89
+    status: available
+    excerpts:
+      - "Admissible generalizations trail leading specifications. &middot; Pi&pi;&Pi;"
+
+  - id: ANTIVIOLENCE-FEED-CONCEIVABLE
+    title: antiviolence.ai feed post citing translatepi.ai
+    location: https://github.com/thinkthoughts/antiviolence/blob/48b8dcd7631df835a2ac152b0c45e020ed56a230/sites/antiviolence.ai/feed.json
+    commit: 48b8dcd7631df835a2ac152b0c45e020ed56a230
+    status: available
+    url: https://x.com/dan_hawkley/status/2105794307861225641
+    excerpts:
+      - "conceivable≠ measured\nspecification→PiπΠ lift→claim\ntranslatepi.ai"
+
+  - id: RML-CORRESPONDENCE
+    title: residue-manifold-learning specs/correspondence.yaml (physical-correspondence firewall)
+    location: https://github.com/thinkthoughts/residue-manifold-learning/blob/02fbef4/specs/correspondence.yaml
+    commit: 02fbef4
+    status: available
+    excerpts:
+      - "status_values: [unestablished, supported, rejected, inapplicable]"
+      - "allowed_support:\n  - physical_measurement\n  - experimentally_grounded_observation"
+
+  - id: SG-0001
+    title: specification-grammar SG_0001_SPECIFICATION_ROLES.md
+    location: https://github.com/thinkthoughts/specification-grammar/blob/d958b81/SG_0001_SPECIFICATION_ROLES.md
+    commit: d958b81
+    status: available
+    excerpts:
+      - "\"Admissible generalizations trail leading specifications\""
+
+  - id: GDT
+    title: General Divisor Theorem (Lean formalization, v1.0.0)
+    location: https://github.com/thinkthoughts/general-divisor-theorem/tree/ec66260
+    commit: ec66260
+    status: available
+    note: supplies the mod-30 residue theorem for later congruence work; RLT-001 uses none of it
+
+  - id: PEANO
+    title: Dedekind–Peano recursion equations for addition (x + 0 = x; x + S y = S(x + y))
+    location: R. Dedekind, Was sind und was sollen die Zahlen? (1888); G. Peano, Arithmetices principia (1889)
+    status: available
+    note: foundational; the two equations are registered axioms in spec/peano.rlt
+
+  - id: FOUNDATIONAL-EQUALITY
+    title: Equational logic rules (reflexivity, symmetry, transitivity, congruence, instantiation)
+    location: standard first-order equational logic (Birkhoff, 1935)
+    status: available
+    note: the kernel rules refl, symm, trans, cong, inst; hyp is the assumption rule of sequent calculus
+
+  - id: CHATGPT-RLT-DISCUSSION
+    title: Provided ChatGPT RLT specification history
+    status: missing
+
+  - id: SDG5-SPECIFICATION
+    title: SDG5 specification document
+    status: missing
+    note: SDG5 appears as a label (SDG5 = 1+1+1+1+1) in antiviolence.ai feed posts
+
+  - id: CO2-SPECIFICATIONS
+    title: CO₂ specifications
+    status: missing
+    note: CO₂ appears inside the MATH_00 and MATH_05 examples; c5.now was unreachable from the review session
+
+  - id: FORMALIZE-NOW
+    title: formalize.now
+    location: https://formalize.now/
+    status: missing
+    note: unreachable from the review session

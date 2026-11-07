@@ -1,0 +1,14 @@
+; math29 relationship 29 + 1 = 30 (same four-step shape as T1).
+(rlt-proof
+  (id R.math29.pairing)
+  (readingpoint math29)
+  (relationship math29.pairing)
+  (convention NAT-DEC)
+  (goal "29 + 1 = 30")
+  (mode unconditional)
+  (axioms "spec/peano.rlt")
+  (steps
+    (s1 (= (+ 29 (S 0)) (S (+ 29 0)))  (inst add_succ (x 29) (y 0)))
+    (s2 (= (+ 29 0) 29)                (inst add_zero (x 29)))
+    (s3 (= (S (+ 29 0)) (S 29))        (cong S s2))
+    (s4 (= (+ 29 (S 0)) (S 29))        (trans s1 s3))))

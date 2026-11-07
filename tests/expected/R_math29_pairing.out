@@ -1,0 +1,27 @@
+RLT check       tests/accept/R_math29_pairing.rlt
+proof id        R.math29.pairing
+reading point   math29
+  meaning       "Pairing through 29 to 30."  [USER-2026-11-07]
+  meaning       "everything else"  [NEWS-MATH29]
+  meaning       "everything else"  [RLT-INIT]
+  meaning       "pair through 29 to 30"  [RLT-INDEX]
+  meaning       "MATH29 · READING POINT"  [REPAIREARTH]
+  meaning       "Investigate"  [REPAIREARTH]
+relationship    math29.pairing
+written goal    "29 + 1 = 30"
+  tokens        29 · + · 1 · = · 30
+convention      NAT-DEC (authority: interpretation)
+checked goal    29 + 1 = 30
+  kernel form   +(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(0))))))))))))))))))))))))))))), S(0)) = S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(0))))))))))))))))))))))))))))))
+mode            unconditional (requires Γ = ∅)
+axiom file      spec/peano.rlt
+  axiom         add_zero : ∀ x. x + 0 = x  [PEANO]
+  axiom         add_succ : ∀ x y. x + S(y) = S(x + y)  [PEANO]
+steps           4
+proved          29 + 1 = 30
+assumptions     Γ = ∅
+axioms used     add_succ, add_zero
+verdict         ACCEPT — unconditional theorem
+physical        math29.context [referent]: unestablished (evidence: 0)
+  note          physical statuses come from evidence records; the kernel verdict leaves them unchanged
+exit 0

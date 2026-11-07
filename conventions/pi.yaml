@@ -1,0 +1,59 @@
+id: PIPIPI
+title: PiπΠ source conventions (translatepi.ai)
+elaborator: none            # interpretive conventions; they elaborate zero expressions
+authority: interpretation
+sources: [TRANSLATEPI-261018, TRANSLATEPI-LEAN4, TRANSLATEPI-INDEX, ANTIVIOLENCE-FEED-CONCEIVABLE, SG-0001]
+reading:
+  - "PI-1 · same π symbol ≠ same specification — RLT: a written expression denotes a term only under a named convention."
+  - "PI-2 · the lift is carried by explicit relations — RLT: a lift lists its relations as checked or pending relationships."
+  - "PI-3 · conditional arrows retain their premises — RLT: kernel theorems are sequents Γ ⊢ φ."
+  - "PI-4 · lift states Proposed, Specified, Verified — RLT: Verified requires a kernel theorem."
+  - "PI-5 · admissible generalizations trail leading specifications — RLT: lifts run from a leading specification."
+  - "PI-6 · conceivable ≠ measured — RLT: an imagined referent keeps status imagined."
+
+# Each convention as stated in its source, verbatim, with the RLT binding.
+conventions:
+  - id: PI-1
+    stated:
+      - "same \\(\\pi\\) symbol \\(\\neq\\) same specification"
+      - "\\pi\\ \\text{symbol} \\longrightarrow \\text{usage} \\longrightarrow \\text{specified relation} \\longrightarrow \\text{translation}"
+    source: TRANSLATEPI-261018
+    binding: "Written identity (≡w) and term identity are separate results; one token under two conventions elaborates to two terms (test: rlt written π REAL-PI π PRIME-COUNT)."
+    implemented_in: "syntax/src/written.rs, syntax/src/elab.rs"
+  - id: PI-2
+    stated:
+      - "specified parts → relation → motion"
+      - "The lift is carried by explicit relations, not the shared symbol alone."
+    source: TRANSLATEPI-261018
+    binding: "A lift record names each relation it relies on; RLT-001 records lifts as proposed."
+    implemented_in: "readingpoints/*.yaml (lifts), cli/src/lib.rs (validate)"
+  - id: PI-3
+    stated:
+      - "PiπΠ · conditional arrows retain their premises"
+    source: TRANSLATEPI-LEAN4
+    binding: "Every kernel result carries its assumption context Γ; every rule's Γ is the union of its premises' Γ; unconditional means Γ = ∅."
+    implemented_in: "kernel/src/rules.rs, kernel/src/check.rs"
+  - id: PI-4
+    stated:
+      - "13 Specified · 3 Proposed"
+      - "Verified lifts"
+    source: TRANSLATEPI-LEAN4
+    binding: "Lift status vocabulary {proposed, specified, verified}; `rlt validate` refuses `verified` in RLT-001."
+    implemented_in: "correspondence/status.yaml, cli/src/lib.rs (validate)"
+  - id: PI-5
+    stated:
+      - "Admissible generalizations trail leading specifications. &middot; Pi&pi;&Pi;"
+    source: TRANSLATEPI-INDEX
+    binding: "Lifts run from a leading specification toward a generalization."
+    implemented_in: "readingpoints/*.yaml (lift direction: from this record, to another)"
+  - id: PI-6
+    stated:
+      - "conceivable≠ measured\nspecification→PiπΠ lift→claim\ntranslatepi.ai"
+    source: ANTIVIOLENCE-FEED-CONCEIVABLE
+    binding: "An imagined referent keeps status `imagined`, distinct from `supported`; promotion requires physical evidence."
+    implemented_in: "correspondence/status.yaml, cli/src/lib.rs (validate)"
+
+# Recorded as unspecified in the sources. RLT assigns them no definition.
+unresolved:
+  - "A formal meaning for each glyph of the triple Pi / π / Π."
+  - "Whether a lift is a function, a relation or a proof term."

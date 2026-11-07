@@ -1,0 +1,15 @@
+; T5a · accept (conditional) — repairearth.ai's intentionally false equation,
+; held as an explicit assumption inside fictional context F0.
+; Result: {h} ⊢ 1 + 1 + 1 + 1 + 1 = 0, reported as conditional.
+(rlt-proof
+  (id T5a.math0.fiction.conditional)
+  (readingpoint math0)
+  (relationship math0.fiction)
+  (context F0 fiction)
+  (convention NAT-DEC)
+  (goal "1 + 1 + 1 + 1 + 1 = 0")
+  (assume h "1 + 1 + 1 + 1 + 1 = 0")
+  (mode conditional)
+  (axioms "spec/peano.rlt")
+  (steps
+    (s1 (= (+ (+ (+ (+ 1 1) 1) 1) 1) 0) (hyp h))))

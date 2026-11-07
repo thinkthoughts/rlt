@@ -1,0 +1,69 @@
+# Reading point math5 (component F). See math0.yaml for the conventions of this file.
+
+id: math5
+
+meanings:
+  - text: "Pairing through 5 to 6."
+    source: USER-2026-11-07
+  - text: "local anatomy"
+    source: NEWS-MATH05
+  - text: "local anatomy"
+    source: RLT-INIT
+  - text: "pair through 5 to 6"
+    source: RLT-INDEX
+  - text: "MATH5 · COUNTING"
+    source: REPAIREARTH
+  - text: "Identify"
+    source: REPAIREARTH
+  - text: "Count objects. Specify people, properties, and context."
+    source: REPAIREARTH
+
+examples:
+  - written: "A grandma's left lung works with her right lung to support breathing and the exchange of O₂ and CO₂. A CO₂ molecule and an O₂ molecule together consist of 1+1+1+1+1 = 5 atoms."
+    source: NEWS-MATH05
+  - written: "1 + 1 + 1 + 1 + 1 = 5"
+    source: REPAIREARTH
+  - written: "a driver (math5)"
+    source: RLT-INDEX
+
+relationships:
+  - id: math5.pairing
+    written: "5 + 1 = 6"
+    convention: NAT-DEC
+    proof: tests/accept/T1_math5_pairing.rlt
+  - id: math5.count
+    written: "1 + 1 + 1 + 1 + 1 = 5"
+    convention: NAT-DEC
+    proof: tests/accept/R_math5_count.rlt
+
+correspondence:
+  - id: math5.counting
+    kind: behavior
+    description: "a person counts five identifiable objects (agent: a counter; place, time and context unspecified)"
+    status: unestablished
+    evidence: []
+    source: REPAIREARTH
+  - id: math5.lungs
+    kind: referent
+    description: "a grandma's left and right lungs supporting breathing"
+    status: unestablished
+    evidence: []
+    source: NEWS-MATH05
+  - id: math5.gas-exchange
+    kind: referent
+    description: "exchange of O₂ and CO₂"
+    status: unestablished
+    evidence: []
+    source: NEWS-MATH05
+  - id: math5.atoms
+    kind: referent
+    description: "a CO₂ molecule and an O₂ molecule together: 5 atoms (typed quantity; units deferred past RLT-001)"
+    status: unestablished
+    evidence: []
+    source: NEWS-MATH05
+
+lifts:
+  - id: math5-to-math29
+    to: math29
+    via: "6 × 5 = 30"
+    status: proposed
