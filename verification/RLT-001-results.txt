@@ -1,22 +1,22 @@
 RLT-001 verification
-commit   687f5e8206d0b7324eda4a6a5900e9cfd2d09136
+commit   6c156191f27e9970ee415c968ddec0754d900c89
 rustc    rustc 1.97.0 (2d8144b78 2026-07-07)
 
 == build
 ok
 
 == cargo test (unit + golden)
-test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
 test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 == proof files (expect accept → exit 0, reject → exit 1)
-tests/accept/R_math29_pairing.rlt                    exit 0  ACCEPT — unconditional theorem from registered axiom set PEANO-ADD
-tests/accept/R_math5_count.rlt                       exit 0  ACCEPT — unconditional theorem from registered axiom set PEANO-ADD
-tests/accept/T1_math5_pairing.rlt                    exit 0  ACCEPT — unconditional theorem from registered axiom set PEANO-ADD
-tests/accept/T4_math0_pairing.rlt                    exit 0  ACCEPT — unconditional theorem from registered axiom set PEANO-ADD
-tests/accept/T5a_math0_fiction_conditional.rlt       exit 0  ACCEPT — conditional theorem from registered axiom set PEANO-ADD
-tests/accept/T5c_composition_conditional.rlt         exit 0  ACCEPT — conditional theorem from registered axiom set PEANO-ADD
+tests/accept/R_math29_pairing.rlt                    exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD
+tests/accept/R_math5_count.rlt                       exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD
+tests/accept/T1_math5_pairing.rlt                    exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD
+tests/accept/T4_math0_pairing.rlt                    exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD
+tests/accept/T5a_math0_fiction_conditional.rlt       exit 0  ACCEPT — conditional theorem relative to registered axiom set PEANO-ADD
+tests/accept/T5c_composition_conditional.rlt         exit 0  ACCEPT — conditional theorem relative to registered axiom set PEANO-ADD
 tests/reject/T2_math5_broken_trans.rlt               exit 1  REJECT at step s3 — trans requires rhs(first) ≡ lhs(second); here `S(5 + 0)` ≢ `5 + 0`
 tests/reject/T3_math5_calc.rlt                       exit 1  REJECT at step s1 — rule `calc` is unregistered (registered: refl, symm, trans, cong, inst, hyp)
 tests/reject/T5b_math0_fiction_unconditional.rlt     exit 1  REJECT — unconditional goal requested, but the result depends on assumptions ["h"]
