@@ -702,8 +702,14 @@ fn points_with(name: &str, edits: &[(&str, &str, &str)]) -> Report {
     r
 }
 
+/// Refused: INVALID (a record failed) or, since T7, MALFORMED (the file or a
+/// pinned input could not be loaded, so no record was read).
 fn assert_points_invalid(r: &Report, needle: &str) {
-    assert_eq!(r.code, REJECT, "expected INVALID:\n{}", r.text);
+    assert!(
+        r.code == REJECT || r.code == MALFORMED,
+        "expected INVALID or MALFORMED:\n{}",
+        r.text
+    );
     assert!(
         r.text.contains(needle),
         "expected `{needle}` in:\n{}",
@@ -1139,7 +1145,7 @@ fn r4_d4_confusable_identifiers_are_refused() {
             &format!("r4-d4-{i}"),
             &[(PTS, "- id: person.b", &format!("- id: {id}"))],
         );
-        assert_eq!(r.code, REJECT, "{}", r.text);
+        assert_ne!(r.code, ACCEPT, "{}", r.text);
         assert!(
             r.text.contains("identifiers use lower-case ASCII letters")
                 || r.text.contains("control or invisible character"),
@@ -1181,14 +1187,20 @@ fn r4_m1_list_fields_cannot_forge_report_lines() {
     .enumerate()
     {
         let r = points_with(&format!("r4-m1-{i}"), &[(PTS, from, to)]);
-        assert_eq!(r.code, REJECT, "{}", r.text);
+        assert_ne!(r.code, ACCEPT, "{}", r.text);
         assert_eq!(
             r.text.lines().filter(|l| l.starts_with("verdict")).count(),
             1,
             "forged verdict line:\n{}",
             r.text
         );
-        assert!(r.text.trim_end().ends_with("problem(s)"), "{}", r.text);
+        let last = r.text.trim_end().lines().last().unwrap_or("");
+        assert!(
+            last.starts_with("verdict         INVALID")
+                || last.starts_with("verdict         MALFORMED"),
+            "{}",
+            r.text
+        );
     }
 }
 
@@ -1607,7 +1619,7 @@ fn t7_r4_r5_r6_compositions_match_registered_entries() {
         "t7-r4-shared",
         &[(T7, "atoms: [o2.o-1, o2.o-2]", "atoms: [co2.o-2, o2.o-2]")],
     );
-    assert_points_invalid(&r, "atom co2.o-2 is already in another composition");
+    assert_points_invalid(&r, "atom co2.o-2 is already in composition comp.co2");
     let r = t7_with(
         "t7-r4-nomol",
         &[(T7, "molecule: o2.molecule", "molecule: o2.o-1")],
@@ -1630,7 +1642,7 @@ fn t7_r7_same_species_conflict_with_registered_entries() {
         &linked("same-species", between),
     );
     let r = t7_with("t7-r7", &[(T7, NO_RELATIONS, &rel)]);
-    assert_points_invalid(&r, "registered-specification conflict: same-species contradicts the species identifiers CHEM-MOLFORMULA assigns (carbon-dioxide, dioxygen)");
+    assert_points_invalid(&r, "registered-specification conflict: same-species contradicts the species identifiers CHEM-MOLFORMULA assigns (co2.molecule: carbon-dioxide; o2.molecule: dioxygen)");
     has(
         &r,
         &[
@@ -1790,4 +1802,218 @@ fn t7_invalid_record_differs_from_unestablished_correspondence() {
     );
     assert_eq!(r.text.matches("→ ACCEPT").count(), 3, "{}", r.text);
     assert!(!r.text.contains("physical supported"), "{}", r.text);
+}
+
+// ---- T7 audit (072eb82): one regression test per finding ----
+
+/// S1: adding a point without a registered species cannot dodge the
+/// same-species conflict rule.
+#[test]
+fn t7_audit_s1_same_species_cannot_be_diluted() {
+    for (i, between) in [
+        "[co2.molecule, o2.molecule, co2.c]",
+        "[co2.molecule, co2.c]",
+        "[co2.molecule, co2.o-1, co2.o-2]",
+    ]
+    .iter()
+    .enumerate()
+    {
+        let rel = relation(
+            "same-species",
+            between,
+            "evidence-submitted",
+            &linked("same-species", between),
+        );
+        let r = t7_with(&format!("t7-s1-{i}"), &[(T7, NO_RELATIONS, &rel)]);
+        assert_points_invalid(&r, "registered-specification conflict");
+        has(
+            &r,
+            &[
+                "no registered species",
+                "status not reported (record invalid)",
+            ],
+        );
+    }
+    // One side uninterpreted (COO): the molecule record is invalid and the
+    // relation conflicts too.
+    let rel = relation(
+        "same-species",
+        "[co2.molecule, o2.molecule]",
+        "unestablished",
+        "[]",
+    );
+    let r = t7_with(
+        "t7-s1-coo",
+        &[
+            (T7, NO_RELATIONS, &rel),
+            (
+                T7,
+                "species: {written: \"O₂\", convention: CHEM-MOLFORMULA}",
+                "species: {written: \"COO\", convention: CHEM-MOLFORMULA}",
+            ),
+        ],
+    );
+    assert_points_invalid(&r, "o2.molecule: no registered species");
+    // Two records with the same registered species stay a valid, unestablished claim.
+    let extra = "  - id: co2.molecule-2\n    kind: physical-object\n    class: molecule\n    species: {written: \"CO₂\", convention: CHEM-MOLFORMULA}\n    description: \"a second CO₂ molecule\"\n    scope: particular\n    physical: {status: unestablished, evidence: []}\n\ncompositions:\n";
+    let rel = relation(
+        "same-species",
+        "[co2.molecule, co2.molecule-2]",
+        "unestablished",
+        "[]",
+    );
+    let r = t7_with(
+        "t7-s1-same",
+        &[
+            (T7, "\ncompositions:\n", &format!("\n{extra}")),
+            (T7, NO_RELATIONS, &rel),
+        ],
+    );
+    assert_eq!(r.code, ACCEPT, "{}", r.text);
+    has(&r, &["record valid · status unestablished (evidence: 0)"]);
+}
+
+/// S2: record ids are unique within a file, and a molecule has at most one
+/// composition.
+#[test]
+fn t7_audit_s2_unique_ids_and_one_composition_per_molecule() {
+    let atoms: String = [("x.c", "C"), ("x.o-1", "O"), ("x.o-2", "O")]
+        .iter()
+        .map(|(i, e)| format!("  - id: {i}\n    kind: physical-object\n    class: atom\n    element: {{symbol: {e}, convention: CHEM-MOLFORMULA}}\n    description: \"extra\"\n    scope: particular\n    physical: {{status: unestablished, evidence: []}}\n"))
+        .collect();
+    let second = |id: &str| {
+        format!("\n{atoms}\ncompositions:\n  - id: {id}\n    molecule: co2.molecule\n    atoms: [x.c, x.o-1, x.o-2]\n")
+    };
+    let r = t7_with(
+        "t7-s2-dup",
+        &[(T7, "\ncompositions:\n", &second("comp.co2"))],
+    );
+    assert_points_invalid(
+        &r,
+        "record id `comp.co2` names both a composition and a composition",
+    );
+    has(
+        &r,
+        &["molecule co2.molecule already has a composition; a molecule has at most one"],
+    );
+    let r = t7_with(
+        "t7-s2-two",
+        &[(T7, "\ncompositions:\n", &second("comp.co2-b"))],
+    );
+    assert_points_invalid(
+        &r,
+        "molecule co2.molecule already has a composition; a molecule has at most one",
+    );
+    // Duplicate count and relation ids, and an id shared across record kinds.
+    let r = t7_with(
+        "t7-s2-count",
+        &[(T7, "  - id: count.o2\n", "  - id: count.co2\n")],
+    );
+    assert_points_invalid(&r, "record id `count.co2` names both a count and a count");
+    let r = t7_with(
+        "t7-s2-cross",
+        &[(T7, "  - id: comp.o2\n", "  - id: co2.c\n")],
+    );
+    assert_points_invalid(&r, "record id `co2.c` names both a point and a composition");
+}
+
+/// M1, M2: compositions use atom records and molecule records as such, and a
+/// duplicate atom is counted once and reported as a duplicate.
+#[test]
+fn t7_audit_m1_m2_composition_hardening() {
+    let r = t7_with(
+        "t7-m1-self",
+        &[
+            (T7, "atoms: [co2.c, co2.o-1, co2.o-2]", "atoms: [co2.c, co2.o-1, co2.molecule]"),
+            (T7, "class: molecule\n    species: {written: \"CO₂\", convention: CHEM-MOLFORMULA}", "class: molecule\n    species: {written: \"CO₂\", convention: CHEM-MOLFORMULA}\n    element: {symbol: O, convention: CHEM-MOLFORMULA}"),
+        ],
+    );
+    assert_points_invalid(&r, "molecule co2.molecule also names an element");
+    has(
+        &r,
+        &["atom co2.molecule names a species; an atom record names an element only"],
+    );
+    assert!(!r.text.contains("C×1 O×2 matches"), "{}", r.text);
+    let r = t7_with(
+        "t7-m2",
+        &[(
+            T7,
+            "atoms: [co2.c, co2.o-1, co2.o-2]",
+            "atoms: [co2.c, co2.o-1, co2.o-1]",
+        )],
+    );
+    assert_points_invalid(&r, "atom co2.o-1 is listed twice");
+    has(
+        &r,
+        &["composition C×1 O×1 differs from CHEM-MOLFORMULA entry CO₂ (C×1 O×2)"],
+    );
+    assert!(!r.text.contains("already in composition"), "{}", r.text);
+    assert!(!r.text.contains("C×1 O×2 matches"), "{}", r.text);
+}
+
+/// M3: `class` is a plain identifier, so it cannot imitate report text.
+#[test]
+fn t7_audit_m3_class_cannot_forge_species_text() {
+    let r = t7_with(
+        "t7-m3",
+        &[(T7, "class: molecule\n    species: {written: \"O₂\"", "class: \"molecule · species O₂ ↦ dioxygen under CHEM-MOLFORMULA\"\n    species: {written: \"O₂\"")],
+    );
+    assert_points_invalid(&r, "class \"molecule · species O₂ ↦ dioxygen under CHEM-MOLFORMULA\": identifiers use lower-case ASCII letters");
+}
+
+/// M4: a convention pin failure is reported as a pin failure by every
+/// command, never as a kernel rejection or a malformed proof.
+#[test]
+fn t7_audit_m4_pin_failures_are_named() {
+    let s = scratch_with(
+        "t7-m4",
+        &[(CHEM, "    - \"An entry states composition only. It states no bond, no geometry and no structure.\"\n", "")],
+    );
+    let lean = lean_export(&s, &[s.join("tests/accept/T6_one_plus_one.rlt")]);
+    let rp = rp_report(&s, "math5");
+    let pt = points_report(&s, &s.join(T7));
+    let _ = std::fs::remove_dir_all(&s);
+    for (name, r) in [("lean", &lean), ("rp", &rp), ("points", &pt)] {
+        assert_ne!(r.code, ACCEPT, "{name}:\n{}", r.text);
+        assert!(
+            r.text
+                .contains("explanation differs from the convention pinned"),
+            "{name}:\n{}",
+            r.text
+        );
+        assert!(
+            !r.text.contains("not accepted by the RLT kernel"),
+            "{name}:\n{}",
+            r.text
+        );
+        assert!(
+            !r.text.contains("proof file is malformed"),
+            "{name}:\n{}",
+            r.text
+        );
+    }
+    assert_eq!(pt.code, MALFORMED, "{}", pt.text);
+    assert!(!pt.text.contains("0 of 0 record(s)"), "{}", pt.text);
+}
+
+/// Q1 minor: invisible joiners and variation selectors are refused, so an
+/// unregistered formula never prints exactly like a registered one.
+#[test]
+fn t7_audit_invisible_variants_are_refused() {
+    for w in [
+        "CO\u{034F}₂",
+        "CO₂\u{FE0F}",
+        "C\u{180B}O₂",
+        "CO₂\u{E0100}",
+        "\u{3164}CO₂",
+        "CO₂\u{2800}",
+    ] {
+        let r = chem_report(&root(), w, "CHEM-MOLFORMULA");
+        assert_eq!(r.code, MALFORMED, "{w:?}: {}", r.text);
+        assert!(
+            r.text.contains("control or invisible character"),
+            "{}",
+            r.text
+        );
+    }
 }

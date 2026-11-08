@@ -46,8 +46,9 @@ pub fn load_yaml(path: &Path) -> Result<Yaml, String> {
 /// field can break or reorder a report line.
 pub fn invisible(c: char) -> bool {
     matches!(c as u32,
-        0x00AD | 0x0600..=0x0605 | 0x061C | 0x06DD | 0x070F | 0x0890..=0x0891 | 0x08E2
-        | 0x180E | 0x200B..=0x200F | 0x2028..=0x202E | 0x2060..=0x2064 | 0x2066..=0x206F
+        0x00AD | 0x034F | 0x115F..=0x1160 | 0x17B4..=0x17B5 | 0x180B..=0x180F | 0x2800
+        | 0x3164 | 0xFE00..=0xFE0F | 0xFFA0 | 0xE0100..=0xE01EF | 0x0600..=0x0605 | 0x061C | 0x06DD | 0x070F | 0x0890..=0x0891 | 0x08E2
+        | 0x200B..=0x200F | 0x2028..=0x202E | 0x2060..=0x2064 | 0x2066..=0x206F
         | 0xFEFF | 0xFFF9..=0xFFFB | 0x110BD | 0x110CD | 0x13430..=0x1343F
         | 0x1BCA0..=0x1BCA3 | 0x1D173..=0x1D17A | 0xE0001 | 0xE0020..=0xE007F)
 }
@@ -494,6 +495,7 @@ pub fn load_convention(path: &Path) -> Result<ConventionRecord, String> {
             }
             _ => return Err(format!("{sc}: `composition` must be a non-empty mapping")),
         }
+        composition.sort();
         species.push(SpeciesEntry {
             species: plain_id(&req(e, "species", &sc)?, "species id", &sc)?,
             source: req(e, "source", &sc)?,
@@ -957,7 +959,10 @@ pub fn load_points(path: &Path) -> Result<PointsFile, String> {
         only_keys(phys, &["status", "evidence"], &pc)?;
         points.push(Point {
             kind: req(p, "kind", &pc)?,
-            class: opt(p, "class", &pc)?,
+            class: match opt(p, "class", &pc)? {
+                Some(c) => Some(plain_id(&c, "class", &pc)?),
+                None => None,
+            },
             description: req(p, "description", &pc)?,
             scope: req(p, "scope", &pc)?,
             physical_status: req(phys, "status", &pc)?,

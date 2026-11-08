@@ -2,7 +2,7 @@ RLT points      points/co2-and-o2.yaml
 context         co2-and-o2 — "One CO₂ molecule and one O₂ molecule, and their five atoms, counted with 1 + 2 = 3, 1 + 1 = 2 and 1 + 1 + 1 + 1 + 1 = 5."
   basis         "Keep the mathematical counts distinct from the records assigning atom identifiers to molecules."  [RLT-002-T7-APPROVAL]
 references      math5 (its documented meanings stay in readingpoints/math5.yaml)
-  record valid (context: basis and references)
+  record valid (context: basis, references and record ids)
 reading points  7
   co2.molecule  physical-object · class molecule · scope particular · species CO₂ ↦ carbon-dioxide under CHEM-MOLFORMULA (registered interpretation; specimen identity unestablished) — "one CO₂ molecule"
                 record valid · physical unestablished (evidence: 0)

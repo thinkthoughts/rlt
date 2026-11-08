@@ -481,7 +481,10 @@ pub fn bind_proof(
     }
     let out = check_file_outcome(root, &path);
     let res = (|| {
-        let pf = out.proof.as_ref().ok_or("proof file is malformed")?;
+        let pf = out
+            .proof
+            .as_ref()
+            .ok_or_else(|| format!("proof not checked: {}", verdict_text(&out.report)))?;
         if let Some(rp_id) = rp_id {
             if pf.readingpoint.as_deref() != Some(rp_id) {
                 return Err(format!(
@@ -1542,8 +1545,9 @@ pub fn lean_export(root: &Path, files: &[PathBuf]) -> Report {
             code = REJECT;
             let _ = writeln!(
                 t,
-                "-- skipped {}: not accepted by the RLT kernel\n",
-                shown_path(root, f)
+                "-- skipped {}: {}\n",
+                shown_path(root, f),
+                verdict_text(&out.report)
             );
             continue;
         };
@@ -1634,6 +1638,16 @@ fn numeral_summands(t: &rlt_kernel::Term) -> Option<Vec<u64>> {
 }
 
 /// Validate one points file and build its report. Returns (report, problems).
+/// The verdict text of a check report, after `verdict`.
+fn verdict_text(r: &Report) -> String {
+    r.text
+        .lines()
+        .rev()
+        .find_map(|l| l.strip_prefix("verdict"))
+        .map(|v| v.trim().to_string())
+        .unwrap_or_else(|| "no verdict".to_string())
+}
+
 /// One record's verdict line: valid, or invalid with its problem count.
 fn record_verdict(
     before: usize,
@@ -1744,8 +1758,34 @@ fn points_check_inner(
         }
     }
 
+    // Record ids form one namespace per file: a duplicate is a problem of the
+    // file's context record.
+    let mut all_ids: Vec<(&str, &str)> = Vec::new();
+    for (kind, id) in pf
+        .points
+        .iter()
+        .map(|p| ("point", p.id.as_str()))
+        .chain(
+            pf.compositions
+                .iter()
+                .map(|c| ("composition", c.id.as_str())),
+        )
+        .chain(pf.counts.iter().map(|c| ("count", c.claim.id.as_str())))
+        .chain(pf.relations.iter().map(|r| ("relation", r.id.as_str())))
+    {
+        if let Some((k0, _)) = all_ids.iter().find(|(_, i)| *i == id) {
+            problems.push(format!(
+                "{}: record id `{id}` names both a {k0} and a {kind}; record ids are unique within a file",
+                pf.id
+            ));
+        }
+        all_ids.push((kind, id));
+    }
     let (_, ctx_line) = record_verdict(0, &problems, tally);
-    let _ = writeln!(t, "  {ctx_line} (context: basis and references)");
+    let _ = writeln!(
+        t,
+        "  {ctx_line} (context: basis, references and record ids)"
+    );
 
     // Reading points.
     let mut ids: Vec<&str> = Vec::new();
@@ -1884,9 +1924,23 @@ fn points_check_inner(
     };
 
     // Compositions: which atom records this file counts as each molecule's.
-    let mut composed: Vec<&str> = Vec::new();
+    let mut composed: Vec<(&str, &str)> = Vec::new();
+    let mut molecules: Vec<&str> = Vec::new();
     for comp in &pf.compositions {
         let k0 = problems.len();
+        if molecules.contains(&comp.molecule.as_str()) {
+            problems.push(format!(
+                "{}: composition {}: molecule {} already has a composition; a molecule has at most one",
+                pf.id, comp.id, comp.molecule
+            ));
+        }
+        molecules.push(&comp.molecule);
+        if point(&comp.molecule).is_some_and(|p| p.element.is_some()) {
+            problems.push(format!(
+                "{}: composition {}: molecule {} also names an element; a molecule record names a species only",
+                pf.id, comp.id, comp.molecule
+            ));
+        }
         let _ = writeln!(
             t,
             "composition     {} · {} = {}",
@@ -1901,15 +1955,22 @@ fn points_check_inner(
                     "{}: composition {}: atom {a} is listed twice",
                     pf.id, comp.id
                 ));
+                continue;
             }
             seen.push(a);
-            if composed.contains(&a.as_str()) {
+            if let Some((other, _)) = composed.iter().find(|(_, x)| *x == a.as_str()) {
                 problems.push(format!(
-                    "{}: composition {}: atom {a} is already in another composition",
+                    "{}: composition {}: atom {a} is already in composition {other}",
                     pf.id, comp.id
                 ));
             }
-            composed.push(a);
+            composed.push((&comp.id, a));
+            if point(a).is_some_and(|p| p.species.is_some()) {
+                problems.push(format!(
+                    "{}: composition {}: atom {a} names a species; an atom record names an element only",
+                    pf.id, comp.id
+                ));
+            }
         }
         match species_entry(&comp.molecule) {
             None => problems.push(format!(
@@ -1918,7 +1979,7 @@ fn points_check_inner(
             )),
             Some((cid, e)) => {
                 let mut got: BTreeMap<String, u64> = BTreeMap::new();
-                for a in &comp.atoms {
+                for a in &seen {
                     match element_of(a) {
                         Some((sym, acid)) if acid == cid => *got.entry(sym).or_default() += 1,
                         _ => problems.push(format!(
@@ -1939,13 +2000,15 @@ fn points_check_inner(
                     .map(|k| format!("{k}×{}", got.get(k).copied().unwrap_or(0)))
                     .collect::<Vec<_>>()
                     .join(" ");
-                if got == want {
+                if got == want && problems.len() == k0 {
                     let _ = writeln!(
                         t,
                         "  check         {text} matches {cid} entry {} ({})",
                         e.written,
                         e.composition_text()
                     );
+                } else if got == want {
+                    let _ = writeln!(t, "  check         not reported (record invalid)");
                 } else {
                     problems.push(format!(
                         "{}: composition {}: composition {text} differs from {cid} entry {} ({})",
@@ -2160,27 +2223,44 @@ fn points_check_inner(
                 uniq.len()
             ));
         }
-        if r.rtype == "same-species" {
+        // Same-species and registered species: once any referent names a
+        // species, every referent must carry a registered species and all must
+        // be the same; otherwise the claim conflicts with the registered
+        // interpretation (a conflict of records, not a physical finding).
+        if r.rtype == "same-species"
+            && r.between
+                .iter()
+                .any(|b| point(b).is_some_and(|p| p.species.is_some()))
+        {
+            let mut shown: Vec<String> = Vec::new();
             let mut ids: Vec<String> = Vec::new();
-            let mut conv_ids: Vec<String> = Vec::new();
+            let mut convs_used: Vec<String> = Vec::new();
             for b in &r.between {
-                if let Some((cid, e)) = species_entry(b) {
-                    ids.push(e.species.clone());
-                    conv_ids.push(cid);
+                match species_entry(b) {
+                    Some((cid, e)) => {
+                        shown.push(format!("{b}: {}", e.species));
+                        ids.push(e.species.clone());
+                        convs_used.push(cid);
+                    }
+                    None => shown.push(format!("{b}: no registered species")),
                 }
             }
             let mut distinct = ids.clone();
             distinct.sort();
             distinct.dedup();
-            if ids.len() == r.between.len() && distinct.len() > 1 {
-                conv_ids.sort();
-                conv_ids.dedup();
+            convs_used.sort();
+            convs_used.dedup();
+            if ids.len() != r.between.len() || distinct.len() > 1 {
                 problems.push(format!(
                     "{}: relation {}: registered-specification conflict: same-species contradicts the species identifiers {} assigns ({}); this concerns the records and the registered interpretation, not an experimental conclusion about physical samples",
                     pf.id,
                     r.id,
-                    conv_ids.join(", "),
-                    ids.join(", ")
+                    if convs_used.is_empty() {
+                        "the registered conventions".to_string()
+                    } else {
+                        convs_used.join(", ")
+                    },
+                    shown.join("; ")
                 ));
             }
         }
@@ -2228,6 +2308,12 @@ fn points_check_inner(
 /// `rlt points FILE`: the report for one points file, with its validation.
 pub fn points_report(root: &Path, file: &Path) -> Report {
     let (mut t, problems, (records, invalid)) = points_check(root, file);
+    // Zero records read: the file or a pinned input could not be loaded, which
+    // says nothing about any record.
+    if records == 0 && !problems.is_empty() {
+        let msg = problems.join("; ");
+        return malformed(&mut t, msg);
+    }
     for p in &problems {
         let _ = writeln!(t, "problem         {p}");
     }

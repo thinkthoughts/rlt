@@ -2,7 +2,7 @@ RLT points      points/oxygen-and-people.yaml
 context         oxygen-and-people — "Two oxygen atoms of one O₂ molecule, and two people, each pair counted with 1 + 1 = 2."
   basis         "Preserve distinct reading points for two oxygen atoms and two human beings."  [RLT-002-REQUEST]
 references      math5 (its documented meanings stay in readingpoints/math5.yaml)
-  record valid (context: basis and references)
+  record valid (context: basis, references and record ids)
 reading points  4
   o2.atom-1     physical-object · class oxygen-atom · scope particular — "oxygen atom 1 of one O₂ molecule"
                 record valid · physical unestablished (evidence: 0)
