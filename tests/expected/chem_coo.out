@@ -1,0 +1,6 @@
+RLT chem
+written         "COO"  tokens: COO
+convention      CHEM-MOLFORMULA (interpretation input; executable: elaborator species-table, pinned)
+entry           none (lookup is by the whole written string; no composition is computed from its letters)
+verdict         UNINTERPRETED — CHEM-MOLFORMULA has no entry for "COO"; no composition is assigned, and uninterpreted is neither true nor false
+exit 1

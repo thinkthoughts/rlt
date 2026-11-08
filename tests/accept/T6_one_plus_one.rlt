@@ -1,0 +1,14 @@
+; T6 · accept — the equation 1 + 1 = 2, with no reading point or relationship of its own.
+; points/oxygen-and-people.yaml associates it with two oxygen atoms and, separately,
+; with two people: one checked equation, two distinct specification records.
+(rlt-proof
+  (id T6.one-plus-one)
+  (convention NAT-DEC)
+  (goal "1 + 1 = 2")
+  (mode unconditional)
+  (axioms PEANO-ADD)
+  (steps
+    (s1 (= (+ 1 (S 0)) (S (+ 1 0)))  (inst add_succ (x 1) (y 0)))
+    (s2 (= (+ 1 0) 1)                (inst add_zero (x 1)))
+    (s3 (= (S (+ 1 0)) (S 1))        (cong S s2))
+    (s4 (= (+ 1 (S 0)) (S 1))        (trans s1 s3))))

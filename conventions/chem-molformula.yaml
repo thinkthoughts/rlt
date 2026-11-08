@@ -1,0 +1,41 @@
+id: CHEM-MOLFORMULA
+authority: interpretation   # reads written formulas as registered species; proofs come only from the kernel
+sources: [IUPAC-BRIEF-GUIDE-2015]
+
+# Executable fields: they decide what a written formula is read as.
+# Pinned in the binary (PINNED_CONVENTIONS, interpretation digest).
+executable:
+  elaborator: species-table
+  # Element identifiers are RLT-authored labels (see explanation.unresolved).
+  elements:
+    C: carbon
+    O: oxygen
+  # A closed table: a written formula is read only when it equals an entry's
+  # `written` string exactly. COO, CO2 and O2 have no entry.
+  species:
+    - written: "CO₂"
+      species: carbon-dioxide
+      composition: {C: 1, O: 2}
+      source: IUPAC-BRIEF-GUIDE-2015
+      locator: "§1, Table 3 (examples of binary compounds), row CO2 | carbon dioxide"
+    - written: "O₂"
+      species: dioxygen
+      composition: {O: 2}
+      source: IUPAC-BRIEF-GUIDE-2015
+      locator: "§1, Table 1 (examples of homoatomic entities), row O2 | dioxygen"
+
+# Explanation: prose no check uses to interpret. Pinned separately
+# (PINNED_CONVENTIONS, explanation digest), so a prose edit needs review too.
+explanation:
+  title: Registered molecular formulas (closed species table)
+  reading:
+    - "A written formula equal to an entry's written string is read as that entry's species, with that entry's element composition."
+    - "A written formula equal to no entry stays uninterpreted under this convention; uninterpreted is neither true nor false."
+    - "An entry states composition only. It states no bond, no geometry and no structure."
+    - "An entry is an interpretation input. It identifies no physical specimen and establishes no physical correspondence."
+  limits:
+    - "T7 registers exactly CO₂ and O₂. COO, CO2 and O2 stay uninterpreted; any alias or other reading needs its own reviewed entry."
+    - "Composition totals are NAT-DEC numerals checked by the existing kernel; species, elements and compositions never reach the kernel."
+  unresolved:
+    - "Element identifiers C ↦ carbon and O ↦ oxygen are RLT-authored labels. The IUPAC element table (Red Book 2005, Table I, p. 248 per its contents list) is uninspected and cited nowhere until reviewed."
+    - "The IUPAC text defining molecular formulae (Red Book 2005, IR-4.2.2, pp. 54–56 per its contents list) is uninspected and cited nowhere until reviewed."

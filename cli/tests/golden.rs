@@ -4,7 +4,8 @@
 //! must exit 1. Regenerate with `UPDATE_GOLDEN=1 cargo test`.
 
 use rlt_cli::{
-    check_file, lean_export, rp_report, validate, written_report, Report, ACCEPT, MALFORMED, REJECT,
+    check_file, chem_report, lean_export, points_report, rp_report, validate, written_report,
+    Report, ACCEPT, MALFORMED, REJECT,
 };
 use std::path::{Path, PathBuf};
 
@@ -127,6 +128,7 @@ fn scratch_with(name: &str, edits: &[(&str, &str, &str)]) -> PathBuf {
         "conventions",
         "correspondence",
         "readingpoints",
+        "points",
         "spec",
         "tests/accept",
     ] {
@@ -687,4 +689,1385 @@ fn r3_q3_record_files_and_proof_paths() {
     assert_invalid(&validate(&s), "must be a tests/");
     let _ = std::fs::remove_dir_all(s);
     let _ = std::fs::remove_dir_all(outside);
+}
+
+// ---- RLT-002 · T6: one checked equation, distinct specification records ----
+
+const PTS: &str = "points/oxygen-and-people.yaml";
+
+fn points_with(name: &str, edits: &[(&str, &str, &str)]) -> Report {
+    let s = scratch_with(name, edits);
+    let r = points_report(&s, &s.join(PTS));
+    let _ = std::fs::remove_dir_all(s);
+    r
+}
+
+/// Refused: INVALID (a record failed) or, since T7, MALFORMED (the file or a
+/// pinned input could not be loaded, so no record was read).
+fn assert_points_invalid(r: &Report, needle: &str) {
+    assert!(
+        r.code == REJECT || r.code == MALFORMED,
+        "expected INVALID or MALFORMED:\n{}",
+        r.text
+    );
+    assert!(
+        r.text.contains(needle),
+        "expected `{needle}` in:\n{}",
+        r.text
+    );
+}
+
+const NO_RELATIONS: &str = "relations: []\n";
+
+/// T6 positive: one theorem, two counts, disjoint identities, zero relations.
+#[test]
+fn t6_shared_equation_keeps_distinct_reading_points() {
+    let r = points_report(&root(), &root().join(PTS));
+    assert_eq!(r.code, ACCEPT, "{}", r.text);
+    golden("points_oxygen-and-people", &r);
+    for line in [
+        "binding       1 ↦ {o2.atom-1} · 1 ↦ {o2.atom-2}",
+        "binding       1 ↦ {person.a} · 1 ↦ {person.b}",
+        "identities    o2.atom-1, o2.atom-2 — 2 distinct reading point(s); class oxygen-atom",
+        "identities    person.a, person.b — 2 distinct reading point(s); class human-being",
+        "sharing it relates none of their reading points",
+        "structural, physical and identity relations among these reading points stay unestablished",
+        "a specification record: the kernel checked the equation",
+    ] {
+        assert!(r.text.contains(line), "missing `{line}`:\n{}", r.text);
+    }
+    assert_eq!(
+        r.text
+            .matches(
+                "ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD, Γ = ∅"
+            )
+            .count(),
+        2
+    );
+}
+
+/// T6 positive: a relation recorded as unestablished stays unestablished and is reported.
+#[test]
+fn t6_unestablished_relation_is_reported_as_unestablished() {
+    let rel = "relations:\n  - id: rel.same\n    type: same-structure\n    between: [o2.atom-1, person.a]\n    status: unestablished\n    evidence: []\n";
+    let r = points_with("t6-rel-unest", &[(PTS, NO_RELATIONS, rel)]);
+    assert_eq!(r.code, ACCEPT, "{}", r.text);
+    assert!(r.text.contains("relation        rel.same [same-structure] o2.atom-1, person.a\n                record valid · status unestablished (evidence: 0)"), "{}", r.text);
+}
+
+/// T6 negatives: arithmetic equality never establishes structural or physical equivalence.
+#[test]
+fn t6_equal_counts_never_establish_equivalence() {
+    let rel = |status: &str, evidence: &str| {
+        format!("relations:\n  - id: rel.same\n    type: same-structure\n    between: [o2.atom-1, person.a]\n    status: {status}\n    evidence: {evidence}\n")
+    };
+    // The theorem offered as evidence for structural sameness.
+    let e = rel(
+        "supported",
+        "\n      - type: kernel_theorem\n        ref: tests/accept/T6_one_plus_one.rlt",
+    );
+    assert_points_invalid(
+        &points_with("t6-n1", &[(PTS, NO_RELATIONS, &e)]),
+        "counts and theorems are never evidence for a relation",
+    );
+    // Sameness asserted with zero evidence.
+    let e = rel("supported", "[]");
+    assert_points_invalid(
+        &points_with("t6-n2", &[(PTS, NO_RELATIONS, &e)]),
+        "requires evidence",
+    );
+    // A count cited as the evidence reference.
+    let e = rel(
+        "supported",
+        "\n      - type: physical_measurement\n        ref: count.oxygen",
+    );
+    assert_points_invalid(
+        &points_with("t6-n3", &[(PTS, NO_RELATIONS, &e)]),
+        "must be an available registered source",
+    );
+    // Sameness of species between oxygen and a person, from equal counts.
+    let e = "relations:\n  - id: rel.species\n    type: same-species\n    between: [o2.atom-2, person.b]\n    status: supported\n    evidence: []\n";
+    assert_points_invalid(
+        &points_with("t6-n4", &[(PTS, NO_RELATIONS, e)]),
+        "requires evidence",
+    );
+}
+
+/// T6/T11 negatives: the binding of numerals to reading points stays consistent.
+#[test]
+fn t6_bindings_preserve_identities() {
+    let people = "groups: [[person.a], [person.b]]";
+    assert_points_invalid(
+        &points_with(
+            "t6-dup",
+            &[(PTS, people, "groups: [[person.a], [person.a]]")],
+        ),
+        "named in two groups",
+    );
+    assert_points_invalid(
+        &points_with(
+            "t6-size",
+            &[(PTS, people, "groups: [[person.a, person.b], []]")],
+        ),
+        "summand 1 is 1 but its group names 2",
+    );
+    assert_points_invalid(
+        &points_with(
+            "t6-unknown",
+            &[(PTS, people, "groups: [[person.a], [person.c]]")],
+        ),
+        "unknown point `person.c`",
+    );
+    assert_points_invalid(
+        &points_with("t6-arity", &[(PTS, people, "groups: [[person.a]]")]),
+        "2 summand(s) but 1 group(s)",
+    );
+}
+
+/// T12-style negatives: the count is bound to its proof by statement, convention, mode and Γ.
+#[test]
+fn t6_counts_are_bound_to_their_proof() {
+    let w = "written: \"1 + 1 = 2\"\n    convention: NAT-DEC\n    proof: tests/accept/T6_one_plus_one.rlt\n    mode: unconditional\n    assumptions: []\n    groups: [[person.a], [person.b]]";
+    let edit = |from: &str, to: &str| w.replacen(from, to, 1);
+    assert_points_invalid(
+        &points_with(
+            "t6-goal",
+            &[(PTS, w, &edit("\"1 + 1 = 2\"", "\"1 + 1 = 3\""))],
+        ),
+        "record states `1 + 1 = 3`, proof checks `1 + 1 = 2`",
+    );
+    assert_points_invalid(
+        &points_with(
+            "t6-mode",
+            &[(PTS, w, &edit("mode: unconditional", "mode: conditional"))],
+        ),
+        "record expects mode conditional",
+    );
+    assert_points_invalid(
+        &points_with(
+            "t6-gamma",
+            &[(PTS, w, &edit("assumptions: []", "assumptions: [\"1 = 1\"]"))],
+        ),
+        "record expects Γ",
+    );
+    assert_points_invalid(
+        &points_with(
+            "t6-conv",
+            &[(PTS, w, &edit("convention: NAT-DEC", "convention: REAL-PI"))],
+        ),
+        "proof uses convention NAT-DEC, record says REAL-PI",
+    );
+}
+
+/// Scope: a count of particular reading points keeps scope particular.
+#[test]
+fn t6_scope_is_retained() {
+    let people = "groups: [[person.a], [person.b]]";
+    assert_points_invalid(
+        &points_with(
+            "t6-scope",
+            &[(
+                PTS,
+                people,
+                "groups: [[person.a], [person.b]]\n    scope: general",
+            )],
+        ),
+        "keeps scope particular",
+    );
+    let pa = "description: \"person A\"\n    scope: particular";
+    assert_points_invalid(
+        &points_with(
+            "t6-general-point",
+            &[(PTS, pa, "description: \"person A\"\n    scope: general")],
+        ),
+        "a count binds particular, identified reading points",
+    );
+}
+
+/// Reading points: references by id only; statuses and kinds from the vocabulary.
+#[test]
+fn t6_records_reference_without_duplicating() {
+    assert_points_invalid(
+        &points_with(
+            "t6-ref",
+            &[(PTS, "references: [math5]", "references: [math7]")],
+        ),
+        "references unknown reading point `math7`",
+    );
+    assert_points_invalid(
+        &points_with(
+            "t6-copy",
+            &[(
+                PTS,
+                "references: [math5]",
+                "references: [math5]\nmeanings: [\"local anatomy\"]",
+            )],
+        ),
+        "field `meanings` is outside this record type",
+    );
+    let pa = "description: \"person A\"\n    scope: particular\n    physical: {status: unestablished, evidence: []}";
+    assert_points_invalid(&points_with("t6-sup", &[(PTS, pa, "description: \"person A\"\n    scope: particular\n    physical: {status: supported, evidence: []}")]), "requires evidence");
+    assert_points_invalid(&points_with("t6-imag", &[(PTS, pa, "description: \"person A\"\n    scope: particular\n    physical: {status: imagined, evidence: []}")]), "applies to imagined-possibility points only");
+    assert_points_invalid(
+        &points_with(
+            "t6-basis",
+            &[(PTS, "and two human beings.\"", "and two humans.\"")],
+        ),
+        "equals zero whole units",
+    );
+    assert_points_invalid(
+        &points_with(
+            "t6-kind",
+            &[(
+                PTS,
+                "kind: physical-object\n    class: human-being\n    description: \"person A\"",
+                "kind: hunch\n    class: human-being\n    description: \"person A\"",
+            )],
+        ),
+        "kind `hunch`",
+    );
+}
+
+// ---- RLT-002 audit remediation: one regression test per audit counterexample ----
+
+const STATUS: &str = "correspondence/status.yaml";
+const PA: &str = "description: \"person A\"\n    scope: particular\n    physical: {status: unestablished, evidence: []}";
+
+fn pa_physical(physical: &str) -> String {
+    format!("description: \"person A\"\n    scope: particular\n    physical: {physical}")
+}
+
+fn relation(rtype: &str, between: &str, status: &str, evidence: &str) -> String {
+    format!("relations:\n  - id: rel.x\n    type: {rtype}\n    between: {between}\n    status: {status}\n    evidence: {evidence}\n")
+}
+
+/// A complete, linked evidence item citing RLT's own index page.
+fn linked(claim: &str, referents: &str) -> String {
+    format!("\n      - type: physical_measurement\n        ref: RLT-INDEX\n        locator: \"page body\"\n        claim: {claim}\n        referents: {referents}\n        criteria: \"a measurement identifying both referents as the same species\"")
+}
+
+/// D1: an edited status vocabulary is refused by every command that reads it,
+/// and the status `established` is outside what a record may hold.
+#[test]
+fn r4_d1_status_vocabulary_is_pinned() {
+    let edits = [
+        (
+            STATUS,
+            "correspondence_status: [",
+            "correspondence_status: [established, ",
+        ),
+        (
+            STATUS,
+            "status_without_evidence: [",
+            "status_without_evidence: [established, ",
+        ),
+        (PTS, PA, &pa_physical("{status: established, evidence: []}")),
+    ];
+    let r = points_with("r4-d1-points", &edits);
+    assert_points_invalid(
+        &r,
+        "differs from the status vocabulary pinned in this binary",
+    );
+    assert!(!r.text.contains("physical established"), "{}", r.text);
+    let v = validate_with("r4-d1-validate", &edits);
+    assert_invalid(
+        &v,
+        "differs from the status vocabulary pinned in this binary",
+    );
+    let s = scratch_with("r4-d1-rp", &edits);
+    let rp = rp_report(&s, "math5");
+    let _ = std::fs::remove_dir_all(&s);
+    assert_eq!(rp.code, MALFORMED, "{}", rp.text);
+    // With the pinned vocabulary, `established` is outside it.
+    let r = points_with(
+        "r4-d1-word",
+        &[(PTS, PA, &pa_physical("{status: established, evidence: []}"))],
+    );
+    assert_points_invalid(&r, "status `established` is outside the vocabulary");
+}
+
+/// D1/D2: `supported` and `rejected` are establishment judgments; a record
+/// using one is refused even with complete, linked evidence.
+#[test]
+fn r4_d1_judgment_statuses_are_refused() {
+    for st in ["supported", "rejected"] {
+        let ev = format!("{{status: {st}, evidence: [{{type: physical_measurement, ref: RLT-INDEX, locator: body, claim: physical-correspondence, referents: [person.a], criteria: \"c\"}}]}}");
+        let r = points_with(&format!("r4-judge-{st}"), &[(PTS, PA, &pa_physical(&ev))]);
+        assert_points_invalid(&r, "records an establishment judgment");
+        let rel = relation(
+            "same-species",
+            "[o2.atom-1, person.a]",
+            st,
+            &linked("same-species", "[o2.atom-1, person.a]"),
+        );
+        let r = points_with(&format!("r4-judge-rel-{st}"), &[(PTS, NO_RELATIONS, &rel)]);
+        assert_points_invalid(&r, "records an establishment judgment");
+        // T7: the record is invalid, so no status is reported for it.
+        assert!(
+            r.text.contains("record INVALID (")
+                && r.text.contains("status not reported (record invalid)"),
+            "{}",
+            r.text
+        );
+        assert!(!r.text.contains(&format!("status {st} (")), "{}", r.text);
+    }
+}
+
+/// D2: submitted evidence is shown in full and leaves the relation unestablished.
+#[test]
+fn r4_d2_submitted_evidence_stays_unestablished() {
+    let rel = relation(
+        "same-species",
+        "[o2.atom-1, person.a]",
+        "evidence-submitted",
+        &linked("same-species", "[o2.atom-1, person.a]"),
+    );
+    let r = points_with("r4-d2-submitted", &[(PTS, NO_RELATIONS, &rel)]);
+    assert_eq!(r.code, ACCEPT, "{}", r.text);
+    for line in [
+        "relation        rel.x [same-species] o2.atom-1, person.a\n                record valid · status evidence-submitted (1 item(s), not evaluated by RLT; the relation stays unestablished)",
+        "evidence      physical_measurement · RLT-INDEX [https://github.com/thinkthoughts/rlt/blob/838417682c8c3c8dfe05b3094e6fc17cdf53fe5c/index.html] at \"page body\" · for same-species(o2.atom-1, person.a)",
+        "submitted, not evaluated by RLT",
+    ] {
+        assert!(r.text.contains(line), "missing `{line}`:\n{}", r.text);
+    }
+    for word in [
+        ": supported",
+        ": established",
+        "physical supported",
+        "physical established",
+    ] {
+        assert!(!r.text.contains(word), "`{word}` in:\n{}", r.text);
+    }
+    // A point with submitted evidence reads the same way.
+    let ev = "{status: evidence-submitted, evidence: [{type: physical_measurement, ref: RLT-INDEX, locator: body, claim: physical-correspondence, referents: [person.a], criteria: \"c\"}]}";
+    let r = points_with("r4-d2-point", &[(PTS, PA, &pa_physical(ev))]);
+    assert_eq!(r.code, ACCEPT, "{}", r.text);
+    assert!(r.text.contains("physical evidence-submitted (1 item(s), not evaluated by RLT; correspondence unestablished)"), "{}", r.text);
+}
+
+/// D2: evidence must be linked to the exact claim and referents, and give a
+/// locator and criteria; extra fields are refused.
+#[test]
+fn r4_d2_evidence_is_linked_to_its_claim() {
+    let between = "[o2.atom-1, person.a]";
+    let cases: Vec<(String, &str)> = vec![
+        (linked("same-structure", between), "this record's claim is `same-species`"),
+        (linked("same-species", "[o2.atom-1, person.b]"), "this record's referents are [o2.atom-1, person.a]"),
+        (linked("same-species", "[person.a, o2.atom-1]"), "this record's referents are [o2.atom-1, person.a]"),
+        ("\n      - type: physical_measurement\n        ref: RLT-INDEX\n        claim: same-species\n        referents: [o2.atom-1, person.a]\n        criteria: \"c\"".to_string(), "must give a `locator`"),
+        ("\n      - type: physical_measurement\n        ref: RLT-INDEX\n        locator: body\n        claim: same-species\n        referents: [o2.atom-1, person.a]".to_string(), "must state its validation `criteria`"),
+        ("\n      - type: physical_measurement\n        ref: RLT-INDEX\n        locator: body\n        referents: [o2.atom-1, person.a]\n        criteria: \"c\"".to_string(), "must name its claim"),
+        (format!("{}\n        verified: true", linked("same-species", between)), "field `verified` is outside this record type"),
+        (format!("{}\n        note: \"established by count.oxygen\"", linked("same-species", between)), "field `note` is outside this record type"),
+    ];
+    for (i, (ev, needle)) in cases.iter().enumerate() {
+        let rel = relation("same-species", between, "evidence-submitted", ev);
+        let r = points_with(&format!("r4-d2-link-{i}"), &[(PTS, NO_RELATIONS, &rel)]);
+        assert_points_invalid(&r, needle);
+    }
+    // Evidence present with status unestablished must say evidence-submitted.
+    let rel = relation(
+        "same-species",
+        between,
+        "unestablished",
+        &linked("same-species", between),
+    );
+    let r = points_with("r4-d2-unest", &[(PTS, NO_RELATIONS, &rel)]);
+    assert_points_invalid(&r, "has status `evidence-submitted`");
+    // evidence-submitted with zero items.
+    let rel = relation("same-species", between, "evidence-submitted", "[]");
+    let r = points_with("r4-d2-empty", &[(PTS, NO_RELATIONS, &rel)]);
+    assert_points_invalid(&r, "requires evidence");
+}
+
+/// D3: `rlt points`, `rlt rp` and `rlt check` refuse a registry that differs
+/// from the pin, including edits to fields outside the excerpts.
+#[test]
+fn r4_d3_registry_pin_is_checked_by_every_command() {
+    let reworded = (
+        REG,
+        "Preserve distinct reading points for two oxygen atoms and two human beings.",
+        "These two oxygen atoms and two human beings are established, physically distinct objects.",
+    );
+    let basis = (
+        PTS,
+        "text: \"Preserve distinct reading points for two oxygen atoms and two human beings.\"",
+        "text: \"These two oxygen atoms and two human beings are established, physically distinct objects.\"",
+    );
+    let r = points_with("r4-d3-points", &[reworded, basis]);
+    assert_points_invalid(&r, "differs from the registry pinned in this binary");
+    let retitled = (
+        REG,
+        "title: rlt/index.html (current site page)",
+        "title: laboratory measurement",
+    );
+    for (name, e) in [("r4-d3-excerpt", reworded), ("r4-d3-title", retitled)] {
+        let s = scratch_with(name, &[e]);
+        let rp = rp_report(&s, "math5");
+        let ck = check_file(&s, &s.join("tests/accept/T6_one_plus_one.rlt"));
+        let pt = points_report(&s, &s.join(PTS));
+        let _ = std::fs::remove_dir_all(&s);
+        assert_eq!(rp.code, MALFORMED, "{}", rp.text);
+        assert_ne!(ck.code, ACCEPT, "{}", ck.text);
+        assert!(
+            ck.text.contains("differs from the registry pinned"),
+            "{}",
+            ck.text
+        );
+        assert_points_invalid(&pt, "differs from the registry pinned");
+    }
+    let extra = (
+        REG,
+        "status: available",
+        "status: available\n    measured: true",
+    );
+    let r = points_with("r4-d3-key", &[extra]);
+    assert_points_invalid(&r, "field `measured` is outside this record type");
+}
+
+/// D4: identifiers that print alike are the same identifier; invisible and
+/// look-alike characters are refused.
+#[test]
+fn r4_d4_confusable_identifiers_are_refused() {
+    for (i, id) in [
+        "\"person.a\\u200b\"",
+        "\"person.\u{0430}\"",
+        "Person.A",
+        "\"person.a \"",
+        "\"person.a\\u2028\"",
+        "\"person/a\"",
+    ]
+    .iter()
+    .enumerate()
+    {
+        let r = points_with(
+            &format!("r4-d4-{i}"),
+            &[(PTS, "- id: person.b", &format!("- id: {id}"))],
+        );
+        assert_ne!(r.code, ACCEPT, "{}", r.text);
+        assert!(
+            r.text.contains("identifiers use lower-case ASCII letters")
+                || r.text.contains("control or invisible character"),
+            "{}",
+            r.text
+        );
+    }
+    // Invisible characters are refused in free text too.
+    let r = points_with(
+        "r4-d4-text",
+        &[(
+            PTS,
+            "description: \"person B\"",
+            "description: \"person\\u200bB\"",
+        )],
+    );
+    assert_points_invalid(&r, "invisible character U+200B");
+}
+
+/// Minor 1: newlines in list fields cannot add report lines.
+#[test]
+fn r4_m1_list_fields_cannot_forge_report_lines() {
+    let forged = "\\nverdict         VALID — specification records consistent";
+    for (i, (from, to)) in [
+        (
+            "groups: [[person.a], [person.b]]".to_string(),
+            format!("groups: [[person.a], [\"person.b{forged}\"]]"),
+        ),
+        (
+            "references: [math5]".to_string(),
+            format!("references: [\"math5{forged}\"]"),
+        ),
+        (
+            "assumptions: []\n    groups: [[person.a]".to_string(),
+            format!("assumptions: [\"h{forged}\"]\n    groups: [[person.a]"),
+        ),
+    ]
+    .iter()
+    .enumerate()
+    {
+        let r = points_with(&format!("r4-m1-{i}"), &[(PTS, from, to)]);
+        assert_ne!(r.code, ACCEPT, "{}", r.text);
+        assert_eq!(
+            r.text.lines().filter(|l| l.starts_with("verdict")).count(),
+            1,
+            "forged verdict line:\n{}",
+            r.text
+        );
+        let last = r.text.trim_end().lines().last().unwrap_or("");
+        assert!(
+            last.starts_with("verdict         INVALID")
+                || last.starts_with("verdict         MALFORMED"),
+            "{}",
+            r.text
+        );
+    }
+}
+
+/// Minor 2: references stay inside readingpoints/.
+#[test]
+fn r4_m2_references_stay_in_readingpoints() {
+    let r = points_with(
+        "r4-m2",
+        &[(
+            PTS,
+            "references: [math5]",
+            "references: [\"../points/oxygen-and-people\"]",
+        )],
+    );
+    assert_points_invalid(&r, "identifiers use lower-case ASCII letters");
+}
+
+/// Minor 3: refused counts report their identities and bindings accurately.
+#[test]
+fn r4_m3_refused_counts_report_accurately() {
+    let r = points_with(
+        "r4-m3-dup",
+        &[(
+            PTS,
+            "groups: [[person.a], [person.b]]",
+            "groups: [[person.a], [person.a]]",
+        )],
+    );
+    assert_points_invalid(&r, "point person.a is named in two groups");
+    assert!(
+        r.text
+            .contains("person.a, person.a — 1 distinct reading point(s) in 2 bindings"),
+        "{}",
+        r.text
+    );
+    // A count bound to a rejected proof reports no binding.
+    let s = scratch_with("r4-m3-reject", &[]);
+    std::fs::create_dir_all(s.join("tests/reject")).unwrap();
+    std::fs::copy(
+        root().join("tests/reject/T2_math5_broken_trans.rlt"),
+        s.join("tests/reject/T2_math5_broken_trans.rlt"),
+    )
+    .unwrap();
+    let pts = std::fs::read_to_string(s.join(PTS)).unwrap().replacen(
+        "proof: tests/accept/T6_one_plus_one.rlt\n    mode: unconditional\n    assumptions: []\n    groups: [[person.a], [person.b]]",
+        "proof: tests/reject/T2_math5_broken_trans.rlt\n    mode: unconditional\n    assumptions: []\n    groups: [[person.a], [person.b]]",
+        1,
+    );
+    std::fs::write(s.join(PTS), pts).unwrap();
+    let r = points_report(&s, &s.join(PTS));
+    let _ = std::fs::remove_dir_all(&s);
+    assert_points_invalid(&r, "its proof is not accepted by the kernel");
+    assert!(
+        r.text
+            .contains("binding       not reported: the kernel did not accept this proof"),
+        "{}",
+        r.text
+    );
+    assert_eq!(r.text.matches("binding       1 ↦").count(), 1, "{}", r.text);
+}
+
+/// Minor 4: symbolic links, FIFOs and files outside points/ are refused
+/// without being opened.
+#[test]
+fn r4_m4_links_fifos_and_stray_paths_are_refused() {
+    use std::os::unix::fs::symlink;
+    let s = scratch_with("r4-m4", &[]);
+    // A symlinked points file, pointing outside the repository.
+    let outside = std::env::temp_dir().join(format!("rlt-r4-m4-out-{}.yaml", std::process::id()));
+    std::fs::copy(s.join(PTS), &outside).unwrap();
+    symlink(&outside, s.join("points/linked.yaml")).unwrap();
+    let r = points_report(&s, &s.join("points/linked.yaml"));
+    assert_points_invalid(&r, "is a symbolic link");
+    // A points file outside points/.
+    let r = points_report(&s, &outside);
+    assert_points_invalid(&r, "inside this repository's points/ directory");
+    // A FIFO as the points file and as a bound proof: refused, never opened.
+    let mk = |p: &Path| {
+        assert!(std::process::Command::new("mkfifo")
+            .arg(p)
+            .status()
+            .unwrap()
+            .success())
+    };
+    mk(&s.join("points/fifo.yaml"));
+    let r = points_report(&s, &s.join("points/fifo.yaml"));
+    assert_points_invalid(&r, "is not a regular file");
+    mk(&s.join("tests/accept/T6_fifo.rlt"));
+    let pts = std::fs::read_to_string(s.join(PTS)).unwrap().replacen(
+        "proof: tests/accept/T6_one_plus_one.rlt",
+        "proof: tests/accept/T6_fifo.rlt",
+        1,
+    );
+    std::fs::write(s.join(PTS), pts).unwrap();
+    let r = points_report(&s, &s.join(PTS));
+    assert_points_invalid(&r, "its proof is not accepted by the kernel");
+    let ck = check_file(&s, &s.join("tests/accept/T6_fifo.rlt"));
+    assert_eq!(ck.code, MALFORMED, "{}", ck.text);
+    assert!(ck.text.contains("not a regular file"), "{}", ck.text);
+    let _ = std::fs::remove_dir_all(&s);
+    let _ = std::fs::remove_file(&outside);
+}
+
+/// Minor 5: basis required; self-relations, contradictory statuses refused;
+/// the convention's reading is shown, so an edit to it is visible.
+#[test]
+fn r4_m5_stricter_records() {
+    let r = points_with("r4-m5-basis", &[(PTS, "basis:\n  text: \"Preserve distinct reading points for two oxygen atoms and two human beings.\"\n  source: RLT-002-REQUEST\n", "")]);
+    assert_points_invalid(&r, "missing `basis`");
+    let r = points_with(
+        "r4-m5-self",
+        &[(
+            PTS,
+            NO_RELATIONS,
+            &relation("bonded-to", "[person.a, person.a]", "unestablished", "[]"),
+        )],
+    );
+    assert_points_invalid(&r, "a relation names two or more distinct points");
+    let r = points_with(
+        "r4-m5-one",
+        &[(
+            PTS,
+            NO_RELATIONS,
+            &relation("bonded-to", "[person.a]", "unestablished", "[]"),
+        )],
+    );
+    assert_points_invalid(&r, "a relation names two or more distinct points");
+    let r = points_with(
+        "r4-m5-inapp",
+        &[(
+            PTS,
+            PA,
+            &pa_physical("{status: inapplicable, evidence: []}"),
+        )],
+    );
+    assert_points_invalid(&r, "`inapplicable` applies to other kinds");
+    let r = points_with(
+        "r4-m5-conv",
+        &[(
+            "conventions/nat-dec.yaml",
+            "+ denotes addition on the natural numbers",
+            "+ denotes multiplication of physical objects",
+        )],
+    );
+    // T7 (D2): explanation prose is pinned, so this edit is refused outright.
+    assert_points_invalid(
+        &r,
+        "convention NAT-DEC: explanation differs from the convention pinned",
+    );
+}
+
+/// T7 step 1: executable fields and explanation prose are pinned separately,
+/// and every command refuses a convention that differs from its pins.
+#[test]
+fn t7_convention_pins_cover_executable_fields_and_prose() {
+    let cases: [(&str, &str, &str, &str); 4] = [
+        (
+            "conventions/nat-dec.yaml",
+            "+ denotes addition on the natural numbers",
+            "+ denotes multiplication of physical objects",
+            "explanation differs from the convention pinned",
+        ),
+        (
+            "conventions/real-pi.yaml",
+            "\"π\": REAL-PI.pi",
+            "\"π\": PRIME-COUNT.pi",
+            "executable fields differ from the convention pinned",
+        ),
+        (
+            "conventions/nat-dec.yaml",
+            "  elaborator: nat-dec",
+            "  elaborator: nat-dec\n  symbols: {\"+\": mul}",
+            "`symbols` belong to the symbol elaborator",
+        ),
+        (
+            "conventions/nat-dec.yaml",
+            "authority: interpretation",
+            "authority: interpretation\nreading: [\"+ denotes multiplication\"]",
+            "field `reading` is outside this record type",
+        ),
+    ];
+    for (i, (file, from, to, needle)) in cases.iter().enumerate() {
+        let s = scratch_with(&format!("t7-pin-{i}"), &[(file, from, to)]);
+        let ck = check_file(&s, &s.join("tests/accept/T6_one_plus_one.rlt"));
+        let wr = written_report(&s, "π", "REAL-PI", "π", "PRIME-COUNT");
+        let pt = points_report(&s, &s.join(PTS));
+        let v = validate(&s);
+        let _ = std::fs::remove_dir_all(&s);
+        for (name, r) in [
+            ("check", &ck),
+            ("written", &wr),
+            ("points", &pt),
+            ("validate", &v),
+        ] {
+            assert_ne!(r.code, ACCEPT, "{name} accepted:\n{}", r.text);
+            assert!(
+                r.text.contains(needle),
+                "{name} missing `{needle}`:\n{}",
+                r.text
+            );
+        }
+    }
+    // An unpinned extra convention is refused too.
+    let s = scratch_with("t7-pin-extra", &[]);
+    let extra = std::fs::read_to_string(s.join("conventions/real-pi.yaml"))
+        .unwrap()
+        .replacen("id: REAL-PI", "id: REAL-PI-TWO", 1);
+    std::fs::write(s.join("conventions/real-pi-two.yaml"), extra).unwrap();
+    let ck = check_file(&s, &s.join("tests/accept/T6_one_plus_one.rlt"));
+    let _ = std::fs::remove_dir_all(&s);
+    assert_ne!(ck.code, ACCEPT, "{}", ck.text);
+    assert!(
+        ck.text
+            .contains("convention REAL-PI-TWO is outside PINNED_CONVENTIONS"),
+        "{}",
+        ck.text
+    );
+}
+
+// ---- RLT-002 · T7: registered chemical notation (CO₂, O₂; COO uninterpreted) ----
+
+const T7: &str = "points/co2-and-o2.yaml";
+const CHEM: &str = "conventions/chem-molformula.yaml";
+
+fn t7_with(name: &str, edits: &[(&str, &str, &str)]) -> Report {
+    let s = scratch_with(name, edits);
+    let r = points_report(&s, &s.join(T7));
+    let _ = std::fs::remove_dir_all(s);
+    r
+}
+
+fn has(r: &Report, lines: &[&str]) {
+    for l in lines {
+        assert!(r.text.contains(l), "missing `{l}`:\n{}", r.text);
+    }
+}
+
+/// T7-A1, A2: the two registered formulas are read through their entries.
+#[test]
+fn t7_a1_a2_registered_formulas_are_interpreted() {
+    let r = chem_report(&root(), "CO₂", "CHEM-MOLFORMULA");
+    assert_eq!(r.code, ACCEPT, "{}", r.text);
+    golden("chem_co2", &r);
+    has(&r, &[
+        "entry           CO₂ ↦ carbon-dioxide · C×1 O×2 (3 atoms) [IUPAC-BRIEF-GUIDE-2015 §1, Table 3 (examples of binary compounds), row CO2 | carbon dioxide]",
+        "structure       not stated by this convention (composition only)",
+        "physical        not assessed (notation only; no specimen is identified)",
+        "verdict         INTERPRETED — a registered reading of notation; no kernel theorem and no physical claim",
+    ]);
+    let r = chem_report(&root(), "O₂", "CHEM-MOLFORMULA");
+    assert_eq!(r.code, ACCEPT, "{}", r.text);
+    golden("chem_o2", &r);
+    has(&r, &["entry           O₂ ↦ dioxygen · O×2 (2 atoms) [IUPAC-BRIEF-GUIDE-2015 §1, Table 1 (examples of homoatomic entities), row O2 | dioxygen]"]);
+}
+
+/// T7-R1, R2: COO, CO2 and O2 have no entry; uninterpreted is not false.
+#[test]
+fn t7_r1_r2_unregistered_formulas_stay_uninterpreted() {
+    for w in ["COO", "CO2", "O2", " CO₂", "CO₂ "] {
+        let r = chem_report(&root(), w, "CHEM-MOLFORMULA");
+        assert_eq!(r.code, REJECT, "{w}: {}", r.text);
+        has(&r, &[
+            &format!("verdict         UNINTERPRETED — CHEM-MOLFORMULA has no entry for \"{w}\"; no composition is assigned, and uninterpreted is neither true nor false"),
+            "no composition is computed from its letters",
+        ]);
+        for word in ["carbon-dioxide", "dioxygen", "FALSE", "REJECT"] {
+            assert!(!r.text.contains(word), "{w}: `{word}` in\n{}", r.text);
+        }
+    }
+    golden("chem_coo", &chem_report(&root(), "COO", "CHEM-MOLFORMULA"));
+    // A species-table convention elaborates no kernel term, and NAT-DEC reads no formula.
+    let r = written_report(&root(), "CO₂", "CHEM-MOLFORMULA", "CO₂", "CHEM-MOLFORMULA");
+    assert_eq!(r.code, MALFORMED, "{}", r.text);
+    let r = chem_report(&root(), "CO₂", "NAT-DEC");
+    assert_eq!(r.code, MALFORMED, "{}", r.text);
+}
+
+/// T7-A3: seven reading points, two compositions, three kernel-checked counts.
+#[test]
+fn t7_a3_demonstration_keeps_layers_apart() {
+    let r = points_report(&root(), &root().join(T7));
+    assert_eq!(r.code, ACCEPT, "{}", r.text);
+    golden("points_co2-and-o2", &r);
+    has(&r, &[
+        "  co2.molecule  physical-object · class molecule · scope particular · species CO₂ ↦ carbon-dioxide under CHEM-MOLFORMULA (registered interpretation; specimen identity unestablished)",
+        "composition     comp.co2 · co2.molecule = co2.c, co2.o-1, co2.o-2\n  check         C×1 O×2 matches CHEM-MOLFORMULA entry CO₂ (C×1 O×2)\n  meaning       consistency with the registered interpretation; establishes no observation, bond or specimen identity",
+        "  check         O×2 matches CHEM-MOLFORMULA entry O₂ (O×2)",
+        "  binding       1 ↦ {co2.c} · 2 ↦ {co2.o-1, co2.o-2}",
+        "  identities    co2.c, co2.o-1, co2.o-2, o2.o-1, o2.o-2 — 5 distinct reading point(s); class atom",
+        "structural, physical and identity relations among these reading points stay unestablished",
+        "verdict         VALID — specification records consistent (13 record(s) valid",
+    ]);
+    assert_eq!(
+        r.text
+            .matches(
+                "ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD, Γ = ∅"
+            )
+            .count(),
+        3
+    );
+    assert_eq!(
+        r.text
+            .matches("record valid · physical unestablished (evidence: 0)")
+            .count(),
+        7
+    );
+    for word in [
+        "physical established",
+        "status established",
+        "supported",
+        "bonded",
+        "same-species",
+    ] {
+        assert!(!r.text.contains(word), "`{word}` in\n{}", r.text);
+    }
+}
+
+/// T7-A4: a bond claim with no evidence is valid and stays unestablished.
+#[test]
+fn t7_a4_bond_claim_stays_unestablished() {
+    let r = t7_with(
+        "t7-a4",
+        &[(
+            T7,
+            NO_RELATIONS,
+            &relation("bonded-to", "[co2.c, co2.o-1]", "unestablished", "[]"),
+        )],
+    );
+    assert_eq!(r.code, ACCEPT, "{}", r.text);
+    has(&r, &["relation        rel.x [bonded-to] co2.c, co2.o-1\n                record valid · status unestablished (evidence: 0)"]);
+}
+
+/// T7-A5: math5 keeps its documented meanings; T7 references it by id only.
+#[test]
+fn t7_a5_math5_is_preserved() {
+    let r = rp_report(&root(), "math5");
+    assert_eq!(r.code, ACCEPT, "{}", r.text);
+    golden("rp_math5", &r);
+    let v = validate(&root());
+    assert_eq!(v.code, ACCEPT, "{}", v.text);
+    has(
+        &v,
+        &[
+            "reading point   math5: 13 meanings",
+            "points          co2-and-o2.yaml: 0 problem(s)",
+        ],
+    );
+    let r = points_report(&root(), &root().join(T7));
+    has(
+        &r,
+        &["references      math5 (its documented meanings stay in readingpoints/math5.yaml)"],
+    );
+}
+
+const CO2_SPECIES: &str = "species: {written: \"CO₂\", convention: CHEM-MOLFORMULA}";
+
+/// T7-R3: a molecule naming an unregistered formula is an invalid record.
+#[test]
+fn t7_r3_unregistered_species_is_an_invalid_record() {
+    let r = t7_with(
+        "t7-r3",
+        &[(
+            T7,
+            CO2_SPECIES,
+            "species: {written: \"COO\", convention: CHEM-MOLFORMULA}",
+        )],
+    );
+    assert_points_invalid(&r, "point co2.molecule: species \"COO\" has no entry under CHEM-MOLFORMULA; it stays uninterpreted");
+    has(
+        &r,
+        &[
+            "physical not reported (record invalid)",
+            "record valid · physical unestablished (evidence: 0)",
+        ],
+    );
+}
+
+/// T7-R4, R5, R6: compositions must match the registered entry element by element.
+#[test]
+fn t7_r4_r5_r6_compositions_match_registered_entries() {
+    let r = t7_with(
+        "t7-r4",
+        &[(
+            T7,
+            "atoms: [co2.c, co2.o-1, co2.o-2]",
+            "atoms: [co2.c, co2.o-1]",
+        )],
+    );
+    assert_points_invalid(
+        &r,
+        "composition C×1 O×1 differs from CHEM-MOLFORMULA entry CO₂ (C×1 O×2)",
+    );
+    let r = t7_with(
+        "t7-r5",
+        &[(
+            T7,
+            "class: atom\n    element: {symbol: C, convention: CHEM-MOLFORMULA}",
+            "class: atom\n    element: {symbol: O, convention: CHEM-MOLFORMULA}",
+        )],
+    );
+    assert_points_invalid(
+        &r,
+        "composition C×0 O×3 differs from CHEM-MOLFORMULA entry CO₂ (C×1 O×2)",
+    );
+    let r = t7_with(
+        "t7-r6",
+        &[(
+            T7,
+            "element: {symbol: C, convention: CHEM-MOLFORMULA}",
+            "element: {symbol: N, convention: CHEM-MOLFORMULA}",
+        )],
+    );
+    assert_points_invalid(&r, "element N is outside the CHEM-MOLFORMULA element table");
+    // An atom counted in two compositions, and a molecule with no registered species.
+    let r = t7_with(
+        "t7-r4-shared",
+        &[(T7, "atoms: [o2.o-1, o2.o-2]", "atoms: [co2.o-2, o2.o-2]")],
+    );
+    assert_points_invalid(&r, "atom co2.o-2 is already in composition comp.co2");
+    let r = t7_with(
+        "t7-r4-nomol",
+        &[(T7, "molecule: o2.molecule", "molecule: o2.o-1")],
+    );
+    assert_points_invalid(
+        &r,
+        "molecule o2.o-1 must be a point with a registered species",
+    );
+}
+
+/// T7-R7: same-species against different registered entries is a
+/// registered-specification conflict, whatever evidence is attached.
+#[test]
+fn t7_r7_same_species_conflict_with_registered_entries() {
+    let between = "[co2.molecule, o2.molecule]";
+    let rel = relation(
+        "same-species",
+        between,
+        "evidence-submitted",
+        &linked("same-species", between),
+    );
+    let r = t7_with("t7-r7", &[(T7, NO_RELATIONS, &rel)]);
+    assert_points_invalid(&r, "registered-specification conflict: same-species contradicts the species identifiers CHEM-MOLFORMULA assigns (co2.molecule: carbon-dioxide; o2.molecule: dioxygen)");
+    has(
+        &r,
+        &[
+            "not an experimental conclusion about physical samples",
+            "status not reported (record invalid)",
+        ],
+    );
+}
+
+/// T7-R8: counts and theorems are never evidence for structure or species.
+#[test]
+fn t7_r8_counts_never_evidence_structure() {
+    let between = "[co2.molecule, o2.molecule]";
+    for (i, (ty, rf)) in [
+        ("kernel_theorem", "tests/accept/R_math5_count.rlt"),
+        ("physical_measurement", "count.atoms"),
+    ]
+    .iter()
+    .enumerate()
+    {
+        let ev = format!("\n      - type: {ty}\n        ref: {rf}\n        locator: body\n        claim: same-structure\n        referents: {between}\n        criteria: \"equal atom counts\"");
+        let r = t7_with(
+            &format!("t7-r8-{i}"),
+            &[(
+                T7,
+                NO_RELATIONS,
+                &relation("same-structure", between, "evidence-submitted", &ev),
+            )],
+        );
+        assert_eq!(r.code, REJECT, "{}", r.text);
+        assert!(
+            r.text
+                .contains("counts and theorems are never evidence for a relation")
+                || r.text.contains("must be an available registered source"),
+            "{}",
+            r.text
+        );
+    }
+}
+
+/// T7-R9: an establishment judgment makes the record invalid; no status is shown.
+#[test]
+fn t7_r9_judgment_status_invalidates_the_record() {
+    let rel = relation(
+        "bonded-to",
+        "[co2.c, co2.o-1]",
+        "supported",
+        &linked("bonded-to", "[co2.c, co2.o-1]"),
+    );
+    let r = t7_with("t7-r9", &[(T7, NO_RELATIONS, &rel)]);
+    assert_points_invalid(&r, "status `supported` records an establishment judgment");
+    has(
+        &r,
+        &[
+            "relation        rel.x [bonded-to] co2.c, co2.o-1\n                record INVALID (",
+            "status not reported (record invalid)",
+        ],
+    );
+    assert!(!r.text.contains("status supported"), "{}", r.text);
+}
+
+/// T7-R10: a count bound to a rejected proof keeps the kernel's verdict visible.
+#[test]
+fn t7_r10_rejected_proof_keeps_kernel_verdict_separate() {
+    let s = scratch_with("t7-r10", &[]);
+    std::fs::create_dir_all(s.join("tests/reject")).unwrap();
+    std::fs::copy(
+        root().join("tests/reject/T3_math5_calc.rlt"),
+        s.join("tests/reject/T3_math5_calc.rlt"),
+    )
+    .unwrap();
+    let pts = std::fs::read_to_string(s.join(T7)).unwrap().replacen(
+        "proof: tests/accept/T7_one_plus_two.rlt",
+        "proof: tests/reject/T3_math5_calc.rlt",
+        1,
+    );
+    std::fs::write(s.join(T7), pts).unwrap();
+    let r = points_report(&s, &s.join(T7));
+    let _ = std::fs::remove_dir_all(&s);
+    assert_points_invalid(&r, "its proof is not accepted by the kernel");
+    has(
+        &r,
+        &[
+            "→ REJECT",
+            "binding       not reported: the kernel did not accept this proof",
+        ],
+    );
+    // The other counts keep their own ACCEPT verdicts.
+    assert_eq!(r.text.matches("→ ACCEPT").count(), 2, "{}", r.text);
+}
+
+/// T7-R11, R12: the species table is pinned; structure cannot ride in an entry.
+#[test]
+fn t7_r11_r12_species_table_is_pinned_and_closed() {
+    for (i, (from, to, needle)) in [
+        ("composition: {C: 1, O: 2}", "composition: {C: 1, O: 3}", "convention CHEM-MOLFORMULA: executable fields differ from the convention pinned"),
+        ("- written: \"O₂\"", "- written: \"O2\"", "convention CHEM-MOLFORMULA: executable fields differ from the convention pinned"),
+        ("    - \"An entry states composition only. It states no bond, no geometry and no structure.\"\n", "", "convention CHEM-MOLFORMULA: explanation differs from the convention pinned"),
+        ("      composition: {O: 2}", "      composition: {O: 2}\n      structure: \"O=O\"", "field `structure` is outside this record type"),
+        ("      composition: {O: 2}", "      composition: {O: 2}\n      bonds: [[O, O]]", "field `bonds` is outside this record type"),
+    ]
+    .iter()
+    .enumerate()
+    {
+        let s = scratch_with(&format!("t7-r11-{i}"), &[(CHEM, from, to)]);
+        let reports = [
+            ("chem", chem_report(&s, "O₂", "CHEM-MOLFORMULA")),
+            ("points", points_report(&s, &s.join(T7))),
+            ("check", check_file(&s, &s.join("tests/accept/T7_one_plus_two.rlt"))),
+            ("validate", validate(&s)),
+        ];
+        let _ = std::fs::remove_dir_all(&s);
+        for (name, r) in reports {
+            assert_ne!(r.code, ACCEPT, "{name} accepted:\n{}", r.text);
+            assert!(r.text.contains(needle), "{name} missing `{needle}`:\n{}", r.text);
+        }
+    }
+}
+
+/// T7-R13: points files reference math5 and never carry its meanings.
+#[test]
+fn t7_r13_points_never_copy_meanings() {
+    let r = t7_with(
+        "t7-r13",
+        &[(
+            T7,
+            "references: [math5]",
+            "references: [math5]\nmeanings: [\"pairing through 5 to 6\"]",
+        )],
+    );
+    assert_points_invalid(&r, "field `meanings` is outside this record type");
+}
+
+/// An invalid status record reads differently from a valid record whose
+/// physical correspondence is unestablished, and kernel verdicts stay apart.
+#[test]
+fn t7_invalid_record_differs_from_unestablished_correspondence() {
+    let r = t7_with(
+        "t7-invalid",
+        &[(
+            T7,
+            "description: \"the carbon atom this file assigns to co2.molecule\"\n    scope: particular\n    physical: {status: unestablished, evidence: []}",
+            "description: \"the carbon atom this file assigns to co2.molecule\"\n    scope: particular\n    physical: {status: supported, evidence: []}",
+        )],
+    );
+    assert_eq!(r.code, REJECT, "{}", r.text);
+    has(&r, &[
+        "\"the carbon atom this file assigns to co2.molecule\"\n                record INVALID (",
+        ") · physical not reported (record invalid)",
+        "verdict         INVALID — 1 of 13 record(s) invalid",
+    ]);
+    assert_eq!(
+        r.text
+            .matches("record valid · physical unestablished (evidence: 0)")
+            .count(),
+        6
+    );
+    assert_eq!(r.text.matches("→ ACCEPT").count(), 3, "{}", r.text);
+    assert!(!r.text.contains("physical supported"), "{}", r.text);
+}
+
+// ---- T7 audit (072eb82): one regression test per finding ----
+
+/// S1: adding a point without a registered species cannot dodge the
+/// same-species conflict rule.
+#[test]
+fn t7_audit_s1_same_species_cannot_be_diluted() {
+    for (i, between) in [
+        "[co2.molecule, o2.molecule, co2.c]",
+        "[co2.molecule, co2.c]",
+        "[co2.molecule, co2.o-1, co2.o-2]",
+    ]
+    .iter()
+    .enumerate()
+    {
+        let rel = relation(
+            "same-species",
+            between,
+            "evidence-submitted",
+            &linked("same-species", between),
+        );
+        let r = t7_with(&format!("t7-s1-{i}"), &[(T7, NO_RELATIONS, &rel)]);
+        assert_points_invalid(&r, "registered-specification conflict");
+        has(
+            &r,
+            &[
+                "no registered species",
+                "status not reported (record invalid)",
+            ],
+        );
+    }
+    // One side uninterpreted (COO): the molecule record is invalid and the
+    // relation conflicts too.
+    let rel = relation(
+        "same-species",
+        "[co2.molecule, o2.molecule]",
+        "unestablished",
+        "[]",
+    );
+    let r = t7_with(
+        "t7-s1-coo",
+        &[
+            (T7, NO_RELATIONS, &rel),
+            (
+                T7,
+                "species: {written: \"O₂\", convention: CHEM-MOLFORMULA}",
+                "species: {written: \"COO\", convention: CHEM-MOLFORMULA}",
+            ),
+        ],
+    );
+    assert_points_invalid(&r, "o2.molecule: no registered species");
+    // Two records with the same registered species stay a valid, unestablished claim.
+    let extra = "  - id: co2.molecule-2\n    kind: physical-object\n    class: molecule\n    species: {written: \"CO₂\", convention: CHEM-MOLFORMULA}\n    description: \"a second CO₂ molecule\"\n    scope: particular\n    physical: {status: unestablished, evidence: []}\n\ncompositions:\n";
+    let rel = relation(
+        "same-species",
+        "[co2.molecule, co2.molecule-2]",
+        "unestablished",
+        "[]",
+    );
+    let r = t7_with(
+        "t7-s1-same",
+        &[
+            (T7, "\ncompositions:\n", &format!("\n{extra}")),
+            (T7, NO_RELATIONS, &rel),
+        ],
+    );
+    assert_eq!(r.code, ACCEPT, "{}", r.text);
+    has(&r, &["record valid · status unestablished (evidence: 0)"]);
+}
+
+/// S2: record ids are unique within a file, and a molecule has at most one
+/// composition.
+#[test]
+fn t7_audit_s2_unique_ids_and_one_composition_per_molecule() {
+    let atoms: String = [("x.c", "C"), ("x.o-1", "O"), ("x.o-2", "O")]
+        .iter()
+        .map(|(i, e)| format!("  - id: {i}\n    kind: physical-object\n    class: atom\n    element: {{symbol: {e}, convention: CHEM-MOLFORMULA}}\n    description: \"extra\"\n    scope: particular\n    physical: {{status: unestablished, evidence: []}}\n"))
+        .collect();
+    let second = |id: &str| {
+        format!("\n{atoms}\ncompositions:\n  - id: {id}\n    molecule: co2.molecule\n    atoms: [x.c, x.o-1, x.o-2]\n")
+    };
+    let r = t7_with(
+        "t7-s2-dup",
+        &[(T7, "\ncompositions:\n", &second("comp.co2"))],
+    );
+    assert_points_invalid(
+        &r,
+        "record id `comp.co2` is shared by 2 records (composition, composition)",
+    );
+    has(
+        &r,
+        &["molecule co2.molecule already has a composition; a molecule has at most one"],
+    );
+    let r = t7_with(
+        "t7-s2-two",
+        &[(T7, "\ncompositions:\n", &second("comp.co2-b"))],
+    );
+    assert_points_invalid(
+        &r,
+        "molecule co2.molecule already has a composition; a molecule has at most one",
+    );
+    // Duplicate count and relation ids, and an id shared across record kinds.
+    let r = t7_with(
+        "t7-s2-count",
+        &[(T7, "  - id: count.o2\n", "  - id: count.co2\n")],
+    );
+    assert_points_invalid(
+        &r,
+        "record id `count.co2` is shared by 2 records (count, count)",
+    );
+    let r = t7_with(
+        "t7-s2-cross",
+        &[(T7, "  - id: comp.o2\n", "  - id: co2.c\n")],
+    );
+    assert_points_invalid(
+        &r,
+        "record id `co2.c` is shared by 2 records (point, composition)",
+    );
+}
+
+/// M1, M2: compositions use atom records and molecule records as such, and a
+/// duplicate atom is counted once and reported as a duplicate.
+#[test]
+fn t7_audit_m1_m2_composition_hardening() {
+    let r = t7_with(
+        "t7-m1-self",
+        &[
+            (T7, "atoms: [co2.c, co2.o-1, co2.o-2]", "atoms: [co2.c, co2.o-1, co2.molecule]"),
+            (T7, "class: molecule\n    species: {written: \"CO₂\", convention: CHEM-MOLFORMULA}", "class: molecule\n    species: {written: \"CO₂\", convention: CHEM-MOLFORMULA}\n    element: {symbol: O, convention: CHEM-MOLFORMULA}"),
+        ],
+    );
+    assert_points_invalid(&r, "molecule co2.molecule also names an element");
+    has(
+        &r,
+        &["atom co2.molecule names a species; an atom record names an element only"],
+    );
+    assert!(!r.text.contains("C×1 O×2 matches"), "{}", r.text);
+    let r = t7_with(
+        "t7-m2",
+        &[(
+            T7,
+            "atoms: [co2.c, co2.o-1, co2.o-2]",
+            "atoms: [co2.c, co2.o-1, co2.o-1]",
+        )],
+    );
+    assert_points_invalid(&r, "atom co2.o-1 is listed twice");
+    has(
+        &r,
+        &["composition C×1 O×1 differs from CHEM-MOLFORMULA entry CO₂ (C×1 O×2)"],
+    );
+    assert!(!r.text.contains("already in composition"), "{}", r.text);
+    assert!(!r.text.contains("C×1 O×2 matches"), "{}", r.text);
+}
+
+/// M3: `class` is a plain identifier, so it cannot imitate report text.
+#[test]
+fn t7_audit_m3_class_cannot_forge_species_text() {
+    let r = t7_with(
+        "t7-m3",
+        &[(T7, "class: molecule\n    species: {written: \"O₂\"", "class: \"molecule · species O₂ ↦ dioxygen under CHEM-MOLFORMULA\"\n    species: {written: \"O₂\"")],
+    );
+    assert_points_invalid(&r, "class \"molecule · species O₂ ↦ dioxygen under CHEM-MOLFORMULA\": identifiers use lower-case ASCII letters");
+}
+
+/// M4: a convention pin failure is reported as a pin failure by every
+/// command, never as a kernel rejection or a malformed proof.
+#[test]
+fn t7_audit_m4_pin_failures_are_named() {
+    let s = scratch_with(
+        "t7-m4",
+        &[(CHEM, "    - \"An entry states composition only. It states no bond, no geometry and no structure.\"\n", "")],
+    );
+    let lean = lean_export(&s, &[s.join("tests/accept/T6_one_plus_one.rlt")]);
+    let rp = rp_report(&s, "math5");
+    let pt = points_report(&s, &s.join(T7));
+    let _ = std::fs::remove_dir_all(&s);
+    for (name, r) in [("lean", &lean), ("rp", &rp), ("points", &pt)] {
+        assert_ne!(r.code, ACCEPT, "{name}:\n{}", r.text);
+        assert!(
+            r.text
+                .contains("explanation differs from the convention pinned"),
+            "{name}:\n{}",
+            r.text
+        );
+        assert!(
+            !r.text.contains("not accepted by the RLT kernel"),
+            "{name}:\n{}",
+            r.text
+        );
+        assert!(
+            !r.text.contains("proof file is malformed"),
+            "{name}:\n{}",
+            r.text
+        );
+    }
+    assert_eq!(pt.code, MALFORMED, "{}", pt.text);
+    assert!(!pt.text.contains("0 of 0 record(s)"), "{}", pt.text);
+}
+
+/// Q1 minor: invisible joiners and variation selectors are refused, so an
+/// unregistered formula never prints exactly like a registered one.
+#[test]
+fn t7_audit_invisible_variants_are_refused() {
+    for w in [
+        "CO\u{034F}₂",
+        "CO₂\u{FE0F}",
+        "C\u{180B}O₂",
+        "CO₂\u{E0100}",
+        "\u{3164}CO₂",
+        "CO₂\u{2800}",
+    ] {
+        let r = chem_report(&root(), w, "CHEM-MOLFORMULA");
+        assert_eq!(r.code, MALFORMED, "{w:?}: {}", r.text);
+        assert!(
+            r.text.contains("control or invisible character"),
+            "{}",
+            r.text
+        );
+    }
+}
+
+/// RLT-002 merge correction: records that share an id each report INVALID;
+/// none of them reads `record valid`, and the file stays INVALID.
+#[test]
+fn t7_shared_record_ids_mark_each_record_invalid() {
+    let r = t7_with(
+        "t7-dup-comp",
+        &[(T7, "  - id: comp.o2\n", "  - id: comp.co2\n")],
+    );
+    assert_points_invalid(
+        &r,
+        "record id `comp.co2` is shared by 2 records (composition, composition)",
+    );
+    let blocks: Vec<&str> = r.text.split("composition     comp.co2").skip(1).collect();
+    assert_eq!(blocks.len(), 2, "{}", r.text);
+    for b in &blocks {
+        let rec = b
+            .lines()
+            .find(|l| l.trim_start().starts_with("record "))
+            .unwrap_or("");
+        assert!(rec.contains("record INVALID ("), "{}", r.text);
+    }
+    assert!(!r.text.contains(" matches CHEM-MOLFORMULA"), "{}", r.text);
+    has(
+        &r,
+        &[
+            "verdict         INVALID — 2 of 13 record(s) invalid",
+            "  record valid (context: basis, references and record ids)",
+        ],
+    );
+    // A point and a count sharing an id: both invalid, the point's physical
+    // status not reported, the kernel verdict unchanged.
+    let r = t7_with(
+        "t7-dup-cross",
+        &[(T7, "  - id: count.o2\n", "  - id: o2.o-1\n")],
+    );
+    assert_points_invalid(
+        &r,
+        "record id `o2.o-1` is shared by 2 records (point, count)",
+    );
+    has(&r, &[
+        "\"oxygen atom 1 this file assigns to o2.molecule\"\n                record INVALID (1 problem(s), listed below) · physical not reported (record invalid)",
+        "verdict         INVALID — 2 of 13 record(s) invalid",
+    ]);
+    assert_eq!(r.text.matches("→ ACCEPT").count(), 3, "{}", r.text);
+    let count_block = r.text.split("count           o2.o-1").nth(1).unwrap_or("");
+    assert!(count_block.contains("  record INVALID ("), "{}", r.text);
 }

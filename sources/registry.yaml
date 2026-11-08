@@ -45,6 +45,33 @@ sources:
       - "Keep `imagined` separate from mathematical validity and physical evidence status. An imagined expression may be represented and examined without its physical referent being established."
       - "A theorem may be reported as unconditional only when its assumption context is empty."
 
+  - id: RLT-002-REQUEST
+    title: RLT-002 — Reading-Point Specifications and Local Theorem Proving (request)
+    location: RLT-002 review conversation, 2026-11-07
+    status: conversation
+    excerpts:
+      - "The reading-point specification identifies what is being counted or related."
+      - "Numerical equality does not establish equality of identity, structure, physical relationships, or history."
+      - "Preserve distinct reading points for two oxygen atoms and two human beings."
+      - "Do not infer that these identify interchangeable physical structures."
+
+  - id: RLT-002-APPROVAL
+    title: RLT-002 Architecture Review — Conditional Approval
+    location: RLT-002 review conversation, 2026-11-07
+    status: conversation
+    excerpts:
+      - "Make explicit that associations between numbers and physical referents are specification records, not conclusions proved by the arithmetic kernel."
+      - "Replace “every conclusion stays local” with a requirement that each conclusion retain its actual scope. RLT must not silently generalize a particular physical interpretation into a universal physical claim."
+
+  - id: RLT-002-T7-APPROVAL
+    title: RLT-002 T7 — Architecture Approved for Implementation
+    location: RLT-002 review conversation, 2026-11-08
+    status: conversation
+    excerpts:
+      - "Leave `COO`, `CO2`, and `O2` uninterpreted."
+      - "Keep the mathematical counts distinct from the records assigning atom identifiers to molecules."
+      - "A composition record establishes consistency with the registered interpretation. It does not independently establish physical observation, bonding, or the actual identity of a specimen."
+
   - id: NEWS-MATH00
     title: MATH_00.md
     location: https://github.com/thinkthoughts/news/blob/1ffd5ea9886386dc0b16c13499ecfe2ed59fd9e9/MATH_00.md
@@ -220,6 +247,12 @@ sources:
     title: SDG5 specification document
     status: missing
     note: SDG5 appears as a label (SDG5 = 1+1+1+1+1) in antiviolence.ai feed posts
+
+  - id: IUPAC-BRIEF-GUIDE-2015
+    title: "Brief guide to the nomenclature of inorganic chemistry (IUPAC Technical Report), R. M. Hartshorn, K.-H. Hellwich, A. Yerin, T. Damhus, A. T. Hutton, Pure Appl. Chem. 87(9-10), 1039-1049 (2015), doi 10.1515/pac-2014-0718"
+    location: https://iupac.qmul.ac.uk/BriefGuide/inorganic.html
+    status: reference
+    note: "Inspected 2026-11-08 for RLT-002 T7: §1 Table 1 row O2 | dioxygen; §1 Table 3 row CO2 | carbon dioxide; §1 states compositional names give composition and no structural information; COO appears nowhere. No element-symbol table is present."
 
   - id: CO2-SPECIFICATIONS
     title: CO₂ specifications

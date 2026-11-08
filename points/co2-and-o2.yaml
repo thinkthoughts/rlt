@@ -1,0 +1,104 @@
+# RLT-002 · T7 — one CO₂ molecule and one O₂ molecule, as seven reading points.
+#
+# math5's own example (documented in readingpoints/math5.yaml, referenced here
+# by id only) is a CO₂ molecule and an O₂ molecule, 1+1+1+1+1 = 5 atoms. This
+# file names the two molecules and their five atoms as distinct, particular
+# reading points and keeps four things apart:
+#   - species and elements: readings of the written formulas CO₂ and O₂ under
+#     the registered convention CHEM-MOLFORMULA (interpretation inputs);
+#   - compositions: which atom records this file counts as each molecule's,
+#     checked for consistency with the registered entries;
+#   - counts: kernel-checked NAT-DEC equations bound to those atom records;
+#   - physical correspondence: unestablished for every record; no bond,
+#     structure or specimen identity is claimed.
+
+id: co2-and-o2
+context: "One CO₂ molecule and one O₂ molecule, and their five atoms, counted with 1 + 2 = 3, 1 + 1 = 2 and 1 + 1 + 1 + 1 + 1 = 5."
+basis:
+  text: "Keep the mathematical counts distinct from the records assigning atom identifiers to molecules."
+  source: RLT-002-T7-APPROVAL
+references: [math5]          # math5 documents this example; its meanings stay in readingpoints/math5.yaml
+
+points:
+  - id: co2.molecule
+    kind: physical-object
+    class: molecule
+    species: {written: "CO₂", convention: CHEM-MOLFORMULA}
+    description: "one CO₂ molecule"
+    scope: particular
+    physical: {status: unestablished, evidence: []}
+  - id: o2.molecule
+    kind: physical-object
+    class: molecule
+    species: {written: "O₂", convention: CHEM-MOLFORMULA}
+    description: "one O₂ molecule"
+    scope: particular
+    physical: {status: unestablished, evidence: []}
+  - id: co2.c
+    kind: physical-object
+    class: atom
+    element: {symbol: C, convention: CHEM-MOLFORMULA}
+    description: "the carbon atom this file assigns to co2.molecule"
+    scope: particular
+    physical: {status: unestablished, evidence: []}
+  - id: co2.o-1
+    kind: physical-object
+    class: atom
+    element: {symbol: O, convention: CHEM-MOLFORMULA}
+    description: "oxygen atom 1 this file assigns to co2.molecule"
+    scope: particular
+    physical: {status: unestablished, evidence: []}
+  - id: co2.o-2
+    kind: physical-object
+    class: atom
+    element: {symbol: O, convention: CHEM-MOLFORMULA}
+    description: "oxygen atom 2 this file assigns to co2.molecule"
+    scope: particular
+    physical: {status: unestablished, evidence: []}
+  - id: o2.o-1
+    kind: physical-object
+    class: atom
+    element: {symbol: O, convention: CHEM-MOLFORMULA}
+    description: "oxygen atom 1 this file assigns to o2.molecule"
+    scope: particular
+    physical: {status: unestablished, evidence: []}
+  - id: o2.o-2
+    kind: physical-object
+    class: atom
+    element: {symbol: O, convention: CHEM-MOLFORMULA}
+    description: "oxygen atom 2 this file assigns to o2.molecule"
+    scope: particular
+    physical: {status: unestablished, evidence: []}
+
+compositions:
+  - id: comp.co2
+    molecule: co2.molecule
+    atoms: [co2.c, co2.o-1, co2.o-2]
+  - id: comp.o2
+    molecule: o2.molecule
+    atoms: [o2.o-1, o2.o-2]
+
+counts:
+  - id: count.co2
+    written: "1 + 2 = 3"
+    convention: NAT-DEC
+    proof: tests/accept/T7_one_plus_two.rlt
+    mode: unconditional
+    assumptions: []
+    groups: [[co2.c], [co2.o-1, co2.o-2]]
+  - id: count.o2
+    written: "1 + 1 = 2"
+    convention: NAT-DEC
+    proof: tests/accept/T6_one_plus_one.rlt
+    mode: unconditional
+    assumptions: []
+    groups: [[o2.o-1], [o2.o-2]]
+  - id: count.atoms
+    written: "1 + 1 + 1 + 1 + 1 = 5"
+    convention: NAT-DEC
+    proof: tests/accept/R_math5_count.rlt
+    mode: unconditional
+    assumptions: []
+    groups: [[co2.c], [co2.o-1], [co2.o-2], [o2.o-1], [o2.o-2]]
+
+relations: []

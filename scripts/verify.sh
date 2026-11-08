@@ -73,6 +73,22 @@ for a in tests/written/*.args; do
   "$rlt" written "${w[0]}" "${w[1]}" "${w[2]}" "${w[3]}" | grep -E '^(written ≡w|terms)' || fail=1
 done
 
+echo; echo "== specification records (points/)"
+for f in points/*.yaml; do
+  [ -e "$f" ] || continue
+  points_log=$("$rlt" points "$f"); points_code=$?
+  printf '%-40s exit %s  %s\n' "$f" "$points_code" "$(echo "$points_log" | grep '^verdict' | tail -1 | sed 's/^verdict *//')"
+  [ $points_code = 0 ] || { echo "$points_log" | grep '^problem'; fail=1; }
+done
+
+echo; echo "== chemical notation (rlt chem; 0 interpreted, 1 uninterpreted)"
+for case in "CO₂:0" "O₂:0" "COO:1" "CO2:1" "O2:1"; do
+  w=${case%:*}; want=${case##*:}
+  chem_log=$("$rlt" chem "$w" CHEM-MOLFORMULA); chem_code=$?
+  printf '%-8s exit %s (want %s)  %s\n' "$w" "$chem_code" "$want" "$(echo "$chem_log" | grep '^verdict' | sed 's/^verdict *//' | cut -c1-60)"
+  [ "$chem_code" = "$want" ] || fail=1
+done
+
 echo; echo "== records"
 validate_log=$("$rlt" validate); validate_code=$?
 echo "$validate_log" | grep -E '^(PiπΠ|problem|verdict)'

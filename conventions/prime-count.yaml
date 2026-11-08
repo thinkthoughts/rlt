@@ -1,12 +1,20 @@
 id: PRIME-COUNT
-title: π as the prime-counting function (RLT-authored test convention exercising PI-1)
-elaborator: symbol
 authority: interpretation
-symbols:
-  "π": PRIME-COUNT.pi
-reading:
-  - "π denotes the prime-counting function, π(x) = the number of primes p ≤ x."
 sources: []
 origin: rlt-authored   # RLT test reading; translatepi.ai states neither reading of π (it states PI-1 only)
-limits:
-  - "Written-layer test convention: PRIME-COUNT.pi sits outside the RLT-001 kernel signature."
+
+# Executable fields: they decide what a written expression elaborates to.
+# Pinned in the binary (PINNED_CONVENTIONS, interpretation digest).
+executable:
+  elaborator: symbol
+  symbols:
+    "π": PRIME-COUNT.pi
+
+# Explanation: prose no check uses to elaborate. Pinned separately
+# (PINNED_CONVENTIONS, explanation digest), so a prose edit needs review too.
+explanation:
+  title: π as the prime-counting function (RLT-authored test convention exercising PI-1)
+  reading:
+    - "π denotes the prime-counting function, π(x) = the number of primes p ≤ x."
+  limits:
+    - "Written-layer test convention: PRIME-COUNT.pi sits outside the RLT-001 kernel signature."

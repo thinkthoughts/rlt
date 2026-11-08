@@ -1,0 +1,55 @@
+RLT points      points/co2-and-o2.yaml
+context         co2-and-o2 — "One CO₂ molecule and one O₂ molecule, and their five atoms, counted with 1 + 2 = 3, 1 + 1 = 2 and 1 + 1 + 1 + 1 + 1 = 5."
+  basis         "Keep the mathematical counts distinct from the records assigning atom identifiers to molecules."  [RLT-002-T7-APPROVAL]
+references      math5 (its documented meanings stay in readingpoints/math5.yaml)
+  record valid (context: basis, references and record ids)
+reading points  7
+  co2.molecule  physical-object · class molecule · scope particular · species CO₂ ↦ carbon-dioxide under CHEM-MOLFORMULA (registered interpretation; specimen identity unestablished) — "one CO₂ molecule"
+                record valid · physical unestablished (evidence: 0)
+  o2.molecule   physical-object · class molecule · scope particular · species O₂ ↦ dioxygen under CHEM-MOLFORMULA (registered interpretation; specimen identity unestablished) — "one O₂ molecule"
+                record valid · physical unestablished (evidence: 0)
+  co2.c         physical-object · class atom · scope particular · element C (carbon) under CHEM-MOLFORMULA — "the carbon atom this file assigns to co2.molecule"
+                record valid · physical unestablished (evidence: 0)
+  co2.o-1       physical-object · class atom · scope particular · element O (oxygen) under CHEM-MOLFORMULA — "oxygen atom 1 this file assigns to co2.molecule"
+                record valid · physical unestablished (evidence: 0)
+  co2.o-2       physical-object · class atom · scope particular · element O (oxygen) under CHEM-MOLFORMULA — "oxygen atom 2 this file assigns to co2.molecule"
+                record valid · physical unestablished (evidence: 0)
+  o2.o-1        physical-object · class atom · scope particular · element O (oxygen) under CHEM-MOLFORMULA — "oxygen atom 1 this file assigns to o2.molecule"
+                record valid · physical unestablished (evidence: 0)
+  o2.o-2        physical-object · class atom · scope particular · element O (oxygen) under CHEM-MOLFORMULA — "oxygen atom 2 this file assigns to o2.molecule"
+                record valid · physical unestablished (evidence: 0)
+composition     comp.co2 · co2.molecule = co2.c, co2.o-1, co2.o-2
+  check         C×1 O×2 matches CHEM-MOLFORMULA entry CO₂ (C×1 O×2)
+  meaning       consistency with the registered interpretation; establishes no observation, bond or specimen identity
+  record valid
+composition     comp.o2 · o2.molecule = o2.o-1, o2.o-2
+  check         O×2 matches CHEM-MOLFORMULA entry O₂ (O×2)
+  meaning       consistency with the registered interpretation; establishes no observation, bond or specimen identity
+  record valid
+count           count.co2
+  equation      "1 + 2 = 3" under NAT-DEC → ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD, Γ = ∅  (tests/accept/T7_one_plus_two.rlt)
+  convention    NAT-DEC (interpretation input; executable: elaborator nat-dec, pinned) — explanation: "A run of decimal digits n denotes the numeral S^n(0). + denotes addition on the natural numbers and groups to the left: a + b + c reads (a + b) + c. = denotes equality on the natural numbers. Parentheses group."
+  binding       1 ↦ {co2.c} · 2 ↦ {co2.o-1, co2.o-2}
+  identities    co2.c, co2.o-1, co2.o-2 — 3 distinct reading point(s); class atom
+  scope         particular (the reading points listed)
+  association   a specification record: the kernel checked the equation; this file states what each numeral counts
+  record valid (the kernel verdict above stands on its own)
+count           count.o2
+  equation      "1 + 1 = 2" under NAT-DEC → ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD, Γ = ∅  (tests/accept/T6_one_plus_one.rlt)
+  convention    NAT-DEC (interpretation input; executable: elaborator nat-dec, pinned) — explanation: "A run of decimal digits n denotes the numeral S^n(0). + denotes addition on the natural numbers and groups to the left: a + b + c reads (a + b) + c. = denotes equality on the natural numbers. Parentheses group."
+  binding       1 ↦ {o2.o-1} · 1 ↦ {o2.o-2}
+  identities    o2.o-1, o2.o-2 — 2 distinct reading point(s); class atom
+  scope         particular (the reading points listed)
+  association   a specification record: the kernel checked the equation; this file states what each numeral counts
+  record valid (the kernel verdict above stands on its own)
+count           count.atoms
+  equation      "1 + 1 + 1 + 1 + 1 = 5" under NAT-DEC → ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD, Γ = ∅  (tests/accept/R_math5_count.rlt)
+  convention    NAT-DEC (interpretation input; executable: elaborator nat-dec, pinned) — explanation: "A run of decimal digits n denotes the numeral S^n(0). + denotes addition on the natural numbers and groups to the left: a + b + c reads (a + b) + c. = denotes equality on the natural numbers. Parentheses group."
+  binding       1 ↦ {co2.c} · 1 ↦ {co2.o-1} · 1 ↦ {co2.o-2} · 1 ↦ {o2.o-1} · 1 ↦ {o2.o-2}
+  identities    co2.c, co2.o-1, co2.o-2, o2.o-1, o2.o-2 — 5 distinct reading point(s); class atom
+  scope         particular (the reading points listed)
+  association   a specification record: the kernel checked the equation; this file states what each numeral counts
+  record valid (the kernel verdict above stands on its own)
+relations       none recorded; structural, physical and identity relations among these reading points stay unestablished
+verdict         VALID — specification records consistent (13 record(s) valid; physical correspondence as reported per record)
+exit 0

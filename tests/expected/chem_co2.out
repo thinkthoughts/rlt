@@ -1,0 +1,10 @@
+RLT chem
+written         "CO₂"  tokens: CO · ₂
+convention      CHEM-MOLFORMULA (interpretation input; executable: elaborator species-table, pinned)
+entry           CO₂ ↦ carbon-dioxide · C×1 O×2 (3 atoms) [IUPAC-BRIEF-GUIDE-2015 §1, Table 3 (examples of binary compounds), row CO2 | carbon dioxide]
+elements        C ↦ carbon · O ↦ oxygen (element identifiers are labels of this convention)
+source          IUPAC-BRIEF-GUIDE-2015 (reference)
+structure       not stated by this convention (composition only)
+physical        not assessed (notation only; no specimen is identified)
+verdict         INTERPRETED — a registered reading of notation; no kernel theorem and no physical claim
+exit 0

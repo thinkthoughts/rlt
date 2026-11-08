@@ -6,8 +6,8 @@ use rlt_kernel::{check, Axiom, Formula, Mode, Theorem, Verdict};
 use rlt_syntax::elab::{elaborate_formula, elaborate_term, Convention};
 use rlt_syntax::proof::{parse_axiom_file, parse_proof_file, ProofFile};
 use rlt_syntax::records::{
-    load_conventions, load_readingpoint, load_registry, load_status, load_yaml, ConventionRecord,
-    ReadingPoint, Relationship,
+    load_conventions, load_readingpoint, load_registry, load_status, load_yaml, read_regular,
+    ConventionRecord, EvidenceItem, ReadingPoint, Relationship, Source, StatusVocabulary,
 };
 use rlt_syntax::written::Written;
 use std::collections::BTreeMap;
@@ -183,7 +183,7 @@ pub fn load_axiom_set(root: &Path, id: &str) -> Result<AxiomSet, String> {
             "axiom set {id}: registered names {listed:?}, file holds {found:?}"
         ));
     }
-    let reg = load_registry(&root.join("sources/registry.yaml"))?;
+    let reg = pinned_registry(root)?;
     match reg.get(&source) {
         Some(s) if AXIOM_SOURCE_STATUS.contains(&s.status.as_str()) => {}
         _ => {
@@ -245,9 +245,12 @@ pub fn check_file_outcome(root: &Path, file: &Path) -> CheckOutcome {
     if file.to_string_lossy().chars().any(|c| c.is_control()) {
         bail!("the proof file name contains a control character".to_string());
     }
-    let src = match std::fs::read_to_string(file) {
+    let src = match read_regular(file) {
         Ok(s) => s,
-        Err(e) => bail!(format!("cannot read the proof file: {}", e.kind())),
+        Err(e) => bail!(format!(
+            "cannot read the proof file: {}",
+            e.rsplit(": ").next().unwrap_or("unreadable")
+        )),
     };
     let pf = match parse_proof_file(&src) {
         Ok(p) => p,
@@ -284,7 +287,7 @@ pub fn check_file_outcome(root: &Path, file: &Path) -> CheckOutcome {
     }
 
     // Layer 2: convention (an input to interpretation).
-    let convs = match load_conventions(&root.join("conventions")) {
+    let convs = match pinned_conventions(root) {
         Ok(c) => c,
         Err(e) => bail!(e),
     };
@@ -420,6 +423,19 @@ pub fn bind_relationship(
     rp_id: &str,
     r: &Relationship,
 ) -> (CheckOutcome, Result<(), String>) {
+    bind_proof(root, Some(rp_id), r)
+}
+
+/// Bind a stated equation (written form, convention, mode, Γ) to a proof
+/// file. With `rp_id`, the proof must also name that reading point and the
+/// relationship id (RLT-001 relationships). Without it (RLT-002 counts), the
+/// binding is by statement alone, so one checked equation can serve several
+/// specification records.
+pub fn bind_proof(
+    root: &Path,
+    rp_id: Option<&str>,
+    r: &Relationship,
+) -> (CheckOutcome, Result<(), String>) {
     let path = root.join(&r.proof);
     let contained = match (
         root.join(&r.proof).canonicalize(),
@@ -465,18 +481,23 @@ pub fn bind_relationship(
     }
     let out = check_file_outcome(root, &path);
     let res = (|| {
-        let pf = out.proof.as_ref().ok_or("proof file is malformed")?;
-        if pf.readingpoint.as_deref() != Some(rp_id) {
-            return Err(format!(
-                "proof names reading point {:?}, record is `{rp_id}`",
-                pf.readingpoint
-            ));
-        }
-        if pf.relationship.as_deref() != Some(r.id.as_str()) {
-            return Err(format!(
-                "proof names relationship {:?}, record is `{}`",
-                pf.relationship, r.id
-            ));
+        let pf = out
+            .proof
+            .as_ref()
+            .ok_or_else(|| format!("proof not checked: {}", verdict_text(&out.report)))?;
+        if let Some(rp_id) = rp_id {
+            if pf.readingpoint.as_deref() != Some(rp_id) {
+                return Err(format!(
+                    "proof names reading point {:?}, record is `{rp_id}`",
+                    pf.readingpoint
+                ));
+            }
+            if pf.relationship.as_deref() != Some(r.id.as_str()) {
+                return Err(format!(
+                    "proof names relationship {:?}, record is `{}`",
+                    pf.relationship, r.id
+                ));
+            }
         }
         if pf.convention != r.convention {
             return Err(format!(
@@ -484,7 +505,7 @@ pub fn bind_relationship(
                 pf.convention, r.convention
             ));
         }
-        let convs = load_conventions(&root.join("conventions"))?;
+        let convs = pinned_conventions(root)?;
         let conv = convs
             .get(&r.convention)
             .ok_or(format!("convention `{}` is unregistered", r.convention))?;
@@ -534,7 +555,7 @@ pub fn bind_relationship(
 /// `rlt written A B` with a convention for each side.
 pub fn written_report(root: &Path, a: &str, ca: &str, b: &str, cb: &str) -> Report {
     let mut t = String::new();
-    let convs = match load_conventions(&root.join("conventions")) {
+    let convs = match pinned_conventions(root) {
         Ok(c) => c,
         Err(e) => return malformed(&mut t, e),
     };
@@ -618,6 +639,10 @@ pub fn rp_report(root: &Path, id: &str) -> Report {
         Ok(r) => r,
         Err(e) => return malformed(&mut t, e),
     };
+    let (reg, vocab) = match (pinned_registry(root), pinned_status(root)) {
+        (Ok(r), Ok(v)) => (r, v),
+        (Err(e), _) | (_, Err(e)) => return malformed(&mut t, e),
+    };
     let _ = writeln!(t, "reading point   {}", rp.id);
     let _ = writeln!(t, "meanings (verbatim; `rlt validate` checks each against its source and checks completeness)");
     for m in &rp.meanings {
@@ -674,15 +699,44 @@ pub fn rp_report(root: &Path, id: &str) -> Report {
         "physical correspondence (evidence-graded, independent of verdicts)"
     );
     for c in &rp.correspondence {
+        let mut ps = Vec::new();
+        let lines = check_status_and_evidence(
+            &c.id,
+            &c.kind,
+            std::slice::from_ref(&c.id),
+            &c.status,
+            &c.evidence,
+            &vocab,
+            &reg,
+            false,
+            &mut ps,
+        );
         let _ = writeln!(
             t,
-            "  {} [{}] {} — \"{}\" (evidence: {})",
+            "  {} [{}] {} · {} — \"{}\"",
             c.id,
             c.kind,
-            c.status,
-            c.description,
-            c.evidence.len()
+            if ps.is_empty() {
+                "record valid"
+            } else {
+                "record INVALID (see rlt validate)"
+            },
+            if ps.is_empty() {
+                format!(
+                    "physical {}",
+                    status_shown(&c.status, c.evidence.len(), "correspondence")
+                )
+            } else {
+                "physical not reported (record invalid)".to_string()
+            },
+            c.description
         );
+        for l in lines {
+            let _ = writeln!(t, "  {l}");
+        }
+        if !ps.is_empty() {
+            code = REJECT;
+        }
     }
     let _ = writeln!(t, "PiπΠ lifts");
     if rp.lifts.is_empty() {
@@ -694,6 +748,95 @@ pub fn rp_report(root: &Path, id: &str) -> Report {
     Report { text: t, code }
 }
 
+/// `rlt chem WRITTEN CONVENTION`: how a species-table convention reads one
+/// written formula. Exit 0 when the formula has a registered entry, 1 when it
+/// is uninterpreted (neither true nor false), 2 when the input or a pin is
+/// malformed. No kernel theorem and no physical claim come from this report.
+pub fn chem_report(root: &Path, written: &str, conv_id: &str) -> Report {
+    let mut t = String::new();
+    if let Err(e) = rlt_syntax::records::clean(written, "written", "rlt chem", false) {
+        return malformed(&mut t, e);
+    }
+    let (convs, reg) = match (pinned_conventions(root), pinned_registry(root)) {
+        (Ok(c), Ok(r)) => (c, r),
+        (Err(e), _) | (_, Err(e)) => return malformed(&mut t, e),
+    };
+    let Some(conv) = convs.get(conv_id) else {
+        return malformed(&mut t, format!("convention `{conv_id}` is unregistered"));
+    };
+    let w = Written::new(written);
+    let _ = writeln!(t, "RLT chem");
+    let _ = writeln!(t, "written         \"{}\"  tokens: {}", w.text, tokens(&w));
+    let _ = writeln!(
+        t,
+        "convention      {} (interpretation input; executable: elaborator {}, pinned)",
+        conv.convention.id, conv.convention.elaborator
+    );
+    if conv.convention.elaborator != "species-table" {
+        return malformed(
+            &mut t,
+            format!(
+                "convention {} has elaborator `{}`; rlt chem reads species-table conventions",
+                conv.convention.id, conv.convention.elaborator
+            ),
+        );
+    }
+    match conv.species_entry(written) {
+        Some(e) => {
+            let src = reg
+                .get(&e.source)
+                .map(|s| s.status.as_str())
+                .unwrap_or("unregistered");
+            let _ = writeln!(
+                t,
+                "entry           {} ↦ {} · {} ({} atoms) [{} {}]",
+                e.written,
+                e.species,
+                e.composition_text(),
+                e.total(),
+                e.source,
+                e.locator
+            );
+            let names: Vec<String> = e
+                .composition
+                .iter()
+                .map(|(sym, _)| format!("{sym} ↦ {}", conv.element_name(sym).unwrap_or("?")))
+                .collect();
+            let _ = writeln!(
+                t,
+                "elements        {} (element identifiers are labels of this convention)",
+                names.join(" · ")
+            );
+            let _ = writeln!(t, "source          {} ({src})", e.source);
+            let _ = writeln!(
+                t,
+                "structure       not stated by this convention (composition only)"
+            );
+            let _ = writeln!(
+                t,
+                "physical        not assessed (notation only; no specimen is identified)"
+            );
+            let _ = writeln!(t, "verdict         INTERPRETED — a registered reading of notation; no kernel theorem and no physical claim");
+            Report {
+                text: t,
+                code: ACCEPT,
+            }
+        }
+        None => {
+            let _ = writeln!(t, "entry           none (lookup is by the whole written string; no composition is computed from its letters)");
+            let _ = writeln!(
+                t,
+                "verdict         UNINTERPRETED — {} has no entry for \"{}\"; no composition is assigned, and uninterpreted is neither true nor false",
+                conv.convention.id, w.text
+            );
+            Report {
+                text: t,
+                code: REJECT,
+            }
+        }
+    }
+}
+
 /// SHA-256 of the source registry's documentation content (see
 /// `registry_digest`), pinned in the binary. Every documented meaning a
 /// reading point may carry comes from a tagged registry excerpt, so fixing the
@@ -701,15 +844,18 @@ pub fn rp_report(root: &Path, id: &str) -> Report {
 /// untagged, retagged to another reading point, or newly cited only through a
 /// reviewed code change. Update it with the digest `rlt validate` prints.
 pub const PINNED_REGISTRY_SHA: &str =
-    "b58a93d38add9f97e633965835bad3518c9e504fe27dee450136f3f9fee101bb";
+    "5907956bdff83a6a19bc1bcf25de3705a1ecec9002876ce791aabbf0d1581425";
 
 /// Canonical digest of the registry: for every source (in id order) its id,
 /// status and location, then each excerpt's text, `defines` and `split`, one
 /// field per line.
-pub fn registry_digest(reg: &BTreeMap<String, rlt_syntax::records::Source>) -> String {
+pub fn registry_digest(reg: &BTreeMap<String, Source>) -> String {
     let mut buf = String::new();
     for s in reg.values() {
-        buf.push_str(&format!("source\t{}\t{}\t{}\n", s.id, s.status, s.location));
+        buf.push_str(&format!(
+            "source\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
+            s.id, s.status, s.location, s.title, s.url, s.commit, s.note
+        ));
         for x in &s.excerpts {
             buf.push_str(&format!(
                 "excerpt\t{}\t{}\t{}\n",
@@ -720,6 +866,268 @@ pub fn registry_digest(reg: &BTreeMap<String, rlt_syntax::records::Source>) -> S
         }
     }
     sha256_hex(buf.as_bytes())
+}
+
+/// SHA-256 of the status vocabulary `correspondence/status.yaml` (see
+/// `status_digest`), pinned in the binary beside the registry. Every status
+/// and evidence rule reads this vocabulary, so it changes only through a
+/// reviewed code change. Update it with the digest `rlt validate` prints.
+pub const PINNED_STATUS_SHA: &str =
+    "80d1d09b316bfee8554e2b2d40f48f7a3fd0c9bfd08faa3885000dc48519fc53";
+
+/// Canonical digest of the status vocabulary: each list, one per line, in a
+/// fixed order.
+pub fn status_digest(v: &StatusVocabulary) -> String {
+    let mut buf = String::new();
+    for (name, xs) in [
+        ("correspondence_status", &v.correspondence),
+        ("status_without_evidence", &v.without_evidence),
+        ("referent_only_status", &v.referent_only),
+        ("allowed_support", &v.allowed_support),
+        ("lift_status", &v.lift),
+    ] {
+        buf.push_str(name);
+        for x in xs {
+            buf.push('\t');
+            buf.push_str(x);
+        }
+        buf.push('\n');
+    }
+    sha256_hex(buf.as_bytes())
+}
+
+/// The registry, refused unless it matches `PINNED_REGISTRY_SHA`. Every
+/// command that reads the registry reads it through here.
+pub fn pinned_registry(root: &Path) -> Result<BTreeMap<String, Source>, String> {
+    let reg = load_registry(&root.join("sources/registry.yaml"))?;
+    let digest = registry_digest(&reg);
+    if digest != PINNED_REGISTRY_SHA {
+        return Err(format!(
+            "sources/registry.yaml differs from the registry pinned in this binary (digest {digest}, pinned {PINNED_REGISTRY_SHA}); a registry change needs a reviewed update of PINNED_REGISTRY_SHA"
+        ));
+    }
+    Ok(reg)
+}
+
+/// The status vocabulary, refused unless it matches `PINNED_STATUS_SHA`.
+pub fn pinned_status(root: &Path) -> Result<StatusVocabulary, String> {
+    let v = load_status(&root.join("correspondence/status.yaml"))?;
+    let digest = status_digest(&v);
+    if digest != PINNED_STATUS_SHA {
+        return Err(format!(
+            "correspondence/status.yaml differs from the status vocabulary pinned in this binary (digest {digest}, pinned {PINNED_STATUS_SHA}); a vocabulary change needs a reviewed update of PINNED_STATUS_SHA"
+        ));
+    }
+    Ok(v)
+}
+
+/// Registered conventions, pinned in the binary: (id, interpretation digest,
+/// explanation digest). The interpretation digest covers `id`, `authority`,
+/// `sources`, `origin` and the `executable` block, which decide what a written
+/// expression elaborates to; the explanation digest covers the prose. Either
+/// changes only through a reviewed code change. Update with the digests
+/// `rlt validate` prints.
+pub const PINNED_CONVENTIONS: &[(&str, &str, &str)] = &[
+    (
+        "CHEM-MOLFORMULA",
+        "181a8beca3b0d64445fd4dc8cef8689cba346900b4bb32d22eb299b770fdeb33",
+        "de8a1b4a391146d83383710b558ebf3c7d2ea149dd86bae1d0dda421039b78f7",
+    ),
+    (
+        "NAT-DEC",
+        "d57ad1be921ad703d12b399f03dadd5d8901440040656126ec3f74fc24b1723c",
+        "ee2977936461d2c49159ab4141ad770e3f14253cf0b11b4950a410f13875ac11",
+    ),
+    (
+        "PIPIPI",
+        "126600cb46f737e353942999d73ffea97c1bca8b4e969df2e30dbdecf82cbad6",
+        "5dd80717c5cf8ca8212d985266d5baf3efc3722095f5222545b64fec5a2e1069",
+    ),
+    (
+        "PRIME-COUNT",
+        "5f582cd0ccfd7315ca6f4d08a4b5e2f73b6bf7ce78864f2cdd68ad94d687a423",
+        "0f9bac9aecf2fc0f9d610ab9d75a672781ec6ff8aa768ca3b9e8500a93555a8b",
+    ),
+    (
+        "REAL-PI",
+        "c431b6dfe296a04977854aa2faff730fd626d8cc7347bcee0ee55e8eaad15886",
+        "4bf8ed727569da451ba0bdf2d7906ed13a94b5440599187757b045f0a239f1bd",
+    ),
+];
+
+/// (interpretation digest, explanation digest) of a convention record.
+pub fn convention_digests(c: &ConventionRecord) -> (String, String) {
+    (
+        sha256_hex(c.interpretation_canon.as_bytes()),
+        sha256_hex(c.explanation_canon.as_bytes()),
+    )
+}
+
+/// Every difference between the loaded conventions and the pins.
+pub fn convention_pin_problems(convs: &BTreeMap<String, ConventionRecord>) -> Vec<String> {
+    let mut problems = Vec::new();
+    for (id, c) in convs {
+        let (i, e) = convention_digests(c);
+        match PINNED_CONVENTIONS.iter().find(|(p, _, _)| p == id) {
+            None => problems.push(format!(
+                "convention {id} is outside PINNED_CONVENTIONS (interpretation digest {i}, explanation digest {e}); registering a convention needs a reviewed code change"
+            )),
+            Some((_, pi, pe)) => {
+                if &i != pi {
+                    problems.push(format!(
+                        "convention {id}: executable fields differ from the convention pinned in this binary (interpretation digest {i}, pinned {pi}); a change to what it elaborates needs a reviewed update of PINNED_CONVENTIONS"
+                    ));
+                }
+                if &e != pe {
+                    problems.push(format!(
+                        "convention {id}: explanation differs from the convention pinned in this binary (explanation digest {e}, pinned {pe}); a prose change needs a reviewed update of PINNED_CONVENTIONS"
+                    ));
+                }
+            }
+        }
+    }
+    for (id, _, _) in PINNED_CONVENTIONS {
+        if !convs.contains_key(*id) {
+            problems.push(format!(
+                "pinned convention {id} is missing from conventions/"
+            ));
+        }
+    }
+    problems
+}
+
+/// The conventions, refused unless every one matches its pin. Every command
+/// other than `rlt validate` reads conventions through here.
+pub fn pinned_conventions(root: &Path) -> Result<BTreeMap<String, ConventionRecord>, String> {
+    let convs = load_conventions(&root.join("conventions"))?;
+    match convention_pin_problems(&convs).into_iter().next() {
+        Some(p) => Err(p),
+        None => Ok(convs),
+    }
+}
+
+/// Statuses a physical or relational record may hold, fixed in the binary.
+/// RLT checks that submitted evidence is complete and linked to its claim; it
+/// leaves open whether the evidence establishes the claim. So a record states
+/// at most `evidence-submitted`, and no configuration or evidence label can
+/// make RLT report a claim as established.
+pub const RECORDABLE_STATUS: [&str; 4] = [
+    "unestablished",
+    "evidence-submitted",
+    "inapplicable",
+    "imagined",
+];
+
+/// Statuses that record an establishment judgment (RML `supported`,
+/// `rejected`). They stay in the vocabulary as source terms; a record using
+/// one is refused, since RLT reports evidence without judging it.
+pub const JUDGMENT_STATUS: [&str; 2] = ["supported", "rejected"];
+
+/// Check a record's physical or relational status and its evidence items.
+/// `claim` and `referents` are what each evidence item must name. Returns the
+/// report lines for the evidence and appends problems.
+#[allow(clippy::too_many_arguments)]
+fn check_status_and_evidence(
+    who: &str,
+    claim: &str,
+    referents: &[String],
+    st: &str,
+    evidence: &[EvidenceItem],
+    vocab: &StatusVocabulary,
+    reg: &BTreeMap<String, Source>,
+    relation: bool,
+    problems: &mut Vec<String>,
+) -> Vec<String> {
+    if JUDGMENT_STATUS.contains(&st) {
+        problems.push(format!(
+            "{who} status `{st}` records an establishment judgment; RLT reports submitted evidence without judging it, so record `evidence-submitted` with linked evidence, or `unestablished`"
+        ));
+    } else if !vocab.correspondence.iter().any(|v| v == st) || !RECORDABLE_STATUS.contains(&st) {
+        problems.push(format!("{who} status `{st}` is outside the vocabulary"));
+    }
+    if evidence.is_empty() && !vocab.without_evidence.iter().any(|v| v == st) {
+        problems.push(format!("{who} status `{st}` requires evidence"));
+    }
+    if !evidence.is_empty() && st != "evidence-submitted" && !JUDGMENT_STATUS.contains(&st) {
+        problems.push(format!(
+            "{who} status `{st}` with {} evidence item(s): a record with submitted evidence has status `evidence-submitted`",
+            evidence.len()
+        ));
+    }
+    let mut lines = Vec::new();
+    for e in evidence {
+        if !vocab.allowed_support.contains(&e.etype) {
+            problems.push(format!(
+                "{who} evidence type `{}` is outside allowed_support{}",
+                e.etype,
+                if relation {
+                    " (counts and theorems are never evidence for a relation)"
+                } else {
+                    ""
+                }
+            ));
+        }
+        let src = reg.get(&e.reference).filter(|s| s.status == "available");
+        if src.is_none() {
+            problems.push(format!(
+                "{who} evidence ref `{}` must be an available registered source",
+                e.reference
+            ));
+        }
+        match e.claim.as_deref() {
+            Some(c) if c == claim => {}
+            Some(c) => problems.push(format!(
+                "{who} evidence names claim `{c}`; this record's claim is `{claim}`"
+            )),
+            None => problems.push(format!(
+                "{who} evidence must name its claim (`claim: {claim}`)"
+            )),
+        }
+        if e.referents != referents {
+            problems.push(format!(
+                "{who} evidence names referents [{}]; this record's referents are [{}]",
+                e.referents.join(", "),
+                referents.join(", ")
+            ));
+        }
+        if e.locator.as_deref().is_none_or(|l| l.trim().is_empty()) {
+            problems.push(format!(
+                "{who} evidence must give a `locator`: where in `{}` the evidence sits",
+                e.reference
+            ));
+        }
+        if e.criteria.as_deref().is_none_or(|c| c.trim().is_empty()) {
+            problems.push(format!(
+                "{who} evidence must state its validation `criteria`"
+            ));
+        }
+        lines.push(format!(
+            "  evidence      {} · {} [{}] at \"{}\" · for {claim}({}) · criteria \"{}\" · submitted, not evaluated by RLT",
+            e.etype,
+            e.reference,
+            src.map(|s| s.location.as_str()).filter(|l| !l.is_empty()).unwrap_or("no registered location"),
+            e.locator.as_deref().unwrap_or("—"),
+            e.referents.join(", "),
+            e.criteria.as_deref().unwrap_or("—"),
+        ));
+    }
+    lines
+}
+
+/// How a status reads in a report: submitted evidence leaves the claim
+/// unestablished until a reviewer evaluates it.
+fn status_shown(st: &str, n: usize, what: &str) -> String {
+    if st == "evidence-submitted" {
+        format!("evidence-submitted ({n} item(s), not evaluated by RLT; {what} unestablished)")
+    } else if RECORDABLE_STATUS.contains(&st) {
+        format!("{st} (evidence: {n})")
+    } else {
+        // A refused status is shown as what RLT reports: unestablished.
+        format!(
+            "unestablished (record states `{}`, refused; evidence: {n})",
+            st.escape_debug()
+        )
+    }
 }
 
 /// Correspondence record kinds.
@@ -745,11 +1153,18 @@ pub fn validate(root: &Path) -> Report {
         Ok(s) => s,
         Err(e) => return malformed(&mut t, e),
     };
+    let sdigest = status_digest(&status);
+    if sdigest != PINNED_STATUS_SHA {
+        problems.push(format!(
+            "correspondence/status.yaml differs from the status vocabulary pinned in this binary (digest {sdigest}, pinned {PINNED_STATUS_SHA}); a vocabulary change needs a reviewed update of PINNED_STATUS_SHA"
+        ));
+    }
     let convs: BTreeMap<String, ConventionRecord> =
         match load_conventions(&root.join("conventions")) {
             Ok(c) => c,
             Err(e) => return malformed(&mut t, e),
         };
+    problems.extend(convention_pin_problems(&convs));
     let _ = writeln!(t, "sources         {} registered", reg.len());
     let digest = registry_digest(&reg);
     if digest != PINNED_REGISTRY_SHA {
@@ -799,6 +1214,23 @@ pub fn validate(root: &Path) -> Report {
                 ));
             }
         }
+        for e in &c.species {
+            if !reg
+                .get(&e.source)
+                .is_some_and(|s| ["reference", "available"].contains(&s.status.as_str()))
+            {
+                problems.push(format!(
+                    "convention {}: species entry {:?} cites `{}`, which must be a registered reference or available source",
+                    c.convention.id, e.written, e.source
+                ));
+            }
+            if !c.sources.contains(&e.source) {
+                problems.push(format!(
+                    "convention {}: species entry {:?} cites `{}`, which is missing from the convention's sources",
+                    c.convention.id, e.written, e.source
+                ));
+            }
+        }
         if c.sources.is_empty() && c.origin.as_deref() != Some("rlt-authored") {
             problems.push(format!(
                 "convention {}: cites zero sources, so it must be marked `origin: rlt-authored`",
@@ -809,6 +1241,7 @@ pub fn validate(root: &Path) -> Report {
     // PiπΠ conventions: every stated form must appear verbatim in its source's excerpts.
     match rlt_syntax::records::load_yaml(&root.join("conventions/pi.yaml")) {
         Ok(y) => {
+            let y = &y["explanation"];
             let Some(items) = y["conventions"].as_vec().cloned() else {
                 problems.push("conventions/pi.yaml: `conventions` must be a list".into());
                 return finish(t, problems);
@@ -954,21 +1387,20 @@ pub fn validate(root: &Path) -> Report {
             }
         }
         for c in &rp.correspondence {
-            if !status.correspondence.contains(&c.status) {
-                problems.push(format!(
-                    "{}: {} status `{}` is outside the vocabulary",
-                    rp.id, c.id, c.status
-                ));
-            }
+            check_status_and_evidence(
+                &format!("{}: {}", rp.id, c.id),
+                &c.kind,
+                std::slice::from_ref(&c.id),
+                &c.status,
+                &c.evidence,
+                &status,
+                &reg,
+                false,
+                &mut problems,
+            );
             if status.referent_only.contains(&c.status) && c.kind != "referent" {
                 problems.push(format!(
                     "{}: {} status `{}` applies to referent records only",
-                    rp.id, c.id, c.status
-                ));
-            }
-            if c.evidence.is_empty() && !status.without_evidence.contains(&c.status) {
-                problems.push(format!(
-                    "{}: {} status `{}` requires evidence",
                     rp.id, c.id, c.status
                 ));
             }
@@ -977,23 +1409,6 @@ pub fn validate(root: &Path) -> Report {
                     "{}: {} kind `{}` is outside {{behavior, representation, referent}}",
                     rp.id, c.id, c.kind
                 ));
-            }
-            for (_, r) in &c.evidence {
-                match reg.get(r) {
-                    Some(src) if src.status == "available" => {}
-                    _ => problems.push(format!(
-                        "{}: {} evidence ref `{r}` must be an available registered source",
-                        rp.id, c.id
-                    )),
-                }
-            }
-            for (ty, _) in &c.evidence {
-                if !status.allowed_support.contains(ty) {
-                    problems.push(format!(
-                        "{}: {} evidence type `{ty}` is outside allowed_support",
-                        rp.id, c.id
-                    ));
-                }
             }
             if let Some(s) = &c.source {
                 if !reg.contains_key(s) {
@@ -1015,6 +1430,27 @@ pub fn validate(root: &Path) -> Report {
                 ));
             }
         }
+    }
+    // RLT-002 specification records.
+    let mut pts: Vec<PathBuf> = std::fs::read_dir(root.join("points"))
+        .map(|d| d.filter_map(|e| e.ok().map(|e| e.path())).collect())
+        .unwrap_or_default();
+    pts.sort();
+    for p in &pts {
+        let name = p
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let plain = !name.chars().any(|c| c.is_control()) && name.ends_with(".yaml");
+        if !plain || std::fs::symlink_metadata(p).is_ok_and(|m| !m.file_type().is_file()) {
+            problems.push(format!(
+                "points/ holds {name:?}: every entry must be a regular *.yaml specification record"
+            ));
+            continue;
+        }
+        let (_, ps, _) = points_check(root, p);
+        let _ = writeln!(t, "points          {}: {} problem(s)", name, ps.len());
+        problems.extend(ps);
     }
     let rp_ids: Vec<String> = rps
         .iter()
@@ -1109,8 +1545,9 @@ pub fn lean_export(root: &Path, files: &[PathBuf]) -> Report {
             code = REJECT;
             let _ = writeln!(
                 t,
-                "-- skipped {}: not accepted by the RLT kernel\n",
-                shown_path(root, f)
+                "-- skipped {}: {}\n",
+                shown_path(root, f),
+                verdict_text(&out.report)
             );
             continue;
         };
@@ -1154,4 +1591,760 @@ pub fn lean_export(root: &Path, files: &[PathBuf]) -> Report {
     }
     let _ = writeln!(t, "end RLTGenerated");
     Report { text: t, code }
+}
+
+// ---- RLT-002: specification records (points/*.yaml) ----
+
+/// Kinds of reading point a points file may declare.
+pub const POINT_KINDS: [&str; 10] = [
+    "written-expression",
+    "mathematical-object",
+    "physical-object",
+    "physical-relationship",
+    "observed-event",
+    "human-action",
+    "imagined-possibility",
+    "depicted-subject",
+    "description",
+    "generalization",
+];
+
+/// Relation types a points file may declare. A relation carries its own
+/// status and evidence; counts and theorems are never evidence for one.
+pub const RELATION_TYPES: [&str; 7] = [
+    "same-structure",
+    "same-species",
+    "bonded-to",
+    "parent-of",
+    "sibling-of",
+    "part-of",
+    "history",
+];
+
+/// The numeral summands of a sum `a + b + …` (left-nested), if every leaf is a numeral.
+fn numeral_summands(t: &rlt_kernel::Term) -> Option<Vec<u64>> {
+    use rlt_kernel::Term;
+    if let Some(n) = t.as_numeral() {
+        return Some(vec![n]);
+    }
+    match t {
+        Term::App(f, a) if f == "+" && a.len() == 2 => {
+            let mut v = numeral_summands(&a[0])?;
+            v.extend(numeral_summands(&a[1])?);
+            Some(v)
+        }
+        _ => None,
+    }
+}
+
+/// Validate one points file and build its report. Returns (report, problems).
+/// The verdict text of a check report, after `verdict`.
+fn verdict_text(r: &Report) -> String {
+    r.text
+        .lines()
+        .rev()
+        .find_map(|l| l.strip_prefix("verdict"))
+        .map(|v| v.trim().to_string())
+        .unwrap_or_else(|| "no verdict".to_string())
+}
+
+/// One record's verdict line: valid, or invalid with its problem count.
+fn record_verdict(
+    before: usize,
+    problems: &[String],
+    tally: &mut (usize, usize),
+) -> (bool, String) {
+    let n = problems.len() - before;
+    tally.0 += 1;
+    if n == 0 {
+        (true, "record valid".to_string())
+    } else {
+        tally.1 += 1;
+        (
+            false,
+            format!("record INVALID ({n} problem(s), listed below)"),
+        )
+    }
+}
+
+/// Validate one points file and build its report. Returns the report, the
+/// problems, and (records, invalid records).
+pub fn points_check(root: &Path, file: &Path) -> (String, Vec<String>, (usize, usize)) {
+    let mut tally = (0usize, 0usize);
+    let (t, problems) = points_check_inner(root, file, &mut tally);
+    (t, problems, tally)
+}
+
+fn points_check_inner(
+    root: &Path,
+    file: &Path,
+    tally: &mut (usize, usize),
+) -> (String, Vec<String>) {
+    use rlt_syntax::records::load_points;
+    let mut t = String::new();
+    let mut problems: Vec<String> = Vec::new();
+    let shown = shown_path(root, file);
+    let _ = writeln!(t, "RLT points      {shown}");
+    // A points file is a regular *.yaml file directly inside the repository's
+    // own points/ directory (itself a plain directory).
+    let in_points = std::fs::symlink_metadata(root.join("points")).is_ok_and(|m| m.is_dir())
+        && match (
+            file.parent().and_then(|p| p.canonicalize().ok()),
+            root.join("points").canonicalize(),
+        ) {
+            (Some(a), Ok(b)) => a == b,
+            _ => false,
+        }
+        && file.extension().is_some_and(|x| x == "yaml");
+    if !in_points {
+        problems.push(format!(
+            "{shown}: a points file is a *.yaml file inside this repository's points/ directory"
+        ));
+        return (t, problems);
+    }
+    let pf = match load_points(file) {
+        Ok(p) => p,
+        Err(e) => {
+            problems.push(e);
+            return (t, problems);
+        }
+    };
+    // Pinned inputs: the same registry and status vocabulary `rlt validate` checks.
+    let (reg, status) = match (pinned_registry(root), pinned_status(root)) {
+        (Ok(r), Ok(s)) => (r, s),
+        (Err(e), _) | (_, Err(e)) => {
+            problems.push(e);
+            return (t, problems);
+        }
+    };
+    let convs = match pinned_conventions(root) {
+        Ok(c) => c,
+        Err(e) => {
+            problems.push(e);
+            return (t, problems);
+        }
+    };
+    let _ = writeln!(t, "context         {} — \"{}\"", pf.id, pf.context);
+    {
+        let b = &pf.basis;
+        let _ = writeln!(t, "  basis         \"{}\"  [{}]", b.text, b.source);
+        match reg.get(&b.source) {
+            Some(src) if CITABLE.contains(&src.status.as_str()) => {
+                if !src.excerpts.iter().any(|x| x.units().contains(&b.text)) {
+                    problems.push(format!(
+                        "{}: basis \"{}\" equals zero whole units of `{}`",
+                        pf.id, b.text, b.source
+                    ));
+                }
+            }
+            _ => problems.push(format!(
+                "{}: basis source `{}` must be an available or conversation source",
+                pf.id, b.source
+            )),
+        }
+    }
+    for r in &pf.references {
+        // Ids are plain (no `/` or `..`), so the path stays in readingpoints/.
+        let rp_file = rp_path(root, r);
+        let rp_dir_plain =
+            std::fs::symlink_metadata(root.join("readingpoints")).is_ok_and(|m| m.is_dir());
+        if rp_dir_plain && load_readingpoint(&rp_file).is_ok() {
+            let _ = writeln!(
+                t,
+                "references      {r} (its documented meanings stay in readingpoints/{r}.yaml)"
+            );
+        } else {
+            problems.push(format!("{}: references unknown reading point `{r}`", pf.id));
+        }
+    }
+
+    // Record ids form one namespace per file. A shared id is a problem of every
+    // record that carries it, so each of them reports INVALID.
+    let mut all_ids: Vec<(&str, &str)> = Vec::new();
+    for (kind, id) in pf
+        .points
+        .iter()
+        .map(|p| ("point", p.id.as_str()))
+        .chain(
+            pf.compositions
+                .iter()
+                .map(|c| ("composition", c.id.as_str())),
+        )
+        .chain(pf.counts.iter().map(|c| ("count", c.claim.id.as_str())))
+        .chain(pf.relations.iter().map(|r| ("relation", r.id.as_str())))
+    {
+        all_ids.push((kind, id));
+    }
+    let shared_id = |id: &str, problems: &mut Vec<String>| {
+        let kinds: Vec<&str> = all_ids
+            .iter()
+            .filter(|(_, i)| *i == id)
+            .map(|(k, _)| *k)
+            .collect();
+        if kinds.len() > 1 {
+            problems.push(format!(
+                "{}: record id `{id}` is shared by {} records ({}); record ids are unique within a file",
+                pf.id,
+                kinds.len(),
+                kinds.join(", ")
+            ));
+        }
+    };
+    let (_, ctx_line) = record_verdict(0, &problems, tally);
+    let _ = writeln!(
+        t,
+        "  {ctx_line} (context: basis, references and record ids)"
+    );
+
+    // Reading points.
+    let mut ids: Vec<&str> = Vec::new();
+    let _ = writeln!(t, "reading points  {}", pf.points.len());
+    for p in &pf.points {
+        let p0 = problems.len();
+        shared_id(&p.id, &mut problems);
+        ids.push(&p.id);
+        if !POINT_KINDS.contains(&p.kind.as_str()) {
+            problems.push(format!(
+                "{}: point {} kind `{}` is outside the point kinds",
+                pf.id, p.id, p.kind
+            ));
+        }
+        if !["particular", "general"].contains(&p.scope.as_str()) {
+            problems.push(format!(
+                "{}: point {} scope `{}`: use particular or general",
+                pf.id, p.id, p.scope
+            ));
+        }
+        // Registered chemistry: an atom names an element, a molecule a species,
+        // each under a species-table convention. Interpretation only.
+        let mut chem_desc = String::new();
+        if p.element.is_some() && p.species.is_some() {
+            problems.push(format!(
+                "{}: point {} names both an element and a species; an atom record names an element, a molecule record a species",
+                pf.id, p.id
+            ));
+        }
+        if let Some((sym, cid)) = &p.element {
+            match convs.get(cid) {
+                Some(c) if c.convention.elaborator == "species-table" => match c.element_name(sym) {
+                    Some(name) => chem_desc = format!(" · element {sym} ({name}) under {cid}"),
+                    None => problems.push(format!(
+                        "{}: point {}: element {sym} is outside the {cid} element table",
+                        pf.id, p.id
+                    )),
+                },
+                _ => problems.push(format!(
+                    "{}: point {}: element convention `{cid}` must be a registered species-table convention",
+                    pf.id, p.id
+                )),
+            }
+        }
+        if let Some((w, cid)) = &p.species {
+            match convs.get(cid) {
+                Some(c) if c.convention.elaborator == "species-table" => match c.species_entry(w) {
+                    Some(e) => {
+                        chem_desc = format!(
+                            " · species {} ↦ {} under {cid} (registered interpretation; specimen identity unestablished)",
+                            e.written, e.species
+                        )
+                    }
+                    None => problems.push(format!(
+                        "{}: point {}: species \"{w}\" has no entry under {cid}; it stays uninterpreted, so this record names no species",
+                        pf.id, p.id
+                    )),
+                },
+                _ => problems.push(format!(
+                    "{}: point {}: species convention `{cid}` must be a registered species-table convention",
+                    pf.id, p.id
+                )),
+            }
+        }
+        let ev_lines = check_status_and_evidence(
+            &format!("{}: point {} physical", pf.id, p.id),
+            "physical-correspondence",
+            std::slice::from_ref(&p.id),
+            &p.physical_status,
+            &p.evidence,
+            &status,
+            &reg,
+            false,
+            &mut problems,
+        );
+        if p.physical_status == "inapplicable"
+            && ["physical-object", "physical-relationship", "observed-event"]
+                .contains(&p.kind.as_str())
+        {
+            problems.push(format!(
+                "{}: point {} of kind {} has physical correspondence to assess; `inapplicable` applies to other kinds",
+                pf.id, p.id, p.kind
+            ));
+        }
+        if p.physical_status == "imagined" && p.kind != "imagined-possibility" {
+            problems.push(format!(
+                "{}: point {} status `imagined` applies to imagined-possibility points only",
+                pf.id, p.id
+            ));
+        }
+        let (valid, rec) = record_verdict(p0, &problems, tally);
+        let _ = writeln!(
+            t,
+            "  {:<14}{} · class {} · scope {}{chem_desc} — \"{}\"",
+            p.id,
+            p.kind,
+            p.class.as_deref().unwrap_or("—"),
+            p.scope,
+            p.description
+        );
+        let _ = writeln!(
+            t,
+            "                {rec} · physical {}",
+            if valid {
+                status_shown(&p.physical_status, p.evidence.len(), "correspondence")
+            } else {
+                "not reported (record invalid)".to_string()
+            }
+        );
+        for l in ev_lines {
+            let _ = writeln!(t, "{l}");
+        }
+    }
+    let point = |id: &str| pf.points.iter().find(|p| p.id == id);
+    let species_entry = |id: &str| {
+        point(id)
+            .and_then(|p| p.species.as_ref())
+            .and_then(|(w, cid)| {
+                convs
+                    .get(cid)
+                    .and_then(|c| c.species_entry(w))
+                    .map(|e| (cid.clone(), e))
+            })
+    };
+    let element_of = |id: &str| {
+        point(id)
+            .and_then(|p| p.element.as_ref())
+            .and_then(|(sym, cid)| {
+                convs
+                    .get(cid)
+                    .filter(|c| c.element_name(sym).is_some())
+                    .map(|_| (sym.clone(), cid.clone()))
+            })
+    };
+
+    // Compositions: which atom records this file counts as each molecule's.
+    let mut composed: Vec<(&str, &str)> = Vec::new();
+    let mut molecules: Vec<&str> = Vec::new();
+    for comp in &pf.compositions {
+        let k0 = problems.len();
+        shared_id(&comp.id, &mut problems);
+        if molecules.contains(&comp.molecule.as_str()) {
+            problems.push(format!(
+                "{}: composition {}: molecule {} already has a composition; a molecule has at most one",
+                pf.id, comp.id, comp.molecule
+            ));
+        }
+        molecules.push(&comp.molecule);
+        if point(&comp.molecule).is_some_and(|p| p.element.is_some()) {
+            problems.push(format!(
+                "{}: composition {}: molecule {} also names an element; a molecule record names a species only",
+                pf.id, comp.id, comp.molecule
+            ));
+        }
+        let _ = writeln!(
+            t,
+            "composition     {} · {} = {}",
+            comp.id,
+            comp.molecule,
+            comp.atoms.join(", ")
+        );
+        let mut seen: Vec<&str> = Vec::new();
+        for a in &comp.atoms {
+            if seen.contains(&a.as_str()) {
+                problems.push(format!(
+                    "{}: composition {}: atom {a} is listed twice",
+                    pf.id, comp.id
+                ));
+                continue;
+            }
+            seen.push(a);
+            if let Some((other, _)) = composed.iter().find(|(_, x)| *x == a.as_str()) {
+                problems.push(format!(
+                    "{}: composition {}: atom {a} is already in composition {other}",
+                    pf.id, comp.id
+                ));
+            }
+            composed.push((&comp.id, a));
+            if point(a).is_some_and(|p| p.species.is_some()) {
+                problems.push(format!(
+                    "{}: composition {}: atom {a} names a species; an atom record names an element only",
+                    pf.id, comp.id
+                ));
+            }
+        }
+        match species_entry(&comp.molecule) {
+            None => problems.push(format!(
+                "{}: composition {}: molecule {} must be a point with a registered species",
+                pf.id, comp.id, comp.molecule
+            )),
+            Some((cid, e)) => {
+                let mut got: BTreeMap<String, u64> = BTreeMap::new();
+                for a in &seen {
+                    match element_of(a) {
+                        Some((sym, acid)) if acid == cid => *got.entry(sym).or_default() += 1,
+                        _ => problems.push(format!(
+                            "{}: composition {}: atom {a} must be a point with an element under {cid}",
+                            pf.id, comp.id
+                        )),
+                    }
+                }
+                let want: BTreeMap<String, u64> = e.composition.iter().cloned().collect();
+                let mut order: Vec<String> = e.composition.iter().map(|(s, _)| s.clone()).collect();
+                for k in got.keys() {
+                    if !order.contains(k) {
+                        order.push(k.clone());
+                    }
+                }
+                let text = order
+                    .iter()
+                    .map(|k| format!("{k}×{}", got.get(k).copied().unwrap_or(0)))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                if got == want && problems.len() == k0 {
+                    let _ = writeln!(
+                        t,
+                        "  check         {text} matches {cid} entry {} ({})",
+                        e.written,
+                        e.composition_text()
+                    );
+                } else if got == want {
+                    let _ = writeln!(t, "  check         not reported (record invalid)");
+                } else {
+                    problems.push(format!(
+                        "{}: composition {}: composition {text} differs from {cid} entry {} ({})",
+                        pf.id,
+                        comp.id,
+                        e.written,
+                        e.composition_text()
+                    ));
+                }
+            }
+        }
+        let _ = writeln!(t, "  meaning       consistency with the registered interpretation; establishes no observation, bond or specimen identity");
+        let (_, rec) = record_verdict(k0, &problems, tally);
+        let _ = writeln!(t, "  {rec}");
+    }
+
+    // Counts: a checked equation associated with groups of reading points.
+    let mut used_proofs: Vec<(String, String)> = Vec::new();
+    for c in &pf.counts {
+        let c0 = problems.len();
+        shared_id(&c.claim.id, &mut problems);
+        let _ = writeln!(t, "count           {}", c.claim.id);
+        let (out, binding) = bind_proof(root, None, &c.claim);
+        let verdict = match (&out.theorem, out.report.code) {
+            (Some(th), ACCEPT) => format!(
+                "ACCEPT — {} theorem relative to registered axiom set {}, {}",
+                if th.is_unconditional() {
+                    "unconditional"
+                } else {
+                    "conditional"
+                },
+                out.proof
+                    .as_ref()
+                    .map(|p| p.axiom_set.as_str())
+                    .unwrap_or("?"),
+                gamma(th)
+            ),
+            (_, REJECT) => "REJECT".to_string(),
+            _ => "MALFORMED".to_string(),
+        };
+        let _ = writeln!(
+            t,
+            "  equation      \"{}\" under {} → {}  ({})",
+            c.claim.written, c.claim.convention, verdict, c.claim.proof
+        );
+        if let Err(e) = &binding {
+            problems.push(format!("{}: count {}: {e}", pf.id, c.claim.id));
+        }
+        if let Some(cv) = convs.get(&c.claim.convention) {
+            let _ = writeln!(
+                t,
+                "  convention    {} (interpretation input; executable: elaborator {}, pinned) — explanation: \"{}\"",
+                cv.convention.id,
+                cv.convention.elaborator,
+                cv.reading.join(" ")
+            );
+        }
+        if out.report.code != ACCEPT {
+            problems.push(format!(
+                "{}: count {}: its proof is not accepted by the kernel",
+                pf.id, c.claim.id
+            ));
+            let _ = writeln!(
+                t,
+                "  binding       not reported: the kernel did not accept this proof"
+            );
+        }
+        // The binding of numerals to reading points: checked for consistency only.
+        if let (Some(goal), ACCEPT) = (&out.goal, out.report.code) {
+            match numeral_summands(&goal.lhs) {
+                None => problems.push(format!(
+                    "{}: count {}: the left side must be a sum of numerals",
+                    pf.id, c.claim.id
+                )),
+                Some(nums) => {
+                    if nums.len() != c.groups.len() {
+                        problems.push(format!(
+                            "{}: count {}: {} summand(s) but {} group(s)",
+                            pf.id,
+                            c.claim.id,
+                            nums.len(),
+                            c.groups.len()
+                        ));
+                    }
+                    for (i, (n, g)) in nums.iter().zip(&c.groups).enumerate() {
+                        if *n != g.len() as u64 {
+                            problems.push(format!(
+                                "{}: count {}: summand {} is {n} but its group names {} reading point(s)",
+                                pf.id,
+                                c.claim.id,
+                                i + 1,
+                                g.len()
+                            ));
+                        }
+                    }
+                    let parts: Vec<String> = nums
+                        .iter()
+                        .zip(&c.groups)
+                        .map(|(n, g)| format!("{n} ↦ {{{}}}", g.join(", ")))
+                        .collect();
+                    let _ = writeln!(t, "  binding       {}", parts.join(" · "));
+                }
+            }
+            let mut members: Vec<&str> = Vec::new();
+            for m in c.groups.iter().flatten() {
+                match point(m) {
+                    None => problems.push(format!("{}: count {}: unknown point `{m}`", pf.id, c.claim.id)),
+                    Some(p) if p.scope != "particular" => problems.push(format!(
+                        "{}: count {}: point {m} has scope {}; a count binds particular, identified reading points",
+                        pf.id, c.claim.id, p.scope
+                    )),
+                    _ => {}
+                }
+                if members.contains(&m.as_str()) {
+                    problems.push(format!(
+                        "{}: count {}: point {m} is named in two groups",
+                        pf.id, c.claim.id
+                    ));
+                }
+                members.push(m);
+            }
+            if goal.rhs.as_numeral() != Some(members.len() as u64) {
+                problems.push(format!(
+                    "{}: count {}: the right side must be the numeral {} (the distinct reading points bound)",
+                    pf.id,
+                    c.claim.id,
+                    members.len()
+                ));
+            }
+            let mut classes: Vec<&str> = members
+                .iter()
+                .filter_map(|m| point(m).and_then(|p| p.class.as_deref()))
+                .collect();
+            classes.sort();
+            classes.dedup();
+            let mut distinct = members.clone();
+            distinct.sort();
+            distinct.dedup();
+            let _ = writeln!(
+                t,
+                "  identities    {} — {} distinct reading point(s){}; class {}",
+                members.join(", "),
+                distinct.len(),
+                if distinct.len() == members.len() {
+                    String::new()
+                } else {
+                    format!(" in {} bindings", members.len())
+                },
+                if classes.is_empty() {
+                    "—".to_string()
+                } else {
+                    classes.join(", ")
+                }
+            );
+            let scope = c.scope.as_deref().unwrap_or("particular");
+            if scope != "particular" {
+                problems.push(format!(
+                    "{}: count {}: states scope `{scope}`; a count of particular reading points keeps scope particular, and widening needs its own source or evidence",
+                    pf.id, c.claim.id
+                ));
+            }
+            let _ = writeln!(t, "  scope         particular (the reading points listed)");
+            let _ = writeln!(t, "  association   a specification record: the kernel checked the equation; this file states what each numeral counts");
+        }
+        let (_, rec) = record_verdict(c0, &problems, tally);
+        let _ = writeln!(t, "  {rec} (the kernel verdict above stands on its own)");
+        used_proofs.push((c.claim.id.clone(), c.claim.proof.clone()));
+    }
+    let mut proofs: Vec<&str> = used_proofs.iter().map(|(_, p)| p.as_str()).collect();
+    proofs.sort();
+    proofs.dedup();
+    for p in proofs {
+        let sharing: Vec<&str> = used_proofs
+            .iter()
+            .filter(|(_, q)| q == p)
+            .map(|(c, _)| c.as_str())
+            .collect();
+        if sharing.len() > 1 {
+            let _ = writeln!(
+                t,
+                "shared theorem  {} rest on the same checked equation ({p}); sharing it relates none of their reading points",
+                sharing.join(" and ")
+            );
+        }
+    }
+
+    // Relations: each with its own status and evidence.
+    if pf.relations.is_empty() {
+        let _ = writeln!(t, "relations       none recorded; structural, physical and identity relations among these reading points stay unestablished");
+    }
+    for r in &pf.relations {
+        let r0 = problems.len();
+        shared_id(&r.id, &mut problems);
+        if !RELATION_TYPES.contains(&r.rtype.as_str()) {
+            problems.push(format!(
+                "{}: relation {} type `{}` is outside the relation types",
+                pf.id, r.id, r.rtype
+            ));
+        }
+        for b in &r.between {
+            if point(b).is_none() {
+                problems.push(format!("{}: relation {}: unknown point `{b}`", pf.id, r.id));
+            }
+        }
+        let mut uniq = r.between.clone();
+        uniq.sort();
+        uniq.dedup();
+        if r.between.len() < 2 || uniq.len() != r.between.len() {
+            problems.push(format!(
+                "{}: relation {} relates {} reading point(s) with {} distinct; a relation names two or more distinct points",
+                pf.id,
+                r.id,
+                r.between.len(),
+                uniq.len()
+            ));
+        }
+        // Same-species and registered species: once any referent names a
+        // species, every referent must carry a registered species and all must
+        // be the same; otherwise the claim conflicts with the registered
+        // interpretation (a conflict of records, not a physical finding).
+        if r.rtype == "same-species"
+            && r.between
+                .iter()
+                .any(|b| point(b).is_some_and(|p| p.species.is_some()))
+        {
+            let mut shown: Vec<String> = Vec::new();
+            let mut ids: Vec<String> = Vec::new();
+            let mut convs_used: Vec<String> = Vec::new();
+            for b in &r.between {
+                match species_entry(b) {
+                    Some((cid, e)) => {
+                        shown.push(format!("{b}: {}", e.species));
+                        ids.push(e.species.clone());
+                        convs_used.push(cid);
+                    }
+                    None => shown.push(format!("{b}: no registered species")),
+                }
+            }
+            let mut distinct = ids.clone();
+            distinct.sort();
+            distinct.dedup();
+            convs_used.sort();
+            convs_used.dedup();
+            if ids.len() != r.between.len() || distinct.len() > 1 {
+                problems.push(format!(
+                    "{}: relation {}: registered-specification conflict: same-species contradicts the species identifiers {} assigns ({}); this concerns the records and the registered interpretation, not an experimental conclusion about physical samples",
+                    pf.id,
+                    r.id,
+                    if convs_used.is_empty() {
+                        "the registered conventions".to_string()
+                    } else {
+                        convs_used.join(", ")
+                    },
+                    shown.join("; ")
+                ));
+            }
+        }
+        if r.status == "imagined" {
+            problems.push(format!(
+                "{}: relation {} status `imagined` is outside the relation statuses",
+                pf.id, r.id
+            ));
+        }
+        let ev_lines = check_status_and_evidence(
+            &format!("{}: relation {}", pf.id, r.id),
+            &r.rtype,
+            &r.between,
+            &r.status,
+            &r.evidence,
+            &status,
+            &reg,
+            true,
+            &mut problems,
+        );
+        let (valid, rec) = record_verdict(r0, &problems, tally);
+        let _ = writeln!(
+            t,
+            "relation        {} [{}] {}",
+            r.id,
+            r.rtype,
+            r.between.join(", ")
+        );
+        let _ = writeln!(
+            t,
+            "                {rec} · status {}",
+            if valid {
+                status_shown(&r.status, r.evidence.len(), "the relation stays")
+            } else {
+                "not reported (record invalid)".to_string()
+            }
+        );
+        for l in ev_lines {
+            let _ = writeln!(t, "{l}");
+        }
+    }
+    (t, problems)
+}
+
+/// `rlt points FILE`: the report for one points file, with its validation.
+pub fn points_report(root: &Path, file: &Path) -> Report {
+    let (mut t, problems, (records, invalid)) = points_check(root, file);
+    // Zero records read: the file or a pinned input could not be loaded, which
+    // says nothing about any record.
+    if records == 0 && !problems.is_empty() {
+        let msg = problems.join("; ");
+        return malformed(&mut t, msg);
+    }
+    for p in &problems {
+        let _ = writeln!(t, "problem         {p}");
+    }
+    if problems.is_empty() {
+        let _ = writeln!(
+            t,
+            "verdict         VALID — specification records consistent ({records} record(s) valid; physical correspondence as reported per record)"
+        );
+        Report {
+            text: t,
+            code: ACCEPT,
+        }
+    } else {
+        let _ = writeln!(
+            t,
+            "verdict         INVALID — {invalid} of {records} record(s) invalid; {} problem(s)",
+            problems.len()
+        );
+        Report {
+            text: t,
+            code: REJECT,
+        }
+    }
 }
