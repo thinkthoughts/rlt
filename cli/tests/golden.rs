@@ -1890,7 +1890,7 @@ fn t7_audit_s2_unique_ids_and_one_composition_per_molecule() {
     );
     assert_points_invalid(
         &r,
-        "record id `comp.co2` names both a composition and a composition",
+        "record id `comp.co2` is shared by 2 records (composition, composition)",
     );
     has(
         &r,
@@ -1909,12 +1909,18 @@ fn t7_audit_s2_unique_ids_and_one_composition_per_molecule() {
         "t7-s2-count",
         &[(T7, "  - id: count.o2\n", "  - id: count.co2\n")],
     );
-    assert_points_invalid(&r, "record id `count.co2` names both a count and a count");
+    assert_points_invalid(
+        &r,
+        "record id `count.co2` is shared by 2 records (count, count)",
+    );
     let r = t7_with(
         "t7-s2-cross",
         &[(T7, "  - id: comp.o2\n", "  - id: co2.c\n")],
     );
-    assert_points_invalid(&r, "record id `co2.c` names both a point and a composition");
+    assert_points_invalid(
+        &r,
+        "record id `co2.c` is shared by 2 records (point, composition)",
+    );
 }
 
 /// M1, M2: compositions use atom records and molecule records as such, and a
@@ -2016,4 +2022,52 @@ fn t7_audit_invisible_variants_are_refused() {
             r.text
         );
     }
+}
+
+/// RLT-002 merge correction: records that share an id each report INVALID;
+/// none of them reads `record valid`, and the file stays INVALID.
+#[test]
+fn t7_shared_record_ids_mark_each_record_invalid() {
+    let r = t7_with(
+        "t7-dup-comp",
+        &[(T7, "  - id: comp.o2\n", "  - id: comp.co2\n")],
+    );
+    assert_points_invalid(
+        &r,
+        "record id `comp.co2` is shared by 2 records (composition, composition)",
+    );
+    let blocks: Vec<&str> = r.text.split("composition     comp.co2").skip(1).collect();
+    assert_eq!(blocks.len(), 2, "{}", r.text);
+    for b in &blocks {
+        let rec = b
+            .lines()
+            .find(|l| l.trim_start().starts_with("record "))
+            .unwrap_or("");
+        assert!(rec.contains("record INVALID ("), "{}", r.text);
+    }
+    assert!(!r.text.contains(" matches CHEM-MOLFORMULA"), "{}", r.text);
+    has(
+        &r,
+        &[
+            "verdict         INVALID — 2 of 13 record(s) invalid",
+            "  record valid (context: basis, references and record ids)",
+        ],
+    );
+    // A point and a count sharing an id: both invalid, the point's physical
+    // status not reported, the kernel verdict unchanged.
+    let r = t7_with(
+        "t7-dup-cross",
+        &[(T7, "  - id: count.o2\n", "  - id: o2.o-1\n")],
+    );
+    assert_points_invalid(
+        &r,
+        "record id `o2.o-1` is shared by 2 records (point, count)",
+    );
+    has(&r, &[
+        "\"oxygen atom 1 this file assigns to o2.molecule\"\n                record INVALID (1 problem(s), listed below) · physical not reported (record invalid)",
+        "verdict         INVALID — 2 of 13 record(s) invalid",
+    ]);
+    assert_eq!(r.text.matches("→ ACCEPT").count(), 3, "{}", r.text);
+    let count_block = r.text.split("count           o2.o-1").nth(1).unwrap_or("");
+    assert!(count_block.contains("  record INVALID ("), "{}", r.text);
 }

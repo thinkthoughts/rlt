@@ -1758,8 +1758,8 @@ fn points_check_inner(
         }
     }
 
-    // Record ids form one namespace per file: a duplicate is a problem of the
-    // file's context record.
+    // Record ids form one namespace per file. A shared id is a problem of every
+    // record that carries it, so each of them reports INVALID.
     let mut all_ids: Vec<(&str, &str)> = Vec::new();
     for (kind, id) in pf
         .points
@@ -1773,14 +1773,23 @@ fn points_check_inner(
         .chain(pf.counts.iter().map(|c| ("count", c.claim.id.as_str())))
         .chain(pf.relations.iter().map(|r| ("relation", r.id.as_str())))
     {
-        if let Some((k0, _)) = all_ids.iter().find(|(_, i)| *i == id) {
-            problems.push(format!(
-                "{}: record id `{id}` names both a {k0} and a {kind}; record ids are unique within a file",
-                pf.id
-            ));
-        }
         all_ids.push((kind, id));
     }
+    let shared_id = |id: &str, problems: &mut Vec<String>| {
+        let kinds: Vec<&str> = all_ids
+            .iter()
+            .filter(|(_, i)| *i == id)
+            .map(|(k, _)| *k)
+            .collect();
+        if kinds.len() > 1 {
+            problems.push(format!(
+                "{}: record id `{id}` is shared by {} records ({}); record ids are unique within a file",
+                pf.id,
+                kinds.len(),
+                kinds.join(", ")
+            ));
+        }
+    };
     let (_, ctx_line) = record_verdict(0, &problems, tally);
     let _ = writeln!(
         t,
@@ -1792,9 +1801,7 @@ fn points_check_inner(
     let _ = writeln!(t, "reading points  {}", pf.points.len());
     for p in &pf.points {
         let p0 = problems.len();
-        if ids.contains(&p.id.as_str()) {
-            problems.push(format!("{}: point id `{}` appears twice", pf.id, p.id));
-        }
+        shared_id(&p.id, &mut problems);
         ids.push(&p.id);
         if !POINT_KINDS.contains(&p.kind.as_str()) {
             problems.push(format!(
@@ -1928,6 +1935,7 @@ fn points_check_inner(
     let mut molecules: Vec<&str> = Vec::new();
     for comp in &pf.compositions {
         let k0 = problems.len();
+        shared_id(&comp.id, &mut problems);
         if molecules.contains(&comp.molecule.as_str()) {
             problems.push(format!(
                 "{}: composition {}: molecule {} already has a composition; a molecule has at most one",
@@ -2029,6 +2037,7 @@ fn points_check_inner(
     let mut used_proofs: Vec<(String, String)> = Vec::new();
     for c in &pf.counts {
         let c0 = problems.len();
+        shared_id(&c.claim.id, &mut problems);
         let _ = writeln!(t, "count           {}", c.claim.id);
         let (out, binding) = bind_proof(root, None, &c.claim);
         let verdict = match (&out.theorem, out.report.code) {
@@ -2200,6 +2209,7 @@ fn points_check_inner(
     }
     for r in &pf.relations {
         let r0 = problems.len();
+        shared_id(&r.id, &mut problems);
         if !RELATION_TYPES.contains(&r.rtype.as_str()) {
             problems.push(format!(
                 "{}: relation {} type `{}` is outside the relation types",
