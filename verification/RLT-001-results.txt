@@ -1,0 +1,56 @@
+RLT-001 verification
+commit   debec9efcc5fbbeaac2658f7ca82ab4e37228142
+rustc    rustc 1.97.0 (2d8144b78 2026-07-07)
+
+== format and lints
+fmt      ok
+clippy   ok
+
+== build
+ok
+
+== cargo test (unit + golden)
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+== proof files (expect accept → exit 0, reject → exit 1)
+tests/accept/R_math29_pairing.rlt                    exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD
+tests/accept/R_math5_count.rlt                       exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD
+tests/accept/T1_math5_pairing.rlt                    exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD
+tests/accept/T4_math0_pairing.rlt                    exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD
+tests/accept/T5a_math0_fiction_conditional.rlt       exit 0  ACCEPT — conditional theorem relative to registered axiom set PEANO-ADD
+tests/accept/T5c_composition_conditional.rlt         exit 0  ACCEPT — conditional theorem relative to registered axiom set PEANO-ADD
+tests/reject/T2_math5_broken_trans.rlt               exit 1  REJECT at step s3 — trans requires rhs(first) ≡ lhs(second); here `S(5 + 0)` ≢ `5 + 0`
+tests/reject/T3_math5_calc.rlt                       exit 1  REJECT at step s1 — rule `calc` is unregistered (registered: refl, symm, trans, cong, inst, hyp)
+tests/reject/T5b_math0_fiction_unconditional.rlt     exit 1  REJECT — unconditional goal requested, but the result depends on assumptions ["h"]
+tests/reject/T5d_composition_unconditional.rlt       exit 1  REJECT — unconditional goal requested, but the result depends on assumptions ["h"]
+
+== written layer
+-- tests/written/PI1_written.args
+written ≡w      identical
+terms           structurally distinct
+-- tests/written/T4_written.args
+written ≡w      distinct
+terms           structurally distinct
+-- tests/written/spacing_written.args
+written ≡w      identical
+terms           structurally identical
+
+== records
+PiπΠ            6 source conventions traced, 2 unresolved items recorded without definition
+verdict         VALID — records consistent
+
+== Lean replay (independent, outside the trusted base)
+Lean (version 4.34.0-rc2, x86_64-unknown-linux-gnu, commit 6a10ac8c22beadecabdbb0919c2b50214762f91d, Release)
+'RLT001.T1_steps' does not depend on any axioms
+'RLT001.T5a' does not depend on any axioms
+'RLT001.T5c' does not depend on any axioms
+'RLT001.T5b_unconditional_false' does not depend on any axioms
+ok
+Generated.lean is current
+
+== source excerpts
+0 problem(s)
+
+RESULT   all checks hold

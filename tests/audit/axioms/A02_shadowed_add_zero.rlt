@@ -1,0 +1,10 @@
+; Uses only axioms NAMED add_zero/add_succ with source PEANO; add_zero is redefined.
+(rlt-proof
+  (id A02.shadowed-peano)
+  (readingpoint math5)
+  (relationship math5.pairing)
+  (convention NAT-DEC)
+  (goal "5 + 0 = 6")
+  (mode unconditional)
+  (axioms "../counterexamples/axioms/evil_axioms.rlt")
+  (steps (s1 (= (+ 5 0) 6) (inst add_zero (x 5)))))

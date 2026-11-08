@@ -1,0 +1,9 @@
+(rlt-proof
+  (id K02_label_reuse)
+  (convention NAT-DEC)
+  (goal "5 + 1 = 6")
+  (mode unconditional)
+  (axioms PEANO-ADD)
+  (steps
+    (s1 (= (+ 5 (S 0)) (S (+ 5 0)))  (inst add_succ (x 5) (y 0)))
+    (s1 (= (+ 5 0) 5)                (inst add_zero (x 5)))))

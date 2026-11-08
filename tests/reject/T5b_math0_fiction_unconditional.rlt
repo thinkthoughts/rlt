@@ -1,0 +1,14 @@
+; T5b · reject — the same derivation requested as an unconditional theorem.
+; The result depends on h, so it stays conditional and the request is refused.
+(rlt-proof
+  (id T5b.math0.fiction.unconditional)
+  (readingpoint math0)
+  (relationship math0.fiction)
+  (context F0 fiction)
+  (convention NAT-DEC)
+  (goal "1 + 1 + 1 + 1 + 1 = 0")
+  (assume h "1 + 1 + 1 + 1 + 1 = 0")
+  (mode unconditional)
+  (axioms PEANO-ADD)
+  (steps
+    (s1 (= (+ (+ (+ (+ 1 1) 1) 1) 1) 0) (hyp h))))

@@ -1,0 +1,37 @@
+RLT check       tests/reject/T2_math5_broken_trans.rlt
+proof id        T2.math5.broken-trans
+reading point   math5
+  meaning       "math5: Pairing through 5 to 6."  [USER-2026-11-07]
+  meaning       "Math5 comprehension (now) specifies +1 reading level: local anatomy."  [NEWS-MATH05]
+  meaning       "Math5: local anatomy"  [RLT-INIT]
+  meaning       "Math5 reading level"  [RLT-INIT]
+  meaning       "math5"  [RLT-INDEX]
+  meaning       "Math5 reading level"  [RLT-INDEX]
+  meaning       "Math5: pair through five to six"  [RLT-INDEX]
+  meaning       "pair through 5 to 6"  [RLT-INDEX]
+  meaning       "MATH5 · COUNTING"  [REPAIREARTH]
+  meaning       "Identify"  [REPAIREARTH]
+  meaning       "Count objects. Specify people, properties, and context."  [REPAIREARTH]
+  meaning       "Math5 · Identify"  [REPAIREARTH]
+  meaning       "Count five identifiable objects. Specify what one object means and observe any physical context."  [REPAIREARTH]
+relationship    math5.pairing
+written goal    "5 + 1 = 6"
+  tokens        5 · + · 1 · = · 6
+convention      NAT-DEC (authority: interpretation)
+checked goal    5 + 1 = 6
+  kernel form   +(S(S(S(S(S(0))))), S(0)) = S(S(S(S(S(S(0))))))
+mode            unconditional (requires Γ = ∅)
+axiom set       PEANO-ADD (spec/peano.rlt, source PEANO)
+  sha256        1a3f83444a06fdfbd02c9af2a5881b47137ba102a675a4e012c84be477b10a0d
+  axiom         add_zero : ∀ x. x + 0 = x
+  axiom         add_succ : ∀ x y. x + S(y) = S(x + y)
+  status        assumed: the SHA-256 binds these axioms' exact content to the approved file; their mathematical truth and any physical correspondence remain assumptions
+steps           3
+verdict         REJECT at step s3 — trans requires rhs(first) ≡ lhs(second); here `S(5 + 0)` ≢ `5 + 0`
+  scope         the kernel refused this derivation; the goal's truth stays undetermined by this proof, and the reading point's meanings and physical claims keep their own separate status
+physical        math5.counting [behavior]: unestablished (evidence: 0)
+physical        math5.lungs [referent]: unestablished (evidence: 0)
+physical        math5.gas-exchange [referent]: unestablished (evidence: 0)
+physical        math5.atoms [referent]: unestablished (evidence: 0)
+  note          physical statuses come from evidence records; the kernel verdict leaves them unchanged
+exit 1

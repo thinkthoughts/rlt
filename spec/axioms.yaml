@@ -1,0 +1,14 @@
+# Registered axiom sets (trusted inputs).
+#
+# A proof file names an axiom set by id, e.g. (axioms PEANO-ADD). The CLI
+# loads only sets listed here, refuses a file whose SHA-256 differs from the
+# value recorded below, and requires every axiom's (source …) to be the set's
+# registered source. Changing an axiom therefore requires changing this file,
+# which is reviewed like kernel code.
+
+sets:
+  - id: PEANO-ADD
+    file: spec/peano.rlt
+    sha256: 1a3f83444a06fdfbd02c9af2a5881b47137ba102a675a4e012c84be477b10a0d
+    source: PEANO
+    axioms: [add_zero, add_succ]

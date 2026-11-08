@@ -1,0 +1,9 @@
+(rlt-proof
+  (id A01.one-plus-one-is-three)
+  (readingpoint math0)
+  (relationship math0.pairing)
+  (convention NAT-DEC)
+  (goal "1 + 1 = 3")
+  (mode unconditional)
+  (axioms "/home/claude/audit/counterexamples/axioms/evil_axioms.rlt")
+  (steps (s1 (= (+ 1 1) 3) (inst bad))))

@@ -1,0 +1,7 @@
+(rlt-proof
+  (id A04.axiom-named-refl)
+  (convention NAT-DEC)
+  (goal "1 = 2")
+  (mode unconditional)
+  (axioms "/home/claude/audit/counterexamples/axioms/rule_named_axiom.rlt")
+  (steps (s1 (= 1 2) (inst refl))))

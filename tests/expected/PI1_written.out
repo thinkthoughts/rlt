@@ -1,0 +1,8 @@
+written A       "π"  tokens: π
+written B       "π"  tokens: π
+written ≡w      identical
+elaborated A    REAL-PI.pi under REAL-PI  kernel form: REAL-PI.pi
+elaborated B    PRIME-COUNT.pi under PRIME-COUNT  kernel form: PRIME-COUNT.pi
+terms           structurally distinct
+equality        decided only by a kernel proof (`rlt check`); this report proves nothing
+exit 0

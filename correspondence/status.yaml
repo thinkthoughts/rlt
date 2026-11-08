@@ -1,0 +1,18 @@
+# Shared status vocabulary for physical correspondence (E), reading points (F)
+# and PiπΠ lifts (G). Correspondence values follow RML correspondence.yaml
+# (status_values) plus `imagined` (approved in RLT-000 §9 item 4).
+
+correspondence_status: [unestablished, supported, rejected, inapplicable, imagined]
+
+# Statuses a record may hold with an empty evidence list.
+status_without_evidence: [unestablished, inapplicable, imagined]
+
+# `imagined` describes an imagined object; it applies to referent records.
+# The act of imagining is a behavior record with its own status.
+referent_only_status: [imagined]
+
+# Evidence types that can support a physical claim (RML allowed_support).
+# Kernel theorems, shared readings and numerical coincidences are absent here.
+allowed_support: [physical_measurement, experimentally_grounded_observation]
+
+lift_status: [proposed, specified, verified]

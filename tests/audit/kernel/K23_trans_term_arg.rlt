@@ -1,0 +1,7 @@
+(rlt-proof
+  (id K23_trans_term_arg)
+  (convention NAT-DEC)
+  (goal "1 = 1")
+  (mode unconditional)
+  (axioms PEANO-ADD)
+  (steps (s1 (= 1 1) (refl 1)) (s2 (= 1 1) (trans s1 (S 0)))))

@@ -1,0 +1,7 @@
+(rlt-proof
+  (id K07_inst_partial)
+  (convention NAT-DEC)
+  (goal "5 + 1 = 6")
+  (mode unconditional)
+  (axioms PEANO-ADD)
+  (steps (s1 (= (+ 5 (S 0)) (S (+ 5 0))) (inst add_succ (x 5)))))

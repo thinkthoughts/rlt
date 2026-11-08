@@ -1,0 +1,1 @@
+(rlt-proof (id f) (convention NAT-DEC) (mode maybe) (axioms PEANO-ADD) (goal "1 = 1") (steps (s1 (= 1 1) (refl 1))))

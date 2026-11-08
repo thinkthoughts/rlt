@@ -1,0 +1,1 @@
+(rlt-proof (id f) (convention NAT-DEC) (mode unconditional) (axioms PEANO-ADD) (goal "1000 = 1000") (steps (s1 (= 1000 1000) (refl 1000))))

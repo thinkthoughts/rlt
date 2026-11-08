@@ -1,0 +1,7 @@
+(rlt-proof
+  (id K24_label_is_axiom_name)
+  (convention NAT-DEC)
+  (goal "5 = 5 + 0")
+  (mode unconditional)
+  (axioms PEANO-ADD)
+  (steps (add_zero (= (+ 5 0) 5) (inst add_zero (x 5))) (s2 (= 5 (+ 5 0)) (symm add_zero))))

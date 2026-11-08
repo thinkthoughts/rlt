@@ -1,0 +1,7 @@
+(rlt-proof
+  (id K25_numeral_vs_schain)
+  (convention NAT-DEC)
+  (goal "2 = S(S(0))")
+  (mode unconditional)
+  (axioms PEANO-ADD)
+  (steps (s1 (= 2 (S (S 0))) (refl 2))))

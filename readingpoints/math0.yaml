@@ -1,0 +1,88 @@
+# Reading point math0 (component F).
+# Meanings and examples are whole verbatim units of source excerpts tagged for
+# this reading point (sources/registry.yaml); `rlt validate` checks each one and
+# checks that every tagged unit is present. Relationships are attached results: their verdicts are computed
+# by the kernel each time (`rlt rp math0`), and this file stores none.
+
+id: math0
+
+meanings:
+  - text: "math0: Pairing (1+1) with imagination."
+    source: USER-2026-11-07
+  - text: "Math0 comprehension (now) specifies +1 reading level: local imagination."
+    source: NEWS-MATH00
+  - text: "Math0: local imagination"
+    source: RLT-INIT
+  - text: "Math0 reading level"
+    source: RLT-INIT
+  - text: "math0"
+    source: RLT-INDEX
+  - text: "Math0 reading level"
+    source: RLT-INDEX
+  - text: "Math0: count from zero"
+    source: RLT-INDEX
+  - text: "count from zero"
+    source: RLT-INDEX
+  - text: "MATH0 · FICTION"
+    source: REPAIREARTH
+  - text: "Imagine"
+    source: REPAIREARTH
+  - text: "An intentionally false equation. Explore an imaginary reading."
+    source: REPAIREARTH
+  - text: "Math0 · Imagine"
+    source: REPAIREARTH
+  - text: "Five ones equal five in ordinary arithmetic. This zero equation is deliberately fictional. What happens when a claim changes the count?"
+    source: REPAIREARTH
+
+examples:
+  - written: "For instance (nonfiction): A 🫁 lungs emoji represents human lungs. The emoji itself neither breathes nor exhales CO₂."
+    source: NEWS-MATH00
+  - written: "1 + 1 + 1 + 1 + 1 = 0"
+    source: REPAIREARTH
+  - written: "where to stop (math0)"
+    source: RLT-INDEX
+
+relationships:
+  - id: math0.pairing
+    written: "1 + 1 = 2"
+    convention: NAT-DEC
+    proof: tests/accept/T4_math0_pairing.rlt
+    mode: unconditional
+  - id: math0.fiction
+    written: "1 + 1 + 1 + 1 + 1 = 0"
+    convention: NAT-DEC
+    proof: tests/accept/T5a_math0_fiction_conditional.rlt
+    mode: conditional
+    assumptions: ["1 + 1 + 1 + 1 + 1 = 0"]
+
+correspondence:
+  - id: math0.imagining
+    kind: behavior
+    description: "a reader imagines a referent for a written expression (agent: a reader; place, time and context unspecified)"
+    status: unestablished
+    evidence: []
+    source: RLT-000-REFINEMENT
+  - id: math0.emoji
+    kind: representation
+    description: "the 🫁 emoji represents human lungs"
+    status: inapplicable
+    evidence: []
+    source: NEWS-MATH00
+  - id: math0.lungs
+    kind: referent
+    description: "human lungs, the referent of the 🫁 emoji"
+    status: unestablished
+    evidence: []
+    source: NEWS-MATH00
+  - id: math0.emoji-breathing
+    kind: referent
+    description: "breathing and CO₂ exhalation by the 🫁 emoji itself"
+    status: imagined
+    evidence: []
+    source: NEWS-MATH00
+
+lifts:
+  - id: math0-to-math5
+    to: math5
+    via: "(1+1) × 3 = 6"
+    status: proposed

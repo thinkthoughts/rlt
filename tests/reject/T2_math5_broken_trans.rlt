@@ -1,0 +1,14 @@
+; T2 · reject — same goal, step s3 joins s1 and s2 by trans although
+; rhs(s1) = S(5 + 0) and lhs(s2) = 5 + 0 differ. Claimed conclusion: 5 + 1 = 5.
+(rlt-proof
+  (id T2.math5.broken-trans)
+  (readingpoint math5)
+  (relationship math5.pairing)
+  (convention NAT-DEC)
+  (goal "5 + 1 = 6")
+  (mode unconditional)
+  (axioms PEANO-ADD)
+  (steps
+    (s1 (= (+ 5 (S 0)) (S (+ 5 0)))  (inst add_succ (x 5) (y 0)))
+    (s2 (= (+ 5 0) 5)                (inst add_zero (x 5)))
+    (s3 (= (+ 5 (S 0)) 5)            (trans s1 s2))))

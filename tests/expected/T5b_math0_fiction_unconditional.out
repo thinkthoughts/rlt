@@ -1,0 +1,41 @@
+RLT check       tests/reject/T5b_math0_fiction_unconditional.rlt
+proof id        T5b.math0.fiction.unconditional
+reading point   math0
+  meaning       "math0: Pairing (1+1) with imagination."  [USER-2026-11-07]
+  meaning       "Math0 comprehension (now) specifies +1 reading level: local imagination."  [NEWS-MATH00]
+  meaning       "Math0: local imagination"  [RLT-INIT]
+  meaning       "Math0 reading level"  [RLT-INIT]
+  meaning       "math0"  [RLT-INDEX]
+  meaning       "Math0 reading level"  [RLT-INDEX]
+  meaning       "Math0: count from zero"  [RLT-INDEX]
+  meaning       "count from zero"  [RLT-INDEX]
+  meaning       "MATH0 · FICTION"  [REPAIREARTH]
+  meaning       "Imagine"  [REPAIREARTH]
+  meaning       "An intentionally false equation. Explore an imaginary reading."  [REPAIREARTH]
+  meaning       "Math0 · Imagine"  [REPAIREARTH]
+  meaning       "Five ones equal five in ordinary arithmetic. This zero equation is deliberately fictional. What happens when a claim changes the count?"  [REPAIREARTH]
+relationship    math0.fiction
+context         F0 (fiction)
+written goal    "1 + 1 + 1 + 1 + 1 = 0"
+  tokens        1 · + · 1 · + · 1 · + · 1 · + · 1 · = · 0
+written assume  h : "1 + 1 + 1 + 1 + 1 = 0"
+convention      NAT-DEC (authority: interpretation)
+checked goal    (((1 + 1) + 1) + 1) + 1 = 0
+  kernel form   +(+(+(+(S(0), S(0)), S(0)), S(0)), S(0)) = 0
+declared        h : (((1 + 1) + 1) + 1) + 1 = 0
+  kernel form   +(+(+(+(S(0), S(0)), S(0)), S(0)), S(0)) = 0
+mode            unconditional (requires Γ = ∅)
+axiom set       PEANO-ADD (spec/peano.rlt, source PEANO)
+  sha256        1a3f83444a06fdfbd02c9af2a5881b47137ba102a675a4e012c84be477b10a0d
+  axiom         add_zero : ∀ x. x + 0 = x
+  axiom         add_succ : ∀ x y. x + S(y) = S(x + y)
+  status        assumed: the SHA-256 binds these axioms' exact content to the approved file; their mathematical truth and any physical correspondence remain assumptions
+steps           1
+verdict         REJECT — unconditional goal requested, but the result depends on assumptions ["h"]
+  scope         the kernel refused this derivation; the goal's truth stays undetermined by this proof, and the reading point's meanings and physical claims keep their own separate status
+physical        math0.imagining [behavior]: unestablished (evidence: 0)
+physical        math0.emoji [representation]: inapplicable (evidence: 0)
+physical        math0.lungs [referent]: unestablished (evidence: 0)
+physical        math0.emoji-breathing [referent]: imagined (evidence: 0)
+  note          physical statuses come from evidence records; the kernel verdict leaves them unchanged
+exit 1

@@ -1,0 +1,7 @@
+(rlt-proof
+  (id K14_cong_unknown)
+  (convention NAT-DEC)
+  (goal "1 = 1")
+  (mode unconditional)
+  (axioms PEANO-ADD)
+  (steps (s0 (= 1 1) (refl 1)) (s1 (= (* 1) (* 1)) (cong * s0))))
