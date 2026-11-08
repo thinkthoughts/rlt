@@ -32,6 +32,21 @@ fn malformed(text: &mut String, msg: String) -> Report {
     }
 }
 
+/// A path for display: relative to the root, with any control character
+/// escaped, so a file name can never add lines to a report.
+fn shown_path(root: &Path, p: &Path) -> String {
+    let s = p.strip_prefix(root).unwrap_or(p).display().to_string();
+    s.chars()
+        .map(|c| {
+            if c.is_control() {
+                c.escape_default().to_string()
+            } else {
+                c.to_string()
+            }
+        })
+        .collect()
+}
+
 fn rp_path(root: &Path, id: &str) -> PathBuf {
     root.join("readingpoints").join(format!("{id}.yaml"))
 }
@@ -225,12 +240,11 @@ pub fn check_file_outcome(root: &Path, file: &Path) -> CheckOutcome {
             return out;
         }};
     }
-    let shown = file
-        .strip_prefix(root)
-        .unwrap_or(file)
-        .display()
-        .to_string();
+    let shown = shown_path(root, file);
     let _ = writeln!(t, "RLT check       {shown}");
+    if file.to_string_lossy().chars().any(|c| c.is_control()) {
+        bail!("the proof file name contains a control character".to_string());
+    }
     let src = match std::fs::read_to_string(file) {
         Ok(s) => s,
         Err(e) => bail!(format!("cannot read the proof file: {}", e.kind())),
@@ -407,7 +421,19 @@ pub fn bind_relationship(
     r: &Relationship,
 ) -> (CheckOutcome, Result<(), String>) {
     let path = root.join(&r.proof);
-    if r.proof.contains("..") || !r.proof.starts_with("tests/") || !r.proof.ends_with(".rlt") {
+    let contained = match (
+        root.join(&r.proof).canonicalize(),
+        root.join("tests").canonicalize(),
+    ) {
+        (Ok(p), Ok(tests)) => p.starts_with(&tests),
+        _ => false,
+    };
+    if r.proof.contains("..")
+        || !r.proof.starts_with("tests/")
+        || !r.proof.ends_with(".rlt")
+        || !contained
+        || r.proof.chars().any(|c| c.is_control())
+    {
         let out = CheckOutcome {
             report: Report {
                 text: String::new(),
@@ -668,19 +694,22 @@ pub fn rp_report(root: &Path, id: &str) -> Report {
     Report { text: t, code }
 }
 
-/// SHA-256 of the conversation sources' excerpts (see `conversation_digest`),
-/// pinned in the binary. Conversation sources have no file to check against,
-/// so their exact wording is fixed here; changing it requires a reviewed code
-/// change.
-pub const PINNED_CONVERSATION_SHA: &str =
-    "11483d5a7635e13066fb972ba602f1a5e732dc95c956be233616d7f5dca53ff2";
+/// SHA-256 of the source registry's documentation content (see
+/// `registry_digest`), pinned in the binary. Every documented meaning a
+/// reading point may carry comes from a tagged registry excerpt, so fixing the
+/// registry's content here means a meaning can be deleted, truncated,
+/// untagged, retagged to another reading point, or newly cited only through a
+/// reviewed code change. Update it with the digest `rlt validate` prints.
+pub const PINNED_REGISTRY_SHA: &str =
+    "b58a93d38add9f97e633965835bad3518c9e504fe27dee450136f3f9fee101bb";
 
-/// Canonical digest of every `conversation` source: id, then each excerpt's
-/// text, `defines` and `split`, one field per line.
-pub fn conversation_digest(reg: &BTreeMap<String, rlt_syntax::records::Source>) -> String {
+/// Canonical digest of the registry: for every source (in id order) its id,
+/// status and location, then each excerpt's text, `defines` and `split`, one
+/// field per line.
+pub fn registry_digest(reg: &BTreeMap<String, rlt_syntax::records::Source>) -> String {
     let mut buf = String::new();
-    for s in reg.values().filter(|s| s.status == "conversation") {
-        buf.push_str(&format!("source\t{}\n", s.id));
+    for s in reg.values() {
+        buf.push_str(&format!("source\t{}\t{}\t{}\n", s.id, s.status, s.location));
         for x in &s.excerpts {
             buf.push_str(&format!(
                 "excerpt\t{}\t{}\t{}\n",
@@ -722,10 +751,10 @@ pub fn validate(root: &Path) -> Report {
             Err(e) => return malformed(&mut t, e),
         };
     let _ = writeln!(t, "sources         {} registered", reg.len());
-    let conv = conversation_digest(&reg);
-    if conv != PINNED_CONVERSATION_SHA {
+    let digest = registry_digest(&reg);
+    if digest != PINNED_REGISTRY_SHA {
         problems.push(format!(
-            "conversation sources differ from the wording pinned in this binary (digest {conv}, pinned {PINNED_CONVERSATION_SHA})"
+            "sources/registry.yaml differs from the registry pinned in this binary (digest {digest}, pinned {PINNED_REGISTRY_SHA}); a registry change needs a reviewed update of PINNED_REGISTRY_SHA"
         ));
     }
     for src in reg.values() {
@@ -815,10 +844,26 @@ pub fn validate(root: &Path) -> Report {
         .map(|d| d.filter_map(|e| e.ok().map(|e| e.path())).collect())
         .unwrap_or_default();
     rps.sort();
-    for p in rps
-        .iter()
-        .filter(|p| p.extension().is_some_and(|x| x == "yaml"))
-    {
+    for p in &rps {
+        let name = p
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let plain = !name.chars().any(|c| c.is_control()) && name.ends_with(".yaml");
+        if !plain || std::fs::symlink_metadata(p).is_ok_and(|m| !m.file_type().is_file()) {
+            problems.push(format!(
+                "readingpoints/ holds {name:?}: every entry must be a regular *.yaml reading-point record"
+            ));
+        }
+    }
+    let rps: Vec<PathBuf> = rps
+        .into_iter()
+        .filter(|p| {
+            p.extension().is_some_and(|x| x == "yaml")
+                && !p.to_string_lossy().chars().any(|c| c.is_control())
+        })
+        .collect();
+    for p in rps.iter() {
         let rp = match load_readingpoint(p) {
             Ok(r) => r,
             Err(e) => {
@@ -1065,7 +1110,7 @@ pub fn lean_export(root: &Path, files: &[PathBuf]) -> Report {
             let _ = writeln!(
                 t,
                 "-- skipped {}: not accepted by the RLT kernel\n",
-                f.strip_prefix(root).unwrap_or(f).display()
+                shown_path(root, f)
             );
             continue;
         };
@@ -1102,7 +1147,7 @@ pub fn lean_export(root: &Path, files: &[PathBuf]) -> Report {
         let _ = writeln!(
             t,
             "-- {}  (axiom set: {})\ntheorem {name}{hyps} : {} := by {tactic}\n",
-            f.strip_prefix(root).unwrap_or(f).display(),
+            shown_path(root, f),
             pf.axiom_set,
             lean_formula(th.conclusion())
         );

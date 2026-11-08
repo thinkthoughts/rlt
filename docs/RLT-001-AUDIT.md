@@ -1,6 +1,6 @@
 # RLT-001 — Independent audits and fixes
 
-Two independent adversarial audits: the first of `76de973` (fixed in `687f5e8`), the second of `32e2b0e` (fixed in the commit after it; see §2).
+Two independent adversarial audits and one final scoped review: the first audit of `76de973` (fixed in `687f5e8`), the second of `32e2b0e` (fixed in `88fbdf0`; §2), and the final review of `88fbdf0` (fixed in the commit after it; §3).
 
 ## 1. First audit
 
@@ -57,7 +57,7 @@ A new Claude instance audited `32e2b0e` from a fresh clone, with no access to th
 | 2 | major, blocking | CI failed `cargo fmt --check` at every fix commit, so later steps never ran; the audit document claimed fmt was clean | Tree formatted. `verify.sh` now runs fmt and clippy; the false claim above is corrected | fixed: GitHub Actions runs 42426078745 (push) and 42426083108 (pull_request) on `f7df544` pass every step, including `verify.sh` ("all checks hold") |
 | 3 | major, blocking | A newline in `(id "…")` forged report lines; `rp` read the first `verdict` text line (C01) | Control characters are refused in proof-file strings and symbols and in record strings (registry excerpts may span source lines). `rp` takes verdicts from the structured outcome | fixed (`a2_c01_…`) |
 | 4 | major, blocking | Replacing `math5.yaml` with a copy of `math0.yaml` passed validation (C03) | A reading-point record's `id` must equal its file name | fixed (`a2_c03_…`) |
-| 5 | major | Fidelity was relative to the registry: truncating or deleting a meaning in both registry and record passed, as did inventing one through a conversation source or `PEANO` (C04) | `check_excerpts.py` now requires every tagged excerpt to be a whole unit of its source (bounded by line ends, tags or quotes), and every source line naming a reading point to be covered by an excerpt. Conversation wording is pinned in the binary by SHA-256. `PEANO` and the other literature or whole-repository citations are status `reference`, which can ground an axiom set but never a meaning. An `available` source with excerpts needs a file location | fixed (`a2_c04_…`; C04 a–b caught by `check_excerpts.py`, which `verify.sh` requires) |
+| 5 | major | Fidelity was relative to the registry: truncating or deleting a meaning in both registry and record passed, as did inventing one through a conversation source or `PEANO` (C04) | `check_excerpts.py` now requires every tagged excerpt to be a whole unit of its source (bounded by line ends, tags or quotes), and every source line naming a reading point to be covered by an excerpt. Conversation wording is pinned in the binary by SHA-256. `PEANO` and the other literature or whole-repository citations are status `reference`, which can ground an axiom set but never a meaning. An `available` source with excerpts needs a file location | partly fixed at `88fbdf0`: the final review (§3) showed that changing registry and record *together* (untag, delete, truncate, retag, self-cite) still passed; now fixed by pinning the whole registry (§3 Q4) |
 | 6 | minor | `verify.sh` passed when Lean was missing, a Lean file used `sorry`, fmt or clippy failed, or the source directory was absent; `UPDATE_GOLDEN=0` rewrote goldens; a reused target directory tested another tree | Each stage now fails; skipping Lean or the excerpts needs an explicit flag and exits 3; only `UPDATE_GOLDEN=1` rewrites; tests resolve the repository root at run time; `tee` is awaited before exit | fixed (breakage matrix below) |
 | 7 | minor | Assumption names reached Lean unescaped, so `a/-` … `-/` could comment out a theorem (C06 ii) | Assumption names must be identifiers | fixed (`a2_c06_…`) |
 | 8 | minor | The conditional Lean replays are vacuous (their hypotheses are false in ℕ), and this was undisclosed (C06 i) | `Generated.lean` marks each such theorem `VACUOUS REPLAY`, and its header explains why | fixed (disclosed) |
@@ -89,3 +89,20 @@ A new Claude instance audited `32e2b0e` from a fresh clone, with no access to th
 - The kernel is parametric in its axioms. Trust in axioms rests on the pinned table, the loader and the files it locks, all reviewed like kernel code. Pinning binds content; the axioms remain assumptions.
 - Conversation wording is pinned, and so cannot change without a reviewed code change. The pin cannot show that the wording matches what was said; that rests on the review record.
 - A correspondence record's `kind` is declared by its author; relabelling it is a visible, reviewable edit.
+
+## 3. Final scoped review (of `88fbdf0`)
+
+A third independent Claude instance reviewed `88fbdf0` on four questions only, and reran the full suite. It confirmed that `f7df544` and `debec9e` change only the verification log and one line of this report.
+
+| Question | Result at `88fbdf0` | Fix | Status |
+|---|---|---|---|
+| 1 · CI | **PASS.** Runs 42426078745, 42426083108, 42426195552 and 42426198327 ran and passed every step; their logs show the Lean replay and the excerpt check ran (not SKIPPED) and end "RESULT all checks hold"; no required check can be skipped or fail without failing the job | — | pass |
+| 2 · Verdicts | **FAIL, non-blocking.** Exit codes and real verdict lines were always right, but a proof or reading-point *file name* containing newlines, or a convention id containing verdict text, could add forged lines before the real verdict | Displayed paths escape control characters, and `rlt check` refuses proof file names containing them; `readingpoints/` entries must be plain `*.yaml` regular files; convention ids must be `[A-Z0-9-]` | fixed (`r3_q2_…`) |
+| 3 · Record identity | **FAIL, non-blocking.** Renaming `math5.yaml` to `.yml` passed `validate` (verify.sh still failed); a relationship proof reached through a symlinked directory under `tests/` passed (statement, mode and Γ were still bound) | Every `readingpoints/` entry must be a regular `*.yaml` record, and the known-reading-point list comes from the same filter; relationship proof paths must canonicalize inside `tests/` | fixed (`r3_q3_…`) |
+| 4 · Source fidelity | **FAIL, blocking.** Changing registry and record together passed both `validate` and `check_excerpts.py`: untagging a meaning, deleting one whose source line never names the reading point, truncating a trailing element, swapping tags between reading points, citing a new self-made source | The registry's documentation content is pinned in the binary: `PINNED_REGISTRY_SHA` covers every source's id, status and location and every excerpt's text, `defines` and `split`. Any registry change needs a reviewed code change | fixed: all 13 source-fidelity counterexamples refused, control passes (`r3_q4_…`) |
+
+Note (no change): a proof's `(context F0 fiction)` label can be edited with `validate` still VALID. The verdict and Γ stay the same, and the label is reported as written.
+
+Full suite at `88fbdf0` (reviewer): fmt and clippy clean; 53 tests passed; `verify.sh` exit 0 ("all checks hold", 57 excerpts ok, 0 problems); both Lean files check; the 68 first-audit regression files match `expected.tsv`.
+
+After the fixes: 56 tests pass (kernel 19, syntax 14, golden 23); `verify.sh` "all checks hold".

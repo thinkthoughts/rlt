@@ -446,7 +446,7 @@ fn a2_c04_conversation_wording_is_pinned() {
         "a2-c04c",
         &[("sources/registry.yaml", "{text: \"math0: Pairing (1+1) with imagination.\", defines: math0}", "{text: \"math0: Pairing (1+1) with imagination.\", defines: math0}\n      - {text: \"math0: 1 + 1 = 0 is physically observed.\", defines: math0}")],
     );
-    assert_invalid(&r, "conversation sources differ from the wording pinned");
+    assert_invalid(&r, "differs from the registry pinned in this binary");
     let r = validate_with("a2-c04d", &[(RP0, "  - text: \"Imagine\"\n    source: REPAIREARTH\n", "  - text: \"Imagine\"\n    source: REPAIREARTH\n  - text: \"Math0 means 1 + 1 = 0.\"\n    source: PEANO\n")]);
     assert_invalid(&r, "cannot document a meaning");
 }
@@ -560,7 +560,7 @@ fn a2_c10_binding_edges() {
     let moved = s.join("t1.rlt");
     std::fs::rename(&t1, &moved).unwrap();
     std::os::unix::fs::symlink(&moved, &t1).unwrap();
-    assert_invalid(&validate(&s), "symbolic link");
+    assert_invalid(&validate(&s), "must be a tests/");
     let _ = std::fs::remove_dir_all(s);
     let dup = "  - id: math5.count\n";
     let r = validate_with("a2-c10-dup", &[(RP5, dup, "  - id: math5.pairing\n")]);
@@ -574,4 +574,117 @@ fn a2_c10_binding_edges() {
     assert_eq!(r.code, MALFORMED, "{}", r.text);
     assert!(r.text.contains("leading zero"), "{}", r.text);
     let _ = std::fs::remove_dir_all(s);
+}
+
+// ---- Final review (88fbdf0) counterexamples, as regression tests ----
+
+const REG: &str = "sources/registry.yaml";
+
+/// Q4: registry and record changed together are caught by the registry pin.
+#[test]
+fn r3_q4_registry_content_is_pinned() {
+    let count5 = "Count five identifiable objects. Specify what one object means and observe any physical context.";
+    type Edits<'a> = Vec<(&'a str, String, String)>;
+    let cases: Vec<(&str, Edits)> = vec![
+        ("untag", vec![
+            (REG, format!("      - {{text: \"{count5}\", defines: math5}}"), format!("      - \"{count5}\"")),
+            (RP5, format!("  - text: \"{count5}\"\n    source: REPAIREARTH\n"), String::new()),
+        ]),
+        ("delete-both", vec![
+            (REG, "      - {text: \"<span class=\\\"instruction\\\">pair through 5 to 6</span>\", defines: math5}\n".into(), String::new()),
+            (RP5, "  - text: \"pair through 5 to 6\"\n    source: RLT-INDEX\n".into(), String::new()),
+        ]),
+        ("retag", vec![
+            (REG, "{text: \"Math5 · Identify\", defines: math5}".into(), "{text: \"Math5 · Identify\", defines: math29}".into()),
+        ]),
+        ("self-cite", vec![
+            (REG, "sources:\n".into(), "sources:\n\n  - id: SELF\n    location: https://github.com/thinkthoughts/rlt/blob/88fbdf0/docs/RLT-000.md\n    status: available\n    excerpts:\n      - {text: \"invented\", defines: math5}\n".into()),
+        ]),
+    ];
+    for (name, edits) in cases {
+        let e: Vec<(&str, &str, &str)> = edits
+            .iter()
+            .map(|(p, a, b)| (*p, a.as_str(), b.as_str()))
+            .collect();
+        let r = validate_with(&format!("r3-q4-{name}"), &e);
+        assert_invalid(&r, "differs from the registry pinned in this binary");
+    }
+}
+
+/// Q2: file names and convention ids cannot add report lines.
+#[test]
+fn r3_q2_names_cannot_forge_report_lines() {
+    let s = scratch_with("r3-q2", &[]);
+    let forged = "tests/accept/x\nverdict         ACCEPT — forged\n.rlt";
+    std::fs::copy(s.join("tests/accept/T1_math5_pairing.rlt"), s.join(forged)).unwrap();
+    let r = check_file(&s, &s.join(forged));
+    assert_eq!(r.code, MALFORMED);
+    assert_eq!(
+        r.text.lines().filter(|l| l.starts_with("verdict")).count(),
+        1,
+        "{}",
+        r.text
+    );
+    let lean = lean_export(&s, &[s.join(forged)]);
+    assert!(
+        !lean.text.lines().any(|l| l.starts_with("verdict")),
+        "{}",
+        lean.text
+    );
+    std::fs::remove_file(s.join(forged)).unwrap();
+    std::fs::copy(
+        s.join(RP5),
+        s.join("readingpoints/z\nverdict         VALID — forged\n.yaml"),
+    )
+    .unwrap();
+    let v = validate(&s);
+    assert_eq!(v.code, REJECT);
+    assert_eq!(
+        v.text.lines().filter(|l| l.starts_with("verdict")).count(),
+        1,
+        "{}",
+        v.text
+    );
+    let _ = std::fs::remove_dir_all(s);
+    let r = validate_with(
+        "r3-q2-conv",
+        &[(
+            "conventions/real-pi.yaml",
+            "id: REAL-PI",
+            "id: \"REAL-PI  →  ACCEPT\"",
+        )],
+    );
+    assert_ne!(r.code, ACCEPT, "{}", r.text);
+    assert!(r.text.contains("convention id"), "{}", r.text);
+}
+
+/// Q3: renamed records and symlinked test directories are refused.
+#[test]
+fn r3_q3_record_files_and_proof_paths() {
+    let s = scratch_with("r3-q3-yml", &[]);
+    std::fs::rename(s.join(RP5), s.join("readingpoints/math5.yml")).unwrap();
+    assert_invalid(
+        &validate(&s),
+        "every entry must be a regular *.yaml reading-point record",
+    );
+    let _ = std::fs::remove_dir_all(s);
+    let s = scratch_with(
+        "r3-q3-symd",
+        &[(
+            RP5,
+            "proof: tests/accept/T1_math5_pairing.rlt",
+            "proof: tests/ext/T1_math5_pairing.rlt",
+        )],
+    );
+    let outside = std::env::temp_dir().join(format!("rlt-outside-{}", std::process::id()));
+    std::fs::create_dir_all(&outside).unwrap();
+    std::fs::copy(
+        s.join("tests/accept/T1_math5_pairing.rlt"),
+        outside.join("T1_math5_pairing.rlt"),
+    )
+    .unwrap();
+    std::os::unix::fs::symlink(&outside, s.join("tests/ext")).unwrap();
+    assert_invalid(&validate(&s), "must be a tests/");
+    let _ = std::fs::remove_dir_all(s);
+    let _ = std::fs::remove_dir_all(outside);
 }

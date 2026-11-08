@@ -235,6 +235,15 @@ pub struct ConventionRecord {
 pub fn load_convention(path: &Path) -> Result<ConventionRecord, String> {
     let y = load_yaml(path)?;
     let id = req(&y, "id", &path.display().to_string())?;
+    if id.is_empty()
+        || !id
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '-')
+    {
+        return Err(format!(
+            "convention id {id:?}: use upper-case letters, digits and `-`"
+        ));
+    }
     let mut symbols = BTreeMap::new();
     if let Some(h) = y["symbols"].as_hash() {
         for (k, v) in h {
@@ -350,8 +359,7 @@ pub fn load_readingpoint(path: &Path) -> Result<ReadingPoint, String> {
         .unwrap_or_default();
     if id != stem {
         return Err(format!(
-            "{}: record id `{id}` differs from its file name `{stem}`",
-            path.display()
+            "readingpoints/{stem:?}: record id {id:?} differs from its file name"
         ));
     }
     let meaning = |e: &Yaml, key: &str| -> Result<Meaning, String> {
