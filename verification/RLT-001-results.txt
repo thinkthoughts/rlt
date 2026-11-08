@@ -1,5 +1,5 @@
 RLT-001 verification
-commit   555070ec83cdfd98db04ab1c42e37c50aeb66d15
+commit   feb03c93b3bdd8e744ab4faa721a32f41809c4d3
 rustc    rustc 1.97.0 (2d8144b78 2026-07-07)
 
 == format and lints
@@ -10,7 +10,8 @@ clippy   ok
 ok
 
 == cargo test (unit + golden)
-test result: ok. 69 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.01s
+test result: ok. 69 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.52s
+test result: ok. 39 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.43s
 test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
@@ -72,6 +73,16 @@ rlt gen reproduces tests/accept/M1_two_three.rlt
 rlt gen reproduces tests/accept/M1_six_five.rlt
 rlt gen reproduces tests/accept/M1_thirty.rlt
 
+== closed quotient–remainder witnesses, RLT-003 M2 (tests/m2, residues/)
+scripts/gen-m2.sh reproduces tests/m2 (111 files)
+tests/m2: 111 of 111 proof files ACCEPT, unconditional, Γ = ∅
+scripts/gen-m2-record.sh reproduces residues/residue-30.yaml
+  consistency   the registered classification of the 30 entries gives [1, 7, 11, 13, 17, 19, 23, 29] = the registered representatives (8 of 30) — consistency check, not a theorem
+not established uniqueness of remainders · non-divisibility · gcd(r, 30) = 1 · completeness of the representatives · congruence · periodicity · statements about primes > 5
+theorems        193 kernel-checked bindings over 112 distinct proof files (closed equations, PEANO-ARITH, Γ = ∅)
+verdict         VALID — witness records consistent (40 record(s) valid; readings are registered interpretations, not theorems)
+readingpoints/math29.yaml unchanged (sha256 828ca404210423cc3a2f8f82aa34ee6f193326232182e959432205e7a99cb1d3)
+
 == chemical notation (rlt chem; 0 interpreted, 1 uninterpreted)
 CO₂    exit 0 (want 0)  INTERPRETED — a registered reading of notation; no kernel 
 O₂     exit 0 (want 0)  INTERPRETED — a registered reading of notation; no kernel 
@@ -90,6 +101,7 @@ Lean (version 4.34.0-rc2, x86_64-unknown-linux-gnu, commit 6a10ac8c22beadecabdbb
 'RLT001.T5c' does not depend on any axioms
 'RLT001.T5b_unconditional_false' does not depend on any axioms
 ok
+M2Generated.lean is current (111 statements; tier 1). M2Readings.lean compiled (tier 2; Lean-checked, not RLT theorems)
 Generated.lean is current
 
 == source excerpts

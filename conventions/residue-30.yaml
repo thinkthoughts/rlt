@@ -1,0 +1,32 @@
+id: RESIDUE-30
+authority: interpretation   # classifies closed witness records; proofs come only from the kernel
+sources: [NEWS-MATH29]
+
+# Executable fields: they decide how the witness table is classified.
+# Pinned in the binary (PINNED_CONVENTIONS, interpretation digest).
+executable:
+  elaborator: residue-table
+  modulus: 30
+  # The M1 theorem 30 = (2 × 3) × 5; its right side must be the product of `primes`.
+  factorization: tests/accept/M1_thirty.rlt
+  primes: [2, 3, 5]
+  representatives: [1, 7, 11, 13, 17, 19, 23, 29]
+  # The registered set, quoted exactly (a whole unit of a registered excerpt).
+  representatives_quote:
+    text: "{1, 7, 11, 13, 17, 19, 23, 29}: 17111317192329"
+    source: NEWS-MATH29
+  # A residue whose bounded remainder is nonzero for every prime is read as a
+  # coprime representative; a zero remainder for p is read as sharing p with 30.
+  rule: nonzero-remainders
+
+# Explanation: prose no check uses to classify. Pinned separately
+# (PINNED_CONVENTIONS, explanation digest), so a prose edit needs review too.
+explanation:
+  title: Closed quotient–remainder witnesses modulo 30 (registered classification)
+  reading:
+    - "For each residue r from 0 to 29 and each prime p of 30, a witness is a kernel-checked equation r = p × q + s together with a kernel-checked bound s + (k + 1) = p."
+    - "Under rule nonzero-remainders, r is read as a coprime representative when every bounded remainder s is nonzero, and as sharing p with 30 when the remainder for p is zero."
+    - "The classification of the 30 entries must equal the registered representatives, quoted from NEWS-MATH29."
+  limits:
+    - "The classification is a registered reading of closed equations, not an RLT theorem. Uniqueness of remainders, non-divisibility, gcd(r, 30) = 1, the completeness of the eight representatives, congruence and periodicity are not established in M2."
+    - "The reading relies on a reviewed argument (30 = 2 × 3 × 5 with prime factors 2, 3 and 5; uniqueness of division with remainder) that RLT cannot yet state."

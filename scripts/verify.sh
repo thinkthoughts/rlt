@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# RLT-001 verification: formatting, lints, build, unit and golden tests,
+# RLT-001 verification (extended by RLT-002 and RLT-003 M1–M2): formatting, lints, build, unit and golden tests,
 # every proof file, written-layer cases, record validation, the Lean replay,
 # and the source-excerpt check. Writes verification/RLT-001-results.txt.
 # Exits 0 only if every stage holds.
@@ -93,6 +93,31 @@ for g in "2 × 3 = 6:M1.two-three:M1_two_three" "6 × 5 = 30:M1.six-five:M1_six_
   if "$rlt" gen "$w" "$id" | cmp -s - "tests/accept/$f.rlt"; then echo "rlt gen reproduces tests/accept/$f.rlt"; else echo "  UNEXPECTED: rlt gen differs from tests/accept/$f.rlt"; fail=1; fi
 done
 
+echo; echo "== closed quotient–remainder witnesses, RLT-003 M2 (tests/m2, residues/)"
+m2_tmp=$(mktemp -d)
+if scripts/gen-m2.sh "$rlt" "$m2_tmp" && diff -r tests/m2 "$m2_tmp" >/dev/null; then
+  echo "scripts/gen-m2.sh reproduces tests/m2 ($(ls "$m2_tmp" | wc -l) files)"
+else
+  echo "  UNEXPECTED: tests/m2 differs from scripts/gen-m2.sh output"; fail=1
+fi
+rm -rf "$m2_tmp"
+m2_ok=0; m2_n=0
+for f in tests/m2/*.rlt; do
+  m2_n=$((m2_n + 1))
+  m2_log=$("$rlt" check "$f") && echo "$m2_log" | grep -q '^verdict         ACCEPT — unconditional theorem relative to registered axiom set PEANO-ARITH' \
+    && echo "$m2_log" | grep -q '^assumptions     Γ = ∅$' && m2_ok=$((m2_ok + 1)) || { echo "  UNEXPECTED: $f"; fail=1; }
+done
+echo "tests/m2: $m2_ok of $m2_n proof files ACCEPT, unconditional, Γ = ∅"
+[ "$m2_n" = 111 ] && [ "$m2_ok" = 111 ] || { echo "  UNEXPECTED: want 111 of 111"; fail=1; }
+if scripts/gen-m2-record.sh | cmp -s - residues/residue-30.yaml; then echo "scripts/gen-m2-record.sh reproduces residues/residue-30.yaml"; else echo "  UNEXPECTED: residues/residue-30.yaml differs from scripts/gen-m2-record.sh"; fail=1; fi
+res_log=$("$rlt" residues residues/residue-30.yaml); res_code=$?
+echo "$res_log" | grep -E '^(  consistency|theorems|not established|problem|verdict)'
+[ $res_code = 0 ] || fail=1
+for pin in "readingpoints/math29.yaml 828ca404210423cc3a2f8f82aa34ee6f193326232182e959432205e7a99cb1d3"; do
+  read -r f want <<< "$pin"
+  [ "$(sha256sum "$f" | cut -d' ' -f1)" = "$want" ] && echo "$f unchanged (sha256 $want)" || { echo "  UNEXPECTED: $f changed"; fail=1; }
+done
+
 echo; echo "== chemical notation (rlt chem; 0 interpreted, 1 uninterpreted)"
 for case in "CO₂:0" "O₂:0" "COO:1" "CO2:1" "O2:1"; do
   w=${case%:*}; want=${case##*:}
@@ -111,13 +136,15 @@ lean_bin=$(command -v lean || { [ -x "$HOME/.elan/bin/lean" ] && echo "$HOME/.el
 if [ -n "$lean_bin" ]; then
   # Run inside lean/ so elan selects lean/lean-toolchain. Any Lean message
   # other than the #print axioms lines (a warning, `sorry`, an error) fails.
-  lean_log=$(cd lean && "$lean_bin" --version && "$lean_bin" RLT001.lean && "$lean_bin" Generated.lean 2>&1); lean_code=$?
+  lean_log=$(cd lean && "$lean_bin" --version && "$lean_bin" RLT001.lean && "$lean_bin" Generated.lean && "$lean_bin" M2Generated.lean && "$lean_bin" M2Readings.lean 2>&1); lean_code=$?
   echo "$lean_log"
   if [ $lean_code != 0 ] || echo "$lean_log" | grep -qiE "warning|error|sorry"; then
     echo "FAILED"; fail=1
   else
     echo "ok"
   fi
+  m2_regen=$(scripts/gen-m2-lean.sh "$rlt")
+  [ "$m2_regen" = "$(cat lean/M2Generated.lean)" ] && echo "M2Generated.lean is current (111 statements; tier 1). M2Readings.lean compiled (tier 2; Lean-checked, not RLT theorems)" || { echo "M2Generated.lean is STALE (scripts/gen-m2-lean.sh target/release/rlt > lean/M2Generated.lean)"; fail=1; }
   regen=$("$rlt" lean tests/accept/*.rlt)
   [ "$regen" = "$(cat lean/Generated.lean)" ] && echo "Generated.lean is current" || { echo "Generated.lean is STALE (rlt lean tests/accept/*.rlt > lean/Generated.lean)"; fail=1; }
 elif [ "${RLT_ALLOW_NO_LEAN:-}" = 1 ]; then

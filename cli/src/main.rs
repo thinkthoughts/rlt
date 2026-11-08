@@ -14,6 +14,7 @@ usage:
   rlt points FILE                        specification records: reading points, counts, relations
   rlt chem WRITTEN CONVENTION            how a species-table convention reads a written formula
   rlt gen EQUATION ID                    untrusted generator: a PEANO-ARITH proof file for a closed equation
+  rlt residues FILE                      closed quotient–remainder witnesses and their registered readings
 options:
   --root DIR                             repository root (default: current directory)";
 
@@ -80,6 +81,11 @@ fn run() -> i32 {
                 1
             }
         },
+        Some("residues") if args.len() == 2 => {
+            let r = rlt_cli::residues::residues_report(&root, &root.join(&args[1]));
+            print!("{}", r.text);
+            r.code
+        }
         Some("chem") if args.len() == 3 => {
             let r = chem_report(&root, &args[1], &args[2]);
             print!("{}", r.text);

@@ -22,7 +22,7 @@ jobs:
         run: |
           pip install pyyaml
           mkdir -p /tmp/src
-          for r in news rlt translatepi antiviolence residue-manifold-learning specification-grammar; do
+          for r in news rlt translatepi antiviolence residue-manifold-learning specification-grammar general-divisor-theorem; do
             git clone -q "https://github.com/thinkthoughts/$r" "/tmp/src/$r"
           done
       - run: scripts/verify.sh /tmp/src
@@ -31,3 +31,26 @@ jobs:
         with:
           name: verification
           path: verification/RLT-001-results.txt
+
+  # RLT-003 M2: the GDT comparison, reported on its own with an explicit
+  # status (compiled or unverified). It needs Mathlib and is outside the gate
+  # above: Lean-checked statements about GDT are not RLT theorems.
+  gdt-comparison:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lean
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/v4.2.4/elan-init.sh | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Clone GDT at the pinned commit
+        run: |
+          git clone -q https://github.com/thinkthoughts/general-divisor-theorem /tmp/gdt
+          git -C /tmp/gdt checkout -q ec66260c98eff965bea79891ffbbc0d3229c6e93
+      - run: scripts/gdt-compare.sh /tmp/gdt | tee gdt-comparison.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gdt-comparison
+          path: gdt-comparison.txt
