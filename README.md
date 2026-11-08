@@ -40,4 +40,4 @@ Parsers, conventions, sources, reading-point and correspondence records, and the
 
 Limits: numerals up to 1000 (unary in the kernel; no leading zeros), nesting depth 256, 1,000,000 term nodes per proof file; control characters are refused in proof files and records.
 
-Status: RLT-001 merged; RLT-002 (specification records, first increment) under review. Reports: `docs/RLT-000.md`, `docs/RLT-001.md`, `docs/RLT-001-AUDIT.md`, `docs/RLT-002.md`.
+Status: RLT-001 merged; RLT-002 (specification records, first increment) under review. Reports: `docs/RLT-000.md`, `docs/RLT-001.md`, `docs/RLT-001-AUDIT.md`, `docs/RLT-002.md`, `docs/RLT-002-AUDIT.md`.

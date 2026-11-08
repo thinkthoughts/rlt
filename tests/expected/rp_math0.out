@@ -21,10 +21,10 @@ relationships (attached results, checked now)
   math0.pairing  "1 + 1 = 2" under NAT-DEC  →  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD, Γ = ∅  (tests/accept/T4_math0_pairing.rlt)
   math0.fiction  "1 + 1 + 1 + 1 + 1 = 0" under NAT-DEC  →  ACCEPT — conditional theorem relative to registered axiom set PEANO-ADD, Γ = { h : (((1 + 1) + 1) + 1) + 1 = 0 }  (tests/accept/T5a_math0_fiction_conditional.rlt)
 physical correspondence (evidence-graded, independent of verdicts)
-  math0.imagining [behavior] unestablished — "a reader imagines a referent for a written expression (agent: a reader; place, time and context unspecified)" (evidence: 0)
-  math0.emoji [representation] inapplicable — "the 🫁 emoji represents human lungs" (evidence: 0)
-  math0.lungs [referent] unestablished — "human lungs, the referent of the 🫁 emoji" (evidence: 0)
-  math0.emoji-breathing [referent] imagined — "breathing and CO₂ exhalation by the 🫁 emoji itself" (evidence: 0)
+  math0.imagining [behavior] unestablished (evidence: 0) — "a reader imagines a referent for a written expression (agent: a reader; place, time and context unspecified)"
+  math0.emoji [representation] inapplicable (evidence: 0) — "the 🫁 emoji represents human lungs"
+  math0.lungs [referent] unestablished (evidence: 0) — "human lungs, the referent of the 🫁 emoji"
+  math0.emoji-breathing [referent] imagined (evidence: 0) — "breathing and CO₂ exhalation by the 🫁 emoji itself"
 PiπΠ lifts
   math0-to-math5 → math5 via "(1+1) × 3 = 6": proposed
 exit 0

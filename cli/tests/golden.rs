@@ -921,3 +921,417 @@ fn t6_records_reference_without_duplicating() {
         "kind `hunch`",
     );
 }
+
+// ---- RLT-002 audit remediation: one regression test per audit counterexample ----
+
+const STATUS: &str = "correspondence/status.yaml";
+const PA: &str = "description: \"person A\"\n    scope: particular\n    physical: {status: unestablished, evidence: []}";
+
+fn pa_physical(physical: &str) -> String {
+    format!("description: \"person A\"\n    scope: particular\n    physical: {physical}")
+}
+
+fn relation(rtype: &str, between: &str, status: &str, evidence: &str) -> String {
+    format!("relations:\n  - id: rel.x\n    type: {rtype}\n    between: {between}\n    status: {status}\n    evidence: {evidence}\n")
+}
+
+/// A complete, linked evidence item citing RLT's own index page.
+fn linked(claim: &str, referents: &str) -> String {
+    format!("\n      - type: physical_measurement\n        ref: RLT-INDEX\n        locator: \"page body\"\n        claim: {claim}\n        referents: {referents}\n        criteria: \"a measurement identifying both referents as the same species\"")
+}
+
+/// D1: an edited status vocabulary is refused by every command that reads it,
+/// and the status `established` is outside what a record may hold.
+#[test]
+fn r4_d1_status_vocabulary_is_pinned() {
+    let edits = [
+        (
+            STATUS,
+            "correspondence_status: [",
+            "correspondence_status: [established, ",
+        ),
+        (
+            STATUS,
+            "status_without_evidence: [",
+            "status_without_evidence: [established, ",
+        ),
+        (PTS, PA, &pa_physical("{status: established, evidence: []}")),
+    ];
+    let r = points_with("r4-d1-points", &edits);
+    assert_points_invalid(
+        &r,
+        "differs from the status vocabulary pinned in this binary",
+    );
+    assert!(!r.text.contains("physical established"), "{}", r.text);
+    let v = validate_with("r4-d1-validate", &edits);
+    assert_invalid(
+        &v,
+        "differs from the status vocabulary pinned in this binary",
+    );
+    let s = scratch_with("r4-d1-rp", &edits);
+    let rp = rp_report(&s, "math5");
+    let _ = std::fs::remove_dir_all(&s);
+    assert_eq!(rp.code, MALFORMED, "{}", rp.text);
+    // With the pinned vocabulary, `established` is outside it.
+    let r = points_with(
+        "r4-d1-word",
+        &[(PTS, PA, &pa_physical("{status: established, evidence: []}"))],
+    );
+    assert_points_invalid(&r, "status `established` is outside the vocabulary");
+}
+
+/// D1/D2: `supported` and `rejected` are establishment judgments; a record
+/// using one is refused even with complete, linked evidence.
+#[test]
+fn r4_d1_judgment_statuses_are_refused() {
+    for st in ["supported", "rejected"] {
+        let ev = format!("{{status: {st}, evidence: [{{type: physical_measurement, ref: RLT-INDEX, locator: body, claim: physical-correspondence, referents: [person.a], criteria: \"c\"}}]}}");
+        let r = points_with(&format!("r4-judge-{st}"), &[(PTS, PA, &pa_physical(&ev))]);
+        assert_points_invalid(&r, "records an establishment judgment");
+        let rel = relation(
+            "same-species",
+            "[o2.atom-1, person.a]",
+            st,
+            &linked("same-species", "[o2.atom-1, person.a]"),
+        );
+        let r = points_with(&format!("r4-judge-rel-{st}"), &[(PTS, NO_RELATIONS, &rel)]);
+        assert_points_invalid(&r, "records an establishment judgment");
+        assert!(
+            r.text.contains(&format!(
+                ": unestablished (record states `{st}`, refused; evidence: 1)"
+            )),
+            "{}",
+            r.text
+        );
+        assert!(!r.text.contains(&format!(": {st} (")), "{}", r.text);
+    }
+}
+
+/// D2: submitted evidence is shown in full and leaves the relation unestablished.
+#[test]
+fn r4_d2_submitted_evidence_stays_unestablished() {
+    let rel = relation(
+        "same-species",
+        "[o2.atom-1, person.a]",
+        "evidence-submitted",
+        &linked("same-species", "[o2.atom-1, person.a]"),
+    );
+    let r = points_with("r4-d2-submitted", &[(PTS, NO_RELATIONS, &rel)]);
+    assert_eq!(r.code, ACCEPT, "{}", r.text);
+    for line in [
+        "relation        rel.x [same-species] o2.atom-1, person.a : evidence-submitted (1 item(s), not evaluated by RLT; the relation stays unestablished)",
+        "evidence      physical_measurement · RLT-INDEX [https://github.com/thinkthoughts/rlt/blob/838417682c8c3c8dfe05b3094e6fc17cdf53fe5c/index.html] at \"page body\" · for same-species(o2.atom-1, person.a)",
+        "submitted, not evaluated by RLT",
+    ] {
+        assert!(r.text.contains(line), "missing `{line}`:\n{}", r.text);
+    }
+    for word in [
+        ": supported",
+        ": established",
+        "physical supported",
+        "physical established",
+    ] {
+        assert!(!r.text.contains(word), "`{word}` in:\n{}", r.text);
+    }
+    // A point with submitted evidence reads the same way.
+    let ev = "{status: evidence-submitted, evidence: [{type: physical_measurement, ref: RLT-INDEX, locator: body, claim: physical-correspondence, referents: [person.a], criteria: \"c\"}]}";
+    let r = points_with("r4-d2-point", &[(PTS, PA, &pa_physical(ev))]);
+    assert_eq!(r.code, ACCEPT, "{}", r.text);
+    assert!(r.text.contains("physical evidence-submitted (1 item(s), not evaluated by RLT; correspondence unestablished)"), "{}", r.text);
+}
+
+/// D2: evidence must be linked to the exact claim and referents, and give a
+/// locator and criteria; extra fields are refused.
+#[test]
+fn r4_d2_evidence_is_linked_to_its_claim() {
+    let between = "[o2.atom-1, person.a]";
+    let cases: Vec<(String, &str)> = vec![
+        (linked("same-structure", between), "this record's claim is `same-species`"),
+        (linked("same-species", "[o2.atom-1, person.b]"), "this record's referents are [o2.atom-1, person.a]"),
+        (linked("same-species", "[person.a, o2.atom-1]"), "this record's referents are [o2.atom-1, person.a]"),
+        ("\n      - type: physical_measurement\n        ref: RLT-INDEX\n        claim: same-species\n        referents: [o2.atom-1, person.a]\n        criteria: \"c\"".to_string(), "must give a `locator`"),
+        ("\n      - type: physical_measurement\n        ref: RLT-INDEX\n        locator: body\n        claim: same-species\n        referents: [o2.atom-1, person.a]".to_string(), "must state its validation `criteria`"),
+        ("\n      - type: physical_measurement\n        ref: RLT-INDEX\n        locator: body\n        referents: [o2.atom-1, person.a]\n        criteria: \"c\"".to_string(), "must name its claim"),
+        (format!("{}\n        verified: true", linked("same-species", between)), "field `verified` is outside this record type"),
+        (format!("{}\n        note: \"established by count.oxygen\"", linked("same-species", between)), "field `note` is outside this record type"),
+    ];
+    for (i, (ev, needle)) in cases.iter().enumerate() {
+        let rel = relation("same-species", between, "evidence-submitted", ev);
+        let r = points_with(&format!("r4-d2-link-{i}"), &[(PTS, NO_RELATIONS, &rel)]);
+        assert_points_invalid(&r, needle);
+    }
+    // Evidence present with status unestablished must say evidence-submitted.
+    let rel = relation(
+        "same-species",
+        between,
+        "unestablished",
+        &linked("same-species", between),
+    );
+    let r = points_with("r4-d2-unest", &[(PTS, NO_RELATIONS, &rel)]);
+    assert_points_invalid(&r, "has status `evidence-submitted`");
+    // evidence-submitted with zero items.
+    let rel = relation("same-species", between, "evidence-submitted", "[]");
+    let r = points_with("r4-d2-empty", &[(PTS, NO_RELATIONS, &rel)]);
+    assert_points_invalid(&r, "requires evidence");
+}
+
+/// D3: `rlt points`, `rlt rp` and `rlt check` refuse a registry that differs
+/// from the pin, including edits to fields outside the excerpts.
+#[test]
+fn r4_d3_registry_pin_is_checked_by_every_command() {
+    let reworded = (
+        REG,
+        "Preserve distinct reading points for two oxygen atoms and two human beings.",
+        "These two oxygen atoms and two human beings are established, physically distinct objects.",
+    );
+    let basis = (
+        PTS,
+        "text: \"Preserve distinct reading points for two oxygen atoms and two human beings.\"",
+        "text: \"These two oxygen atoms and two human beings are established, physically distinct objects.\"",
+    );
+    let r = points_with("r4-d3-points", &[reworded, basis]);
+    assert_points_invalid(&r, "differs from the registry pinned in this binary");
+    let retitled = (
+        REG,
+        "title: rlt/index.html (current site page)",
+        "title: laboratory measurement",
+    );
+    for (name, e) in [("r4-d3-excerpt", reworded), ("r4-d3-title", retitled)] {
+        let s = scratch_with(name, &[e]);
+        let rp = rp_report(&s, "math5");
+        let ck = check_file(&s, &s.join("tests/accept/T6_one_plus_one.rlt"));
+        let pt = points_report(&s, &s.join(PTS));
+        let _ = std::fs::remove_dir_all(&s);
+        assert_eq!(rp.code, MALFORMED, "{}", rp.text);
+        assert_ne!(ck.code, ACCEPT, "{}", ck.text);
+        assert!(
+            ck.text.contains("differs from the registry pinned"),
+            "{}",
+            ck.text
+        );
+        assert_points_invalid(&pt, "differs from the registry pinned");
+    }
+    let extra = (
+        REG,
+        "status: available",
+        "status: available\n    measured: true",
+    );
+    let r = points_with("r4-d3-key", &[extra]);
+    assert_points_invalid(&r, "field `measured` is outside this record type");
+}
+
+/// D4: identifiers that print alike are the same identifier; invisible and
+/// look-alike characters are refused.
+#[test]
+fn r4_d4_confusable_identifiers_are_refused() {
+    for (i, id) in [
+        "\"person.a\\u200b\"",
+        "\"person.\u{0430}\"",
+        "Person.A",
+        "\"person.a \"",
+        "\"person.a\\u2028\"",
+        "\"person/a\"",
+    ]
+    .iter()
+    .enumerate()
+    {
+        let r = points_with(
+            &format!("r4-d4-{i}"),
+            &[(PTS, "- id: person.b", &format!("- id: {id}"))],
+        );
+        assert_eq!(r.code, REJECT, "{}", r.text);
+        assert!(
+            r.text.contains("identifiers use lower-case ASCII letters")
+                || r.text.contains("control or invisible character"),
+            "{}",
+            r.text
+        );
+    }
+    // Invisible characters are refused in free text too.
+    let r = points_with(
+        "r4-d4-text",
+        &[(
+            PTS,
+            "description: \"person B\"",
+            "description: \"person\\u200bB\"",
+        )],
+    );
+    assert_points_invalid(&r, "invisible character U+200B");
+}
+
+/// Minor 1: newlines in list fields cannot add report lines.
+#[test]
+fn r4_m1_list_fields_cannot_forge_report_lines() {
+    let forged = "\\nverdict         VALID — specification records consistent";
+    for (i, (from, to)) in [
+        (
+            "groups: [[person.a], [person.b]]".to_string(),
+            format!("groups: [[person.a], [\"person.b{forged}\"]]"),
+        ),
+        (
+            "references: [math5]".to_string(),
+            format!("references: [\"math5{forged}\"]"),
+        ),
+        (
+            "assumptions: []\n    groups: [[person.a]".to_string(),
+            format!("assumptions: [\"h{forged}\"]\n    groups: [[person.a]"),
+        ),
+    ]
+    .iter()
+    .enumerate()
+    {
+        let r = points_with(&format!("r4-m1-{i}"), &[(PTS, from, to)]);
+        assert_eq!(r.code, REJECT, "{}", r.text);
+        assert_eq!(
+            r.text.lines().filter(|l| l.starts_with("verdict")).count(),
+            1,
+            "forged verdict line:\n{}",
+            r.text
+        );
+        assert!(r.text.trim_end().ends_with("problem(s)"), "{}", r.text);
+    }
+}
+
+/// Minor 2: references stay inside readingpoints/.
+#[test]
+fn r4_m2_references_stay_in_readingpoints() {
+    let r = points_with(
+        "r4-m2",
+        &[(
+            PTS,
+            "references: [math5]",
+            "references: [\"../points/oxygen-and-people\"]",
+        )],
+    );
+    assert_points_invalid(&r, "identifiers use lower-case ASCII letters");
+}
+
+/// Minor 3: refused counts report their identities and bindings accurately.
+#[test]
+fn r4_m3_refused_counts_report_accurately() {
+    let r = points_with(
+        "r4-m3-dup",
+        &[(
+            PTS,
+            "groups: [[person.a], [person.b]]",
+            "groups: [[person.a], [person.a]]",
+        )],
+    );
+    assert_points_invalid(&r, "point person.a is named in two groups");
+    assert!(
+        r.text
+            .contains("person.a, person.a — 1 distinct reading point(s) in 2 bindings"),
+        "{}",
+        r.text
+    );
+    // A count bound to a rejected proof reports no binding.
+    let s = scratch_with("r4-m3-reject", &[]);
+    std::fs::create_dir_all(s.join("tests/reject")).unwrap();
+    std::fs::copy(
+        root().join("tests/reject/T2_math5_broken_trans.rlt"),
+        s.join("tests/reject/T2_math5_broken_trans.rlt"),
+    )
+    .unwrap();
+    let pts = std::fs::read_to_string(s.join(PTS)).unwrap().replacen(
+        "proof: tests/accept/T6_one_plus_one.rlt\n    mode: unconditional\n    assumptions: []\n    groups: [[person.a], [person.b]]",
+        "proof: tests/reject/T2_math5_broken_trans.rlt\n    mode: unconditional\n    assumptions: []\n    groups: [[person.a], [person.b]]",
+        1,
+    );
+    std::fs::write(s.join(PTS), pts).unwrap();
+    let r = points_report(&s, &s.join(PTS));
+    let _ = std::fs::remove_dir_all(&s);
+    assert_points_invalid(&r, "its proof is not accepted by the kernel");
+    assert!(
+        r.text
+            .contains("binding       not reported: the kernel did not accept this proof"),
+        "{}",
+        r.text
+    );
+    assert_eq!(r.text.matches("binding       1 ↦").count(), 1, "{}", r.text);
+}
+
+/// Minor 4: symbolic links, FIFOs and files outside points/ are refused
+/// without being opened.
+#[test]
+fn r4_m4_links_fifos_and_stray_paths_are_refused() {
+    use std::os::unix::fs::symlink;
+    let s = scratch_with("r4-m4", &[]);
+    // A symlinked points file, pointing outside the repository.
+    let outside = std::env::temp_dir().join(format!("rlt-r4-m4-out-{}.yaml", std::process::id()));
+    std::fs::copy(s.join(PTS), &outside).unwrap();
+    symlink(&outside, s.join("points/linked.yaml")).unwrap();
+    let r = points_report(&s, &s.join("points/linked.yaml"));
+    assert_points_invalid(&r, "is a symbolic link");
+    // A points file outside points/.
+    let r = points_report(&s, &outside);
+    assert_points_invalid(&r, "inside this repository's points/ directory");
+    // A FIFO as the points file and as a bound proof: refused, never opened.
+    let mk = |p: &Path| {
+        assert!(std::process::Command::new("mkfifo")
+            .arg(p)
+            .status()
+            .unwrap()
+            .success())
+    };
+    mk(&s.join("points/fifo.yaml"));
+    let r = points_report(&s, &s.join("points/fifo.yaml"));
+    assert_points_invalid(&r, "is not a regular file");
+    mk(&s.join("tests/accept/T6_fifo.rlt"));
+    let pts = std::fs::read_to_string(s.join(PTS)).unwrap().replacen(
+        "proof: tests/accept/T6_one_plus_one.rlt",
+        "proof: tests/accept/T6_fifo.rlt",
+        1,
+    );
+    std::fs::write(s.join(PTS), pts).unwrap();
+    let r = points_report(&s, &s.join(PTS));
+    assert_points_invalid(&r, "its proof is not accepted by the kernel");
+    let ck = check_file(&s, &s.join("tests/accept/T6_fifo.rlt"));
+    assert_eq!(ck.code, MALFORMED, "{}", ck.text);
+    assert!(ck.text.contains("not a regular file"), "{}", ck.text);
+    let _ = std::fs::remove_dir_all(&s);
+    let _ = std::fs::remove_file(&outside);
+}
+
+/// Minor 5: basis required; self-relations, contradictory statuses refused;
+/// the convention's reading is shown, so an edit to it is visible.
+#[test]
+fn r4_m5_stricter_records() {
+    let r = points_with("r4-m5-basis", &[(PTS, "basis:\n  text: \"Preserve distinct reading points for two oxygen atoms and two human beings.\"\n  source: RLT-002-REQUEST\n", "")]);
+    assert_points_invalid(&r, "missing `basis`");
+    let r = points_with(
+        "r4-m5-self",
+        &[(
+            PTS,
+            NO_RELATIONS,
+            &relation("bonded-to", "[person.a, person.a]", "unestablished", "[]"),
+        )],
+    );
+    assert_points_invalid(&r, "a relation names two or more distinct points");
+    let r = points_with(
+        "r4-m5-one",
+        &[(
+            PTS,
+            NO_RELATIONS,
+            &relation("bonded-to", "[person.a]", "unestablished", "[]"),
+        )],
+    );
+    assert_points_invalid(&r, "a relation names two or more distinct points");
+    let r = points_with(
+        "r4-m5-inapp",
+        &[(
+            PTS,
+            PA,
+            &pa_physical("{status: inapplicable, evidence: []}"),
+        )],
+    );
+    assert_points_invalid(&r, "`inapplicable` applies to other kinds");
+    let r = points_with(
+        "r4-m5-conv",
+        &[(
+            "conventions/nat-dec.yaml",
+            "+ denotes addition on the natural numbers",
+            "+ denotes multiplication of physical objects",
+        )],
+    );
+    assert!(r.text.contains("convention    NAT-DEC (interpretation input) — \"A run of decimal digits n denotes the numeral S^n(0). + denotes multiplication of physical objects"), "{}", r.text);
+}

@@ -2,7 +2,12 @@
 # and PiπΠ lifts (G). Correspondence values follow RML correspondence.yaml
 # (status_values) plus `imagined` (approved in RLT-000 §9 item 4).
 
-correspondence_status: [unestablished, supported, rejected, inapplicable, imagined]
+# `evidence-submitted` is RLT-authored (RLT-002 remediation approval): evidence
+# is recorded and linked to its claim, and its evaluation stays with a reviewer.
+# Records may hold unestablished, evidence-submitted, inapplicable or imagined
+# (fixed in the binary as RECORDABLE_STATUS); `supported` and `rejected` are
+# RML establishment judgments, kept here as source terms and refused in records.
+correspondence_status: [unestablished, evidence-submitted, supported, rejected, inapplicable, imagined]
 
 # Statuses a record may hold with an empty evidence list.
 status_without_evidence: [unestablished, inapplicable, imagined]

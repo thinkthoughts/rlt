@@ -6,8 +6,29 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use yaml_rust2::{Yaml, YamlLoader};
 
+/// Read a record or proof file. Only a regular file is read: a symbolic link,
+/// directory, FIFO or device is refused before it is opened, so a record can
+/// neither point outside the repository nor block the checker.
+pub fn read_regular(path: &Path) -> Result<String, String> {
+    let meta =
+        std::fs::symlink_metadata(path).map_err(|e| format!("{}: {}", path.display(), e.kind()))?;
+    if meta.file_type().is_symlink() {
+        return Err(format!(
+            "{}: is a symbolic link; records and proofs are regular files",
+            path.display()
+        ));
+    }
+    if !meta.file_type().is_file() {
+        return Err(format!(
+            "{}: is not a regular file; records and proofs are regular files",
+            path.display()
+        ));
+    }
+    std::fs::read_to_string(path).map_err(|e| format!("{}: {}", path.display(), e.kind()))
+}
+
 pub fn load_yaml(path: &Path) -> Result<Yaml, String> {
-    let src = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let src = read_regular(path)?;
     let mut docs =
         YamlLoader::load_from_str(&src).map_err(|e| format!("{}: {e}", path.display()))?;
     if docs.len() != 1 {
@@ -19,16 +40,45 @@ pub fn load_yaml(path: &Path) -> Result<Yaml, String> {
 /// An optional string field: absent is fine, any other type is an error.
 /// Record strings print on one report line: control characters are refused
 /// (line breaks inside source excerpts are allowed; they collapse in units).
-fn clean(v: &str, key: &str, ctx: &str, allow_newline: bool) -> Result<String, String> {
+/// Invisible and layout-changing characters: Unicode format characters (Cf),
+/// line and paragraph separators, and bidirectional controls. Refused in every
+/// record string, so two strings that print alike are the same string and no
+/// field can break or reorder a report line.
+pub fn invisible(c: char) -> bool {
+    matches!(c as u32,
+        0x00AD | 0x0600..=0x0605 | 0x061C | 0x06DD | 0x070F | 0x0890..=0x0891 | 0x08E2
+        | 0x180E | 0x200B..=0x200F | 0x2028..=0x202E | 0x2060..=0x2064 | 0x2066..=0x206F
+        | 0xFEFF | 0xFFF9..=0xFFFB | 0x110BD | 0x110CD | 0x13430..=0x1343F
+        | 0x1BCA0..=0x1BCA3 | 0x1D173..=0x1D17A | 0xE0001 | 0xE0020..=0xE007F)
+}
+
+pub fn clean(v: &str, key: &str, ctx: &str, allow_newline: bool) -> Result<String, String> {
     match v
         .chars()
-        .find(|c| c.is_control() && !(allow_newline && *c == '\n'))
+        .find(|c| (c.is_control() && !(allow_newline && *c == '\n')) || invisible(*c))
     {
         Some(c) => Err(format!(
-            "{ctx}: field `{key}` holds control character U+{:04X}",
+            "{ctx}: field `{key}` holds control or invisible character U+{:04X}",
             c as u32
         )),
         None => Ok(v.to_string()),
+    }
+}
+
+/// Record identifiers (reading points, counts, relations, points files and
+/// references): lower-case ASCII letters, digits, `.`, `_` and `-`, starting
+/// and ending with a letter or digit. Two identifiers that print alike are
+/// then the same identifier.
+pub fn plain_id(id: &str, what: &str, ctx: &str) -> Result<String, String> {
+    let ok_char = |c: char| c.is_ascii_lowercase() || c.is_ascii_digit() || ".-_".contains(c);
+    let edge = |c: Option<char>| c.is_some_and(|c| c.is_ascii_lowercase() || c.is_ascii_digit());
+    if id.chars().all(ok_char) && edge(id.chars().next()) && edge(id.chars().last()) {
+        Ok(id.to_string())
+    } else {
+        Err(format!(
+            "{ctx}: {what} {:?}: identifiers use lower-case ASCII letters, digits, `.`, `_` and `-`",
+            id.escape_debug().to_string()
+        ))
     }
 }
 
@@ -61,11 +111,17 @@ fn list<'a>(y: &'a Yaml, key: &str, ctx: &str) -> Result<&'a [Yaml], String> {
 fn strings(y: &Yaml, key: &str, ctx: &str) -> Result<Vec<String>, String> {
     list(y, key, ctx)?
         .iter()
-        .map(|x| {
-            x.as_str()
-                .map(str::to_string)
-                .ok_or(format!("{ctx}: `{key}` must list strings"))
+        .map(|x| match x.as_str() {
+            Some(v) => clean(v, key, ctx, false),
+            None => Err(format!("{ctx}: `{key}` must list strings")),
         })
+        .collect()
+}
+
+fn ids(y: &Yaml, key: &str, ctx: &str) -> Result<Vec<String>, String> {
+    strings(y, key, ctx)?
+        .iter()
+        .map(|v| plain_id(v, key, ctx))
         .collect()
 }
 
@@ -174,14 +230,26 @@ pub struct Source {
     pub id: String,
     pub status: String,
     pub location: String,
+    pub title: String,
+    pub url: String,
+    pub commit: String,
+    pub note: String,
     pub excerpts: Vec<Excerpt>,
 }
 
 pub fn load_registry(path: &Path) -> Result<BTreeMap<String, Source>, String> {
     let y = load_yaml(path)?;
+    only_keys(&y, &["sources"], "registry")?;
     let mut out = BTreeMap::new();
     for e in list(&y, "sources", "registry")? {
         let id = req(e, "id", "source")?;
+        only_keys(
+            e,
+            &[
+                "id", "title", "status", "location", "url", "commit", "note", "excerpts",
+            ],
+            &format!("source {id}"),
+        )?;
         let mut excerpts = Vec::new();
         for x in list(e, "excerpts", &id)? {
             excerpts.push(match x {
@@ -190,19 +258,24 @@ pub fn load_registry(path: &Path) -> Result<BTreeMap<String, Source>, String> {
                     defines: None,
                     whole: false,
                 },
-                Yaml::Hash(_) => Excerpt {
-                    text: match &x["text"] {
-                        // Registry excerpts may span lines of the source file.
-                        Yaml::String(v) => clean(v, "text", &id, true)?,
-                        _ => return Err(format!("{id}: excerpt `text` must be a string")),
-                    },
-                    defines: opt(x, "defines", &id)?,
-                    whole: match opt(x, "split", &id)?.as_deref() {
-                        None | Some("units") => false,
-                        Some("whole") => true,
-                        Some(o) => return Err(format!("{id}: split `{o}` must be units or whole")),
-                    },
-                },
+                Yaml::Hash(_) => {
+                    only_keys(x, &["text", "defines", "split"], &id)?;
+                    Excerpt {
+                        text: match &x["text"] {
+                            // Registry excerpts may span lines of the source file.
+                            Yaml::String(v) => clean(v, "text", &id, true)?,
+                            _ => return Err(format!("{id}: excerpt `text` must be a string")),
+                        },
+                        defines: opt(x, "defines", &id)?,
+                        whole: match opt(x, "split", &id)?.as_deref() {
+                            None | Some("units") => false,
+                            Some("whole") => true,
+                            Some(o) => {
+                                return Err(format!("{id}: split `{o}` must be units or whole"))
+                            }
+                        },
+                    }
+                }
                 _ => {
                     return Err(format!(
                         "{id}: an excerpt is a string or {{text, defines?, split?}}"
@@ -213,6 +286,10 @@ pub fn load_registry(path: &Path) -> Result<BTreeMap<String, Source>, String> {
         let src = Source {
             status: req(e, "status", &id)?,
             location: opt(e, "location", &id)?.unwrap_or_default(),
+            title: opt(e, "title", &id)?.unwrap_or_default(),
+            url: opt(e, "url", &id)?.unwrap_or_default(),
+            commit: opt(e, "commit", &id)?.unwrap_or_default(),
+            note: opt(e, "note", &id)?.unwrap_or_default(),
             excerpts,
             id: id.clone(),
         };
@@ -295,6 +372,17 @@ pub struct StatusVocabulary {
 pub fn load_status(path: &Path) -> Result<StatusVocabulary, String> {
     let y = load_yaml(path)?;
     let ctx = "status.yaml";
+    only_keys(
+        &y,
+        &[
+            "correspondence_status",
+            "lift_status",
+            "allowed_support",
+            "status_without_evidence",
+            "referent_only_status",
+        ],
+        ctx,
+    )?;
     Ok(StatusVocabulary {
         correspondence: strings(&y, "correspondence_status", ctx)?,
         lift: strings(&y, "lift_status", ctx)?,
@@ -322,13 +410,49 @@ pub struct Relationship {
     pub assumptions: Vec<String>,
 }
 
+/// One submitted evidence item. It names the exact claim and referents it is
+/// offered for, where in the cited source the evidence sits, and the criteria
+/// a reviewer applies. RLT checks that these are present and consistent with
+/// the record; whether the evidence meets the criteria is a review judgment
+/// RLT leaves open, so the claim stays unestablished.
+#[derive(Clone, Debug, Default)]
+pub struct EvidenceItem {
+    pub etype: String,
+    pub reference: String,
+    pub locator: Option<String>,
+    pub claim: Option<String>,
+    pub referents: Vec<String>,
+    pub criteria: Option<String>,
+}
+
+pub fn evidence(e: &Yaml, ctx: &str) -> Result<Vec<EvidenceItem>, String> {
+    list(e, "evidence", ctx)?
+        .iter()
+        .map(|v| {
+            only_keys(
+                v,
+                &["type", "ref", "locator", "claim", "referents", "criteria"],
+                ctx,
+            )?;
+            Ok(EvidenceItem {
+                etype: req(v, "type", ctx)?,
+                reference: req(v, "ref", ctx)?,
+                locator: opt(v, "locator", ctx)?,
+                claim: opt(v, "claim", ctx)?,
+                referents: ids(v, "referents", ctx)?,
+                criteria: opt(v, "criteria", ctx)?,
+            })
+        })
+        .collect()
+}
+
 #[derive(Clone, Debug)]
 pub struct Correspondence {
     pub id: String,
     pub kind: String,
     pub description: String,
     pub status: String,
-    pub evidence: Vec<(String, String)>,
+    pub evidence: Vec<EvidenceItem>,
     pub source: Option<String>,
 }
 
@@ -398,10 +522,7 @@ pub fn load_readingpoint(path: &Path) -> Result<ReadingPoint, String> {
                     kind: req(e, "kind", &id)?,
                     description: req(e, "description", &id)?,
                     status: req(e, "status", &id)?,
-                    evidence: list(e, "evidence", &id)?
-                        .iter()
-                        .map(|v| Ok((req(v, "type", &id)?, req(v, "ref", &id)?)))
-                        .collect::<Result<_, String>>()?,
+                    evidence: evidence(e, &id)?,
                     source: opt(e, "source", &id)?,
                 })
             })
@@ -488,7 +609,7 @@ pub struct Point {
     /// `particular` (this identified reading point) or `general` (a stated class).
     pub scope: String,
     pub physical_status: String,
-    pub evidence: Vec<(String, String)>,
+    pub evidence: Vec<EvidenceItem>,
 }
 
 /// An equation checked by the kernel, associated by its author with groups of
@@ -509,7 +630,7 @@ pub struct RelationClaim {
     pub rtype: String,
     pub between: Vec<String>,
     pub status: String,
-    pub evidence: Vec<(String, String)>,
+    pub evidence: Vec<EvidenceItem>,
 }
 
 #[derive(Clone, Debug)]
@@ -517,7 +638,7 @@ pub struct PointsFile {
     pub id: String,
     pub context: String,
     /// A verbatim excerpt of a registered source that states this context.
-    pub basis: Option<Meaning>,
+    pub basis: Meaning,
     /// Named reading points (readingpoints/*.yaml) referenced by id only.
     pub references: Vec<String>,
     pub points: Vec<Point>,
@@ -542,13 +663,6 @@ fn only_keys(y: &Yaml, allowed: &[&str], ctx: &str) -> Result<(), String> {
     }
 }
 
-fn evidence(e: &Yaml, ctx: &str) -> Result<Vec<(String, String)>, String> {
-    list(e, "evidence", ctx)?
-        .iter()
-        .map(|v| Ok((req(v, "type", ctx)?, req(v, "ref", ctx)?)))
-        .collect()
-}
-
 pub fn load_points(path: &Path) -> Result<PointsFile, String> {
     let y = load_yaml(path)?;
     let stem = path
@@ -569,20 +683,25 @@ pub fn load_points(path: &Path) -> Result<PointsFile, String> {
         ],
         &ctx,
     )?;
-    let id = req(&y, "id", &ctx)?;
+    let id = plain_id(&req(&y, "id", &ctx)?, "record id", &ctx)?;
     if id != stem {
         return Err(format!(
             "{ctx}: record id {id:?} differs from its file name"
         ));
     }
+    // Every context states its basis: a verbatim unit of a registered source.
     let basis = match &y["basis"] {
-        Yaml::BadValue | Yaml::Null => None,
+        Yaml::BadValue | Yaml::Null => {
+            return Err(format!(
+            "{ctx}: missing `basis` (a verbatim unit of a registered source stating this context)"
+        ))
+        }
         b => {
             only_keys(b, &["text", "source"], &ctx)?;
-            Some(Meaning {
+            Meaning {
                 text: req(b, "text", &ctx)?,
                 source: req(b, "source", &ctx)?,
-            })
+            }
         }
     };
     let mut points = Vec::new();
@@ -592,7 +711,7 @@ pub fn load_points(path: &Path) -> Result<PointsFile, String> {
             &["id", "kind", "class", "description", "scope", "physical"],
             &ctx,
         )?;
-        let pid = req(p, "id", &ctx)?;
+        let pid = plain_id(&req(p, "id", &ctx)?, "point id", &ctx)?;
         let pc = format!("{ctx}: point {pid}");
         let phys = &p["physical"];
         only_keys(phys, &["status", "evidence"], &pc)?;
@@ -622,17 +741,16 @@ pub fn load_points(path: &Path) -> Result<PointsFile, String> {
             ],
             &ctx,
         )?;
-        let cid = req(c, "id", &ctx)?;
+        let cid = plain_id(&req(c, "id", &ctx)?, "count id", &ctx)?;
         let cc = format!("{ctx}: count {cid}");
         let groups = list(c, "groups", &cc)?
             .iter()
             .map(|g| match g {
                 Yaml::Array(v) => v
                     .iter()
-                    .map(|m| {
-                        m.as_str()
-                            .map(str::to_string)
-                            .ok_or(format!("{cc}: group members are point ids"))
+                    .map(|m| match m.as_str() {
+                        Some(v) => plain_id(v, "group member", &cc),
+                        None => Err(format!("{cc}: group members are point ids")),
                     })
                     .collect::<Result<Vec<_>, _>>(),
                 _ => Err(format!("{cc}: each group is a list of point ids")),
@@ -654,11 +772,11 @@ pub fn load_points(path: &Path) -> Result<PointsFile, String> {
     let mut relations = Vec::new();
     for r in list(&y, "relations", &ctx)? {
         only_keys(r, &["id", "type", "between", "status", "evidence"], &ctx)?;
-        let rid = req(r, "id", &ctx)?;
+        let rid = plain_id(&req(r, "id", &ctx)?, "relation id", &ctx)?;
         let rc = format!("{ctx}: relation {rid}");
         relations.push(RelationClaim {
             rtype: req(r, "type", &rc)?,
-            between: strings(r, "between", &rc)?,
+            between: ids(r, "between", &rc)?,
             status: req(r, "status", &rc)?,
             evidence: evidence(r, &rc)?,
             id: rid,
@@ -666,7 +784,7 @@ pub fn load_points(path: &Path) -> Result<PointsFile, String> {
     }
     Ok(PointsFile {
         context: req(&y, "context", &ctx)?,
-        references: strings(&y, "references", &ctx)?,
+        references: ids(&y, "references", &ctx)?,
         basis,
         points,
         counts,

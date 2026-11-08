@@ -9,12 +9,14 @@ reading points  4
   person.b      physical-object · class human-being · scope particular · physical unestablished (evidence: 0) — "person B"
 count           count.oxygen
   equation      "1 + 1 = 2" under NAT-DEC → ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD, Γ = ∅  (tests/accept/T6_one_plus_one.rlt)
+  convention    NAT-DEC (interpretation input) — "A run of decimal digits n denotes the numeral S^n(0). + denotes addition on the natural numbers and groups to the left: a + b + c reads (a + b) + c. = denotes equality on the natural numbers. Parentheses group."
   binding       1 ↦ {o2.atom-1} · 1 ↦ {o2.atom-2}
   identities    o2.atom-1, o2.atom-2 — 2 distinct reading point(s); class oxygen-atom
   scope         particular (the reading points listed)
   association   a specification record: the kernel checked the equation; this file states what each numeral counts
 count           count.people
   equation      "1 + 1 = 2" under NAT-DEC → ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD, Γ = ∅  (tests/accept/T6_one_plus_one.rlt)
+  convention    NAT-DEC (interpretation input) — "A run of decimal digits n denotes the numeral S^n(0). + denotes addition on the natural numbers and groups to the left: a + b + c reads (a + b) + c. = denotes equality on the natural numbers. Parentheses group."
   binding       1 ↦ {person.a} · 1 ↦ {person.b}
   identities    person.a, person.b — 2 distinct reading point(s); class human-being
   scope         particular (the reading points listed)
