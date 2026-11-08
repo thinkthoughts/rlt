@@ -28,7 +28,7 @@ composition     comp.o2 · o2.molecule = o2.o-1, o2.o-2
   record valid
 count           count.co2
   equation      "1 + 2 = 3" under NAT-DEC → ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD, Γ = ∅  (tests/accept/T7_one_plus_two.rlt)
-  convention    NAT-DEC (interpretation input; executable: elaborator nat-dec, pinned) — explanation: "A run of decimal digits n denotes the numeral S^n(0). + denotes addition on the natural numbers and groups to the left: a + b + c reads (a + b) + c. = denotes equality on the natural numbers. Parentheses group."
+  convention    NAT-DEC (interpretation input; executable: elaborator nat-dec, pinned) — explanation: "A run of decimal digits n denotes the numeral S^n(0). + denotes addition on the natural numbers and groups to the left: a + b + c reads (a + b) + c. × denotes multiplication on the natural numbers (kernel symbol *), binds tighter than + and groups to the left: a × b × c reads (a × b) × c (RLT-003 M1). = denotes equality on the natural numbers. Parentheses group."
   binding       1 ↦ {co2.c} · 2 ↦ {co2.o-1, co2.o-2}
   identities    co2.c, co2.o-1, co2.o-2 — 3 distinct reading point(s); class atom
   scope         particular (the reading points listed)
@@ -36,7 +36,7 @@ count           count.co2
   record valid (the kernel verdict above stands on its own)
 count           count.o2
   equation      "1 + 1 = 2" under NAT-DEC → ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD, Γ = ∅  (tests/accept/T6_one_plus_one.rlt)
-  convention    NAT-DEC (interpretation input; executable: elaborator nat-dec, pinned) — explanation: "A run of decimal digits n denotes the numeral S^n(0). + denotes addition on the natural numbers and groups to the left: a + b + c reads (a + b) + c. = denotes equality on the natural numbers. Parentheses group."
+  convention    NAT-DEC (interpretation input; executable: elaborator nat-dec, pinned) — explanation: "A run of decimal digits n denotes the numeral S^n(0). + denotes addition on the natural numbers and groups to the left: a + b + c reads (a + b) + c. × denotes multiplication on the natural numbers (kernel symbol *), binds tighter than + and groups to the left: a × b × c reads (a × b) × c (RLT-003 M1). = denotes equality on the natural numbers. Parentheses group."
   binding       1 ↦ {o2.o-1} · 1 ↦ {o2.o-2}
   identities    o2.o-1, o2.o-2 — 2 distinct reading point(s); class atom
   scope         particular (the reading points listed)
@@ -44,7 +44,7 @@ count           count.o2
   record valid (the kernel verdict above stands on its own)
 count           count.atoms
   equation      "1 + 1 + 1 + 1 + 1 = 5" under NAT-DEC → ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD, Γ = ∅  (tests/accept/R_math5_count.rlt)
-  convention    NAT-DEC (interpretation input; executable: elaborator nat-dec, pinned) — explanation: "A run of decimal digits n denotes the numeral S^n(0). + denotes addition on the natural numbers and groups to the left: a + b + c reads (a + b) + c. = denotes equality on the natural numbers. Parentheses group."
+  convention    NAT-DEC (interpretation input; executable: elaborator nat-dec, pinned) — explanation: "A run of decimal digits n denotes the numeral S^n(0). + denotes addition on the natural numbers and groups to the left: a + b + c reads (a + b) + c. × denotes multiplication on the natural numbers (kernel symbol *), binds tighter than + and groups to the left: a × b × c reads (a × b) × c (RLT-003 M1). = denotes equality on the natural numbers. Parentheses group."
   binding       1 ↦ {co2.c} · 1 ↦ {co2.o-1} · 1 ↦ {co2.o-2} · 1 ↦ {o2.o-1} · 1 ↦ {o2.o-2}
   identities    co2.c, co2.o-1, co2.o-2, o2.o-1, o2.o-2 — 5 distinct reading point(s); class atom
   scope         particular (the reading points listed)

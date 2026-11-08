@@ -1,0 +1,16 @@
+# file	exit	verdict prefix	required reason   (RLT-003 M1: incorrect equations, unsupported steps, assumption laundering, malformed input)
+tests/m1/R1_wrong_goal.rlt	1	REJECT	last step proves `30 = (2 × 3) × 5`, the goal is `30 = (2 × 3) × 4`
+tests/m1/R2_bad_instance.rlt	1	REJECT	rule `inst` yields `2 × 1 = (2 × 0) + 2`
+tests/m1/R3a_comm_rule.rlt	1	REJECT	rule `comm` is unregistered
+tests/m1/R3b_comm_axiom.rlt	1	REJECT	axiom `mul_comm` is unregistered
+tests/m1/R4_false_equation.rlt	1	REJECT	rule `inst` yields `2 × 3 = (2 × 2) + 2`
+tests/m1/L1_mode_laundering.rlt	1	REJECT	unconditional goal requested, but the result depends on assumptions ["h"]
+tests/m1/L2_undeclared_hyp.rlt	1	REJECT	assumption `h` is undeclared in the goal
+tests/m1/L4_wrong_axiom_set.rlt	1	REJECT	axiom `mul_zero` is unregistered
+tests/m1/L6_inline_axiom.rlt	2	MALFORMED	unknown field `axiom`
+tests/m1/M1_unary_times.rlt	1	REJECT	symbol `*` has arity 2, applied to 1 argument(s)
+tests/m1/M2_ternary_times.rlt	1	REJECT	symbol `*` has arity 2, applied to 3 argument(s)
+tests/m1/M3_numeral_limit.rlt	2	MALFORMED	numeral 1001 exceeds
+tests/m1/M4_unregistered_set.rlt	2	MALFORMED	axiom set `PEANO-MUL` is not pinned
+tests/m1/M5_unbalanced.rlt	2	MALFORMED	unclosed '('
+tests/m1/M6_ascii_star_goal.rlt	2	MALFORMED	NAT-DEC: expected `=`

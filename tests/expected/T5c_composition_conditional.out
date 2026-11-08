@@ -33,6 +33,8 @@ steps           3
 proved          (1 + 1) + 1 = 3 + 1
 assumptions     Γ = { h : 1 + 1 = 3 }
 axioms used     none
+rules used      cong, hyp, refl
+result kind     closed (one equation between numeral expressions; it establishes this statement only, not a general theorem)
 verdict         ACCEPT — conditional theorem relative to registered axiom set PEANO-ADD
   scope         the checked equation follows from the listed axioms under Γ; the axioms remain assumptions, and the reading point's meanings and physical claims keep their own separate status
 physical        math0.imagining [behavior]: unestablished (evidence: 0)

@@ -1,0 +1,9 @@
+; Registered axioms PEANO-ARITH (RLT-003 M1; trusted inputs, printed with every result).
+; (axiom NAME (VARS…) (= LHS RHS) (source SOURCE-ID))
+; Robinson's Q, axioms Q4–Q7, as stated in the Open Logic Project
+; (OLP-ROBINSON-Q): x + 0 = x; x + y′ = (x + y)′; x × 0 = 0; x × y′ = (x × y) + x.
+
+(axiom add_zero (x)   (= (+ x 0) x)                     (source OLP-ROBINSON-Q))
+(axiom add_succ (x y) (= (+ x (S y)) (S (+ x y)))       (source OLP-ROBINSON-Q))
+(axiom mul_zero (x)   (= (* x 0) 0)                     (source OLP-ROBINSON-Q))
+(axiom mul_succ (x y) (= (* x (S y)) (+ (* x y) x))     (source OLP-ROBINSON-Q))

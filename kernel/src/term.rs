@@ -2,6 +2,7 @@
 //!
 //! RLT-001 has one sort, `Nat`, and three function symbols:
 //! `0 : Nat`, `S : Nat -> Nat`, `+ : Nat × Nat -> Nat`.
+//! RLT-003 M1 adds one: `* : Nat × Nat -> Nat` (multiplication, printed `×`).
 //! Numerals are abbreviations: the numeral n is the term S^n(0).
 //! Equality of terms is structural equality of these trees.
 
@@ -21,12 +22,13 @@ pub struct Formula {
     pub rhs: Term,
 }
 
-/// Arity of each function symbol of the RLT-001 signature (every argument has sort Nat).
+/// Arity of each function symbol of the signature (every argument has sort Nat).
 pub fn arity(symbol: &str) -> Option<usize> {
     match symbol {
         "0" => Some(0),
         "S" => Some(1),
         "+" => Some(2),
+        "*" => Some(2),
         _ => None,
     }
 }
@@ -84,7 +86,7 @@ impl Term {
             }
             Term::App(f, args) => match arity(f) {
                 None => Err(format!(
-                    "symbol `{f}` is outside the RLT-001 signature {{0, S, +}}"
+                    "symbol `{f}` is outside the signature {{0, S, +, *}}"
                 )),
                 Some(n) if n != args.len() => Err(format!(
                     "symbol `{f}` has arity {n}, applied to {} argument(s)",
@@ -128,12 +130,12 @@ impl fmt::Display for Term {
             }
             match t {
                 Term::Var(v) => write!(f, "{v}"),
-                Term::App(s, args) if s == "+" && args.len() == 2 => {
+                Term::App(s, args) if (s == "+" || s == "*") && args.len() == 2 => {
                     if !top {
                         write!(f, "(")?;
                     }
                     go(&args[0], false, f)?;
-                    write!(f, " + ")?;
+                    write!(f, " {} ", if s == "+" { "+" } else { "×" })?;
                     go(&args[1], false, f)?;
                     if !top {
                         write!(f, ")")?;
@@ -181,6 +183,27 @@ impl fmt::Display for Formula {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn multiplication_is_binary_and_prints_infix() {
+        let two_three = Term::App("*".into(), vec![Term::numeral(2), Term::numeral(3)]);
+        assert!(two_three.check_sort(false).is_ok());
+        assert_eq!(two_three.to_string(), "2 × 3");
+        let nested = Term::App("*".into(), vec![two_three.clone(), Term::numeral(5)]);
+        assert_eq!(
+            Formula::new(Term::numeral(30), nested).to_string(),
+            "30 = (2 × 3) × 5"
+        );
+        assert!(Term::App("*".into(), vec![Term::numeral(2)])
+            .check_sort(false)
+            .is_err());
+        assert!(Term::App(
+            "*".into(),
+            vec![Term::numeral(2), Term::numeral(3), Term::numeral(5)]
+        )
+        .check_sort(false)
+        .is_err());
+    }
 
     #[test]
     fn numerals_expand_structurally() {

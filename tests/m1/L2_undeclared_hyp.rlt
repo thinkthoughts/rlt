@@ -1,0 +1,3 @@
+; M1-L2 · reject — hyp names an assumption the header never declares.
+(rlt-proof (id M1.L2) (convention NAT-DEC) (goal "2 × 3 = 7") (mode conditional) (axioms PEANO-ARITH)
+  (steps (s1 (= (* 2 3) 7) (hyp h))))

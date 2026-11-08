@@ -447,7 +447,11 @@ pub fn load_convention(path: &Path) -> Result<ConventionRecord, String> {
         &ctx,
     )?;
     let exe = &y["executable"];
-    only_keys(exe, &["elaborator", "symbols", "elements", "species"], &ctx)?;
+    only_keys(
+        exe,
+        &["elaborator", "symbols", "operators", "elements", "species"],
+        &ctx,
+    )?;
     let expl = &y["explanation"];
     only_keys(
         expl,
@@ -465,6 +469,22 @@ pub fn load_convention(path: &Path) -> Result<ConventionRecord, String> {
     if !symbols.is_empty() && elaborator != "symbol" {
         return Err(format!("{ctx}: `symbols` belong to the symbol elaborator"));
     }
+    let listed_ops = strings(exe, "operators", &ctx)?;
+    if !listed_ops.is_empty() && elaborator != "nat-dec" {
+        return Err(format!(
+            "{ctx}: `operators` belong to the nat-dec elaborator"
+        ));
+    }
+    for o in &listed_ops {
+        if !["+", "×"].contains(&o.as_str()) {
+            return Err(format!("{ctx}: operator {o:?} is outside +, ×"));
+        }
+    }
+    let operators = if listed_ops.is_empty() && elaborator == "nat-dec" {
+        vec!["+".to_string()]
+    } else {
+        listed_ops
+    };
     let elements = string_map(exe, "elements", &ctx)?;
     let mut species = Vec::new();
     for e in list(exe, "species", &ctx)? {
@@ -547,6 +567,7 @@ pub fn load_convention(path: &Path) -> Result<ConventionRecord, String> {
             id: id.clone(),
             elaborator,
             symbols,
+            operators,
         },
         reading: strings(expl, "reading", &ctx)?,
         sources: strings(&y, "sources", &ctx)?,

@@ -20,6 +20,8 @@ pub struct Convention {
     pub id: String,
     pub elaborator: String,
     pub symbols: BTreeMap<String, String>,
+    /// NAT-DEC operators this convention reads: `+`, and `×` once listed.
+    pub operators: Vec<String>,
 }
 
 pub fn elaborate_term(w: &Written, conv: &Convention) -> Result<Term, String> {
@@ -30,6 +32,7 @@ pub fn elaborate_term(w: &Written, conv: &Convention) -> Result<Term, String> {
                 pos: 0,
                 depth: 0,
                 numeral_total: 0,
+                times: conv.operators.iter().any(|o| o == "×"),
             };
             let t = p.expr()?;
             p.end()?;
@@ -69,6 +72,7 @@ pub fn elaborate_formula(w: &Written, conv: &Convention) -> Result<Formula, Stri
         pos: 0,
         depth: 0,
         numeral_total: 0,
+        times: conv.operators.iter().any(|o| o == "×"),
     };
     let lhs = p.expr()?;
     p.expect("=")?;
@@ -86,6 +90,8 @@ struct Parser<'a> {
     pos: usize,
     depth: usize,
     numeral_total: u64,
+    /// Whether `×` is read (multiplication, binding tighter than `+`).
+    times: bool,
 }
 
 impl Parser<'_> {
@@ -114,11 +120,26 @@ impl Parser<'_> {
         }
     }
     fn expr(&mut self) -> Result<Term, String> {
-        let mut t = self.atom()?;
+        let mut t = self.product()?;
         while self.peek() == Some("+") {
             self.pos += 1;
-            let r = self.atom()?;
+            let r = self.product()?;
             t = Term::plus(t, r);
+        }
+        Ok(t)
+    }
+    /// `a × b × c` reads `(a × b) × c`; `×` binds tighter than `+`.
+    fn product(&mut self) -> Result<Term, String> {
+        let mut t = self.atom()?;
+        while self.peek() == Some("×") {
+            if !self.times {
+                return Err(
+                    "NAT-DEC: `×` is outside the operators this convention reads".to_string(),
+                );
+            }
+            self.pos += 1;
+            let r = self.atom()?;
+            t = Term::App("*".into(), vec![t, r]);
         }
         Ok(t)
     }
@@ -169,11 +190,36 @@ impl Parser<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn nat_times() -> Convention {
+        let mut c = nat();
+        c.operators.push("×".into());
+        c
+    }
+
+    #[test]
+    fn times_binds_tighter_and_groups_left() {
+        let f = elaborate_formula(&Written::new("30 = 2 × 3 × 5"), &nat_times()).unwrap();
+        assert_eq!(f.to_string(), "30 = (2 × 3) × 5");
+        let f = elaborate_formula(&Written::new("2 × 3 + 1 = 7"), &nat_times()).unwrap();
+        assert_eq!(f.to_string(), "(2 × 3) + 1 = 7");
+        let f = elaborate_formula(&Written::new("2 × (3 + 1) = 8"), &nat_times()).unwrap();
+        assert_eq!(f.to_string(), "2 × (3 + 1) = 8");
+    }
+
+    #[test]
+    fn times_is_read_only_when_the_convention_lists_it() {
+        let e = elaborate_formula(&Written::new("2 × 3 = 6"), &nat()).unwrap_err();
+        assert!(e.contains("outside the operators"), "{e}");
+        // `*` is proof syntax, never NAT-DEC notation.
+        assert!(elaborate_formula(&Written::new("2 * 3 = 6"), &nat_times()).is_err());
+    }
+
     fn nat() -> Convention {
         Convention {
             id: "NAT-DEC".into(),
             elaborator: "nat-dec".into(),
             symbols: BTreeMap::new(),
+            operators: vec!["+".into()],
         }
     }
     #[test]

@@ -13,6 +13,7 @@ usage:
   rlt lean FILE...                       Lean 4 replay of the accepted statements
   rlt points FILE                        specification records: reading points, counts, relations
   rlt chem WRITTEN CONVENTION            how a species-table convention reads a written formula
+  rlt gen EQUATION ID                    untrusted generator: a PEANO-ARITH proof file for a closed equation
 options:
   --root DIR                             repository root (default: current directory)";
 
@@ -69,6 +70,16 @@ fn run() -> i32 {
             print!("{}", r.text);
             r.code
         }
+        Some("gen") if args.len() == 3 => match rlt_cli::gen::generate(&root, &args[1], &args[2]) {
+            Ok(text) => {
+                print!("{text}");
+                0
+            }
+            Err(e) => {
+                eprintln!("rlt gen: {e}");
+                1
+            }
+        },
         Some("chem") if args.len() == 3 => {
             let r = chem_report(&root, &args[1], &args[2]);
             print!("{}", r.text);

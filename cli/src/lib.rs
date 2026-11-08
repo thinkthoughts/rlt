@@ -2,6 +2,7 @@
 //! Every report is a deterministic string so tests can compare it with a
 //! golden file.
 
+pub mod gen;
 use rlt_kernel::{check, Axiom, Formula, Mode, Theorem, Verdict};
 use rlt_syntax::elab::{elaborate_formula, elaborate_term, Convention};
 use rlt_syntax::proof::{parse_axiom_file, parse_proof_file, ProofFile};
@@ -89,11 +90,19 @@ fn sha256_hex(bytes: &[u8]) -> String {
 /// `spec/axioms.yaml` must agree with this table exactly. Changing an axiom
 /// therefore requires changing this source file, which is reviewed like the
 /// kernel. The pin binds content; the axioms remain assumptions.
-pub const PINNED_AXIOM_SETS: &[(&str, &str, &str)] = &[(
-    "PEANO-ADD",
-    "spec/peano.rlt",
-    "1a3f83444a06fdfbd02c9af2a5881b47137ba102a675a4e012c84be477b10a0d",
-)];
+pub const PINNED_AXIOM_SETS: &[(&str, &str, &str)] = &[
+    (
+        "PEANO-ADD",
+        "spec/peano.rlt",
+        "1a3f83444a06fdfbd02c9af2a5881b47137ba102a675a4e012c84be477b10a0d",
+    ),
+    // RLT-003 M1: Robinson's Q, axioms Q4–Q7 (source OLP-ROBINSON-Q).
+    (
+        "PEANO-ARITH",
+        "spec/peano-arith.rlt",
+        "00ceffa9a60b53286f350edbf2f1a5f48a14169a9b09a82cbedc6f9956ff01e4",
+    ),
+];
 
 /// Source statuses an axiom set may cite.
 const AXIOM_SOURCE_STATUS: [&str; 2] = ["available", "reference"];
@@ -365,6 +374,23 @@ pub fn check_file_outcome(root: &Path, file: &Path) -> CheckOutcome {
                     "none".to_string()
                 } else {
                     used.join(", ")
+                }
+            );
+            let mut rules: Vec<&str> = po.steps.iter().map(|s| s.rule.as_str()).collect();
+            rules.sort();
+            rules.dedup();
+            let _ = writeln!(t, "rules used      {}", rules.join(", "));
+            let mut free: Vec<String> = Vec::new();
+            th.conclusion().lhs.vars(&mut free);
+            th.conclusion().rhs.vars(&mut free);
+            let closed = free.is_empty();
+            let _ = writeln!(
+                t,
+                "result kind     {}",
+                if closed {
+                    "closed (one equation between numeral expressions; it establishes this statement only, not a general theorem)"
+                } else {
+                    "general (contains variables)"
                 }
             );
             let kind = if th.is_unconditional() {
@@ -844,7 +870,7 @@ pub fn chem_report(root: &Path, written: &str, conv_id: &str) -> Report {
 /// untagged, retagged to another reading point, or newly cited only through a
 /// reviewed code change. Update it with the digest `rlt validate` prints.
 pub const PINNED_REGISTRY_SHA: &str =
-    "5907956bdff83a6a19bc1bcf25de3705a1ecec9002876ce791aabbf0d1581425";
+    "d015038c4dbbd6becdb189a4d0c490c4a0d2b5d098b3601fe25fdf1ec652a111";
 
 /// Canonical digest of the registry: for every source (in id order) its id,
 /// status and location, then each excerpt's text, `defines` and `split`, one
@@ -935,8 +961,8 @@ pub const PINNED_CONVENTIONS: &[(&str, &str, &str)] = &[
     ),
     (
         "NAT-DEC",
-        "d57ad1be921ad703d12b399f03dadd5d8901440040656126ec3f74fc24b1723c",
-        "ee2977936461d2c49159ab4141ad770e3f14253cf0b11b4950a410f13875ac11",
+        "c3d2e84b3ef3037b8bc165f643afd968ea5d5f30aa043deee47af61e39d636bf",
+        "fbe76eaec888aca56e70cc728fc0abd8047dffc329b852742600a9483e421762",
     ),
     (
         "PIPIPI",
@@ -1165,6 +1191,15 @@ pub fn validate(root: &Path) -> Report {
             Err(e) => return malformed(&mut t, e),
         };
     problems.extend(convention_pin_problems(&convs));
+    // Every pinned axiom set must load: file, registry entry, SHA-256, source.
+    let mut loaded = Vec::new();
+    for (id, _, _) in PINNED_AXIOM_SETS {
+        match load_axiom_set(root, id) {
+            Ok(set) => loaded.push(format!("{id} ({} axioms)", set.axioms.len())),
+            Err(e) => problems.push(e),
+        }
+    }
+    let _ = writeln!(t, "axiom sets      {}", loaded.join(", "));
     let _ = writeln!(t, "sources         {} registered", reg.len());
     let digest = registry_digest(&reg);
     if digest != PINNED_REGISTRY_SHA {
@@ -1500,6 +1535,9 @@ fn lean_term(t: &rlt_kernel::Term) -> String {
         Term::App(f, a) if f == "+" && a.len() == 2 => {
             format!("{} + {}", lean_atom(&a[0]), lean_atom(&a[1]))
         }
+        Term::App(f, a) if f == "*" && a.len() == 2 => {
+            format!("{} * {}", lean_atom(&a[0]), lean_atom(&a[1]))
+        }
         other => format!("sorry /- unsupported term {} -/", other.kernel_form()),
     }
 }
@@ -1521,6 +1559,9 @@ fn nat_value(t: &rlt_kernel::Term) -> Option<u128> {
         Term::App(f, a) if f == "S" && a.len() == 1 => nat_value(&a[0])?.checked_add(1),
         Term::App(f, a) if f == "+" && a.len() == 2 => {
             nat_value(&a[0])?.checked_add(nat_value(&a[1])?)
+        }
+        Term::App(f, a) if f == "*" && a.len() == 2 => {
+            nat_value(&a[0])?.checked_mul(nat_value(&a[1])?)
         }
         _ => None,
     }

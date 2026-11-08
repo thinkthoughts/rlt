@@ -1,0 +1,4 @@
+; M1-R3a · reject — 3 × 2 = 2 × 3 justified by an unregistered rule `comm`.
+; (The closed instance itself is provable: tests/accept/M1_comm_instance.rlt.)
+(rlt-proof (id M1.R3a) (convention NAT-DEC) (goal "3 × 2 = 2 × 3") (mode unconditional) (axioms PEANO-ARITH)
+  (steps (s1 (= (* 3 2) (* 2 3)) (comm 3 2))))

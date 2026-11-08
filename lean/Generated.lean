@@ -9,6 +9,26 @@ marked VACUOUS: Lean then proves it trivially. Run: cd lean && lean Generated.le
 
 namespace RLTGenerated
 
+-- tests/accept/M1_comm_instance.rlt  (axiom set: PEANO-ARITH)
+theorem M1_comm_instance : 3 * 2 = 2 * 3 := by decide
+
+-- VACUOUS REPLAY: hypothesis h is false in ℕ, so `omega` proves any statement from it.
+-- This theorem confirms only that the statement is stated with RLT's Γ; it adds no evidence.
+-- tests/accept/M1_conditional.rlt  (axiom set: PEANO-ARITH)
+theorem M1_conditional (h : 2 * 3 = 7) : (2 * 3) + 1 = 8 := by omega
+
+-- tests/accept/M1_six_five.rlt  (axiom set: PEANO-ARITH)
+theorem M1_six_five : 6 * 5 = 30 := by decide
+
+-- tests/accept/M1_thirty.rlt  (axiom set: PEANO-ARITH)
+theorem M1_thirty : 30 = (2 * 3) * 5 := by decide
+
+-- tests/accept/M1_two_three.rlt  (axiom set: PEANO-ARITH)
+theorem M1_two_three : 2 * 3 = 6 := by decide
+
+-- tests/accept/M1_zero.rlt  (axiom set: PEANO-ARITH)
+theorem M1_zero : 7 * 0 = 0 := by decide
+
 -- tests/accept/R_math29_pairing.rlt  (axiom set: PEANO-ADD)
 theorem R_math29_pairing : 29 + 1 = 30 := by decide
 
