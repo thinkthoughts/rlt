@@ -1,0 +1,3 @@
+; M1-L4 · reject — a proof naming PEANO-ADD that uses mul_zero.
+(rlt-proof (id M1.L4) (convention NAT-DEC) (goal "2 × 0 = 0") (mode unconditional) (axioms PEANO-ADD)
+  (steps (s1 (= (* 2 0) 0) (inst mul_zero (x 2)))))

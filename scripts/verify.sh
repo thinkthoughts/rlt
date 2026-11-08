@@ -81,6 +81,18 @@ for f in points/*.yaml; do
   [ $points_code = 0 ] || { echo "$points_log" | grep '^problem'; fail=1; }
 done
 
+echo; echo "== multiplication, RLT-003 M1 (tests/m1: expected exit codes and reasons)"
+while IFS=$'\t' read -r f want word reason; do
+  case "$f" in ''|'#'*) continue ;; esac
+  m1_log=$("$rlt" check "$f"); m1_code=$?
+  printf '%-36s exit %s (want %s)\n' "$f" "$m1_code" "$want"
+  { [ "$m1_code" = "$want" ] && echo "$m1_log" | grep -qF -- "$reason"; } || { echo "  UNEXPECTED: $(echo "$m1_log" | grep '^verdict')"; fail=1; }
+done < tests/m1/expected.tsv
+for g in "2 × 3 = 6:M1.two-three:M1_two_three" "6 × 5 = 30:M1.six-five:M1_six_five" "30 = 2 × 3 × 5:M1.thirty:M1_thirty"; do
+  IFS=: read -r w id f <<< "$g"
+  if "$rlt" gen "$w" "$id" | cmp -s - "tests/accept/$f.rlt"; then echo "rlt gen reproduces tests/accept/$f.rlt"; else echo "  UNEXPECTED: rlt gen differs from tests/accept/$f.rlt"; fail=1; fi
+done
+
 echo; echo "== chemical notation (rlt chem; 0 interpreted, 1 uninterpreted)"
 for case in "CO₂:0" "O₂:0" "COO:1" "CO2:1" "O2:1"; do
   w=${case%:*}; want=${case##*:}

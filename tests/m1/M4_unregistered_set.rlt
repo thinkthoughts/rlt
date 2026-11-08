@@ -1,0 +1,3 @@
+; M1-M4 · malformed — an unregistered axiom set.
+(rlt-proof (id M1.M4) (convention NAT-DEC) (goal "2 × 0 = 0") (mode unconditional) (axioms PEANO-MUL)
+  (steps (s1 (= (* 2 0) 0) (inst mul_zero (x 2)))))

@@ -1,0 +1,3 @@
+; M1-A7 · accept — unused steps (hyp h, symm) leave Γ = ∅, and "rules used" lists only inst.
+(rlt-proof (id D) (convention NAT-DEC) (goal "7 × 0 = 0") (assume h "2 × 3 = 7") (mode unconditional) (axioms PEANO-ARITH)
+ (steps (s0 (= (* 2 3) 7) (hyp h)) (s1 (= 7 (* 2 3)) (symm s0)) (s2 (= (* 7 0) 0) (inst mul_zero (x 7)))))

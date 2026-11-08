@@ -1,5 +1,5 @@
 RLT-001 verification
-commit   f2f4be770d6c580b80dc192778400835e73582de
+commit   555070ec83cdfd98db04ab1c42e37c50aeb66d15
 rustc    rustc 1.97.0 (2d8144b78 2026-07-07)
 
 == format and lints
@@ -10,11 +10,17 @@ clippy   ok
 ok
 
 == cargo test (unit + golden)
-test result: ok. 63 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.66s
-test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 69 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.01s
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 == proof files (expect accept → exit 0, reject → exit 1)
+tests/accept/M1_comm_instance.rlt                    exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ARITH
+tests/accept/M1_conditional.rlt                      exit 0  ACCEPT — conditional theorem relative to registered axiom set PEANO-ARITH
+tests/accept/M1_six_five.rlt                         exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ARITH
+tests/accept/M1_thirty.rlt                           exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ARITH
+tests/accept/M1_two_three.rlt                        exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ARITH
+tests/accept/M1_zero.rlt                             exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ARITH
 tests/accept/R_math29_pairing.rlt                    exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD
 tests/accept/R_math5_count.rlt                       exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD
 tests/accept/T1_math5_pairing.rlt                    exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD
@@ -42,6 +48,29 @@ terms           structurally identical
 == specification records (points/)
 points/co2-and-o2.yaml                   exit 0  VALID — specification records consistent (13 record(s) valid; physical correspondence as reported per record)
 points/oxygen-and-people.yaml            exit 0  VALID — specification records consistent (7 record(s) valid; physical correspondence as reported per record)
+
+== multiplication, RLT-003 M1 (tests/m1: expected exit codes and reasons)
+tests/m1/R1_wrong_goal.rlt           exit 1 (want 1)
+tests/m1/R2_bad_instance.rlt         exit 1 (want 1)
+tests/m1/R3a_comm_rule.rlt           exit 1 (want 1)
+tests/m1/R3b_comm_axiom.rlt          exit 1 (want 1)
+tests/m1/R4_false_equation.rlt       exit 1 (want 1)
+tests/m1/L1_mode_laundering.rlt      exit 1 (want 1)
+tests/m1/L2_undeclared_hyp.rlt       exit 1 (want 1)
+tests/m1/L4_wrong_axiom_set.rlt      exit 1 (want 1)
+tests/m1/L6_inline_axiom.rlt         exit 2 (want 2)
+tests/m1/M1_unary_times.rlt          exit 1 (want 1)
+tests/m1/M2_ternary_times.rlt        exit 1 (want 1)
+tests/m1/M3_numeral_limit.rlt        exit 2 (want 2)
+tests/m1/M4_unregistered_set.rlt     exit 2 (want 2)
+tests/m1/M5_unbalanced.rlt           exit 2 (want 2)
+tests/m1/M6_ascii_star_goal.rlt      exit 2 (want 2)
+tests/m1/A7_unused_steps.rlt         exit 0 (want 0)
+tests/m1/M7_cong_unknown_symbol.rlt  exit 1 (want 1)
+tests/m1/M8_operator_chain.rlt       exit 2 (want 2)
+rlt gen reproduces tests/accept/M1_two_three.rlt
+rlt gen reproduces tests/accept/M1_six_five.rlt
+rlt gen reproduces tests/accept/M1_thirty.rlt
 
 == chemical notation (rlt chem; 0 interpreted, 1 uninterpreted)
 CO₂    exit 0 (want 0)  INTERPRETED — a registered reading of notation; no kernel 

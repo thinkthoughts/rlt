@@ -233,6 +233,13 @@ sources:
     status: reference
     note: foundational; the two equations are the registered axiom set PEANO-ADD (spec/axioms.yaml)
 
+  - id: OLP-ROBINSON-Q
+    title: "Open Logic Project, Incompleteness: Introduction, Definitions — Robinson's Q, axioms Q4–Q7 (CC BY 4.0)"
+    location: https://github.com/OpenLogicProject/OpenLogic/blob/1e960beff9ed7835bf3e3f1335e21af3439cd107/content/incompleteness/introduction/definitions.tex
+    commit: 1e960beff9ed7835bf3e3f1335e21af3439cd107
+    status: reference
+    note: "Read 2026-11-08 for RLT-003 M1 (decision D3). The definition of Robinson's Q states, with y′ for the successor of y: (Q4) ∀x (x + 0) = x; (Q5) ∀x ∀y (x + y′) = (x + y)′; (Q6) ∀x (x × 0) = 0; (Q7) ∀x ∀y (x × y′) = ((x × y) + x). These are the four equations of axiom set PEANO-ARITH, symbol for symbol."
+
   - id: FOUNDATIONAL-EQUALITY
     title: Equational logic rules (reflexivity, symmetry, transitivity, congruence, instantiation)
     location: standard first-order equational logic (Birkhoff, 1935)

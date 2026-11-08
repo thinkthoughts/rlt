@@ -15,6 +15,8 @@ steps           7
 proved          1 + 2 = 3
 assumptions     Γ = ∅
 axioms used     add_succ, add_zero
+rules used      cong, inst, trans
+result kind     closed (one equation between numeral expressions; it establishes this statement only, not a general theorem)
 verdict         ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD
   scope         the checked equation follows from the listed axioms under Γ; the axioms remain assumptions, and the reading point's meanings and physical claims keep their own separate status
 exit 0

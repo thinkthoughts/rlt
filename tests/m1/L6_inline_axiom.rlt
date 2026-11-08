@@ -1,0 +1,4 @@
+; M1-L6 · malformed — a proof file declaring its own axiom (axioms come only from the pinned registry).
+(rlt-proof (id M1.L6) (convention NAT-DEC) (goal "2 × 3 = 7") (mode unconditional) (axioms PEANO-ARITH)
+  (axiom mul_bad (x y) (= (* x y) 7) (source OLP-ROBINSON-Q))
+  (steps (s1 (= (* 2 3) 7) (inst mul_bad (x 2) (y 3)))))

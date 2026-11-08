@@ -1,0 +1,3 @@
+; M1-R4 · reject — 2 × 3 = 7 claimed directly by mul_succ.
+(rlt-proof (id M1.R4) (convention NAT-DEC) (goal "2 × 3 = 7") (mode unconditional) (axioms PEANO-ARITH)
+  (steps (s1 (= (* 2 3) 7) (inst mul_succ (x 2) (y 2)))))

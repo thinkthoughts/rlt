@@ -12,3 +12,8 @@ sets:
     sha256: 1a3f83444a06fdfbd02c9af2a5881b47137ba102a675a4e012c84be477b10a0d
     source: PEANO
     axioms: [add_zero, add_succ]
+  - id: PEANO-ARITH
+    file: spec/peano-arith.rlt
+    sha256: 00ceffa9a60b53286f350edbf2f1a5f48a14169a9b09a82cbedc6f9956ff01e4
+    source: OLP-ROBINSON-Q
+    axioms: [add_zero, add_succ, mul_zero, mul_succ]

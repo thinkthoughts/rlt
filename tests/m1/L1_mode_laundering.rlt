@@ -1,0 +1,3 @@
+; M1-L1 · reject — a result resting on assumption h, declared unconditional.
+(rlt-proof (id M1.L1) (convention NAT-DEC) (goal "2 × 3 = 7") (assume h "2 × 3 = 7") (mode unconditional) (axioms PEANO-ARITH)
+  (steps (s1 (= (* 2 3) 7) (hyp h))))

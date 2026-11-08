@@ -14,7 +14,7 @@ reading points  4
                 record valid · physical unestablished (evidence: 0)
 count           count.oxygen
   equation      "1 + 1 = 2" under NAT-DEC → ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD, Γ = ∅  (tests/accept/T6_one_plus_one.rlt)
-  convention    NAT-DEC (interpretation input; executable: elaborator nat-dec, pinned) — explanation: "A run of decimal digits n denotes the numeral S^n(0). + denotes addition on the natural numbers and groups to the left: a + b + c reads (a + b) + c. = denotes equality on the natural numbers. Parentheses group."
+  convention    NAT-DEC (interpretation input; executable: elaborator nat-dec, pinned) — explanation: "A run of decimal digits n denotes the numeral S^n(0). + denotes addition on the natural numbers and groups to the left: a + b + c reads (a + b) + c. × denotes multiplication on the natural numbers (kernel symbol *), binds tighter than + and groups to the left: a × b × c reads (a × b) × c (RLT-003 M1). = denotes equality on the natural numbers. Parentheses group."
   binding       1 ↦ {o2.atom-1} · 1 ↦ {o2.atom-2}
   identities    o2.atom-1, o2.atom-2 — 2 distinct reading point(s); class oxygen-atom
   scope         particular (the reading points listed)
@@ -22,7 +22,7 @@ count           count.oxygen
   record valid (the kernel verdict above stands on its own)
 count           count.people
   equation      "1 + 1 = 2" under NAT-DEC → ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD, Γ = ∅  (tests/accept/T6_one_plus_one.rlt)
-  convention    NAT-DEC (interpretation input; executable: elaborator nat-dec, pinned) — explanation: "A run of decimal digits n denotes the numeral S^n(0). + denotes addition on the natural numbers and groups to the left: a + b + c reads (a + b) + c. = denotes equality on the natural numbers. Parentheses group."
+  convention    NAT-DEC (interpretation input; executable: elaborator nat-dec, pinned) — explanation: "A run of decimal digits n denotes the numeral S^n(0). + denotes addition on the natural numbers and groups to the left: a + b + c reads (a + b) + c. × denotes multiplication on the natural numbers (kernel symbol *), binds tighter than + and groups to the left: a × b × c reads (a × b) × c (RLT-003 M1). = denotes equality on the natural numbers. Parentheses group."
   binding       1 ↦ {person.a} · 1 ↦ {person.b}
   identities    person.a, person.b — 2 distinct reading point(s); class human-being
   scope         particular (the reading points listed)

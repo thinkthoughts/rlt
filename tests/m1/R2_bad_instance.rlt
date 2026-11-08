@@ -1,0 +1,6 @@
+; M1-R2 · reject — mul_succ instantiated, but the step claims x × S(y) = x × y.
+(rlt-proof (id M1.R2) (convention NAT-DEC) (goal "2 × 1 = 0") (mode unconditional) (axioms PEANO-ARITH)
+  (steps
+    (s1 (= (* 2 1) (* 2 0)) (inst mul_succ (x 2) (y 0)))
+    (s2 (= (* 2 0) 0)       (inst mul_zero (x 2)))
+    (s3 (= (* 2 1) 0)       (trans s1 s2))))

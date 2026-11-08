@@ -1,0 +1,27 @@
+RLT check       tests/accept/M1_conditional.rlt
+proof id        M1.conditional
+written goal    "2 × 3 + 1 = 8"
+  tokens        2 · × · 3 · + · 1 · = · 8
+written assume  h : "2 × 3 = 7"
+convention      NAT-DEC (authority: interpretation)
+checked goal    (2 × 3) + 1 = 8
+  kernel form   +(*(S(S(0)), S(S(S(0)))), S(0)) = S(S(S(S(S(S(S(S(0))))))))
+declared        h : 2 × 3 = 7
+  kernel form   *(S(S(0)), S(S(S(0)))) = S(S(S(S(S(S(S(0)))))))
+mode            conditional (Γ ⊆ declared assumptions)
+axiom set       PEANO-ARITH (spec/peano-arith.rlt, source OLP-ROBINSON-Q)
+  sha256        00ceffa9a60b53286f350edbf2f1a5f48a14169a9b09a82cbedc6f9956ff01e4
+  axiom         add_zero : ∀ x. x + 0 = x
+  axiom         add_succ : ∀ x y. x + S(y) = S(x + y)
+  axiom         mul_zero : ∀ x. x × 0 = 0
+  axiom         mul_succ : ∀ x y. x × S(y) = (x × y) + x
+  status        assumed: the SHA-256 binds these axioms' exact content to the approved file; their mathematical truth and any physical correspondence remain assumptions
+steps           8
+proved          (2 × 3) + 1 = 8
+assumptions     Γ = { h : 2 × 3 = 7 }
+axioms used     add_succ, add_zero
+rules used      cong, hyp, inst, refl, trans
+result kind     closed (one equation between numeral expressions; it establishes this statement only, not a general theorem)
+verdict         ACCEPT — conditional theorem relative to registered axiom set PEANO-ARITH
+  scope         the checked equation follows from the listed axioms under Γ; the axioms remain assumptions, and the reading point's meanings and physical claims keep their own separate status
+exit 0

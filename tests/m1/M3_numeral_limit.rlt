@@ -1,0 +1,3 @@
+; M1-M3 · malformed — numeral 1001 exceeds the unary limit.
+(rlt-proof (id M1.M3) (convention NAT-DEC) (goal "1001 × 0 = 0") (mode unconditional) (axioms PEANO-ARITH)
+  (steps (s1 (= (* 1001 0) 0) (inst mul_zero (x 1001)))))

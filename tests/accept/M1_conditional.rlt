@@ -1,0 +1,18 @@
+; RLT-003 M1 · accept (conditional) — an intentionally false assumption about ×.
+; Result: {h} ⊢ 2 × 3 + 1 = 8, reported as conditional; Γ is kept, never dropped.
+(rlt-proof
+  (id M1.conditional)
+  (convention NAT-DEC)
+  (goal "2 × 3 + 1 = 8")
+  (assume h "2 × 3 = 7")
+  (mode conditional)
+  (axioms PEANO-ARITH)
+  (steps
+    (s1 (= (* 2 3) 7)                 (hyp h))
+    (s2 (= 1 1)                       (refl 1))
+    (s3 (= (+ (* 2 3) 1) (+ 7 1))     (cong + s1 s2))
+    (s4 (= (+ 7 1) (S (+ 7 0)))       (inst add_succ (x 7) (y 0)))
+    (s5 (= (+ 7 0) 7)                 (inst add_zero (x 7)))
+    (s6 (= (S (+ 7 0)) 8)             (cong S s5))
+    (s7 (= (+ 7 1) 8)                 (trans s4 s6))
+    (s8 (= (+ (* 2 3) 1) 8)           (trans s3 s7))))

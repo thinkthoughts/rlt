@@ -1,0 +1,3 @@
+; M1-M1 · reject — × applied to one argument.
+(rlt-proof (id M1.M1) (convention NAT-DEC) (goal "2 = 2") (mode unconditional) (axioms PEANO-ARITH)
+  (steps (s1 (= (* 2) (* 2)) (refl (* 2)))))

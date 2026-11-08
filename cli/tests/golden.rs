@@ -500,7 +500,7 @@ fn a2_c06_lean_names_and_vacuity() {
     assert_eq!(
         lean.matches("-- VACUOUS REPLAY: hypothesis h is false in ℕ")
             .count(),
-        2
+        3 // T5a, T5c and (RLT-003 M1) M1_conditional, whose h : 2 × 3 = 7
     );
 }
 
@@ -2070,4 +2070,238 @@ fn t7_shared_record_ids_mark_each_record_invalid() {
     assert_eq!(r.text.matches("→ ACCEPT").count(), 3, "{}", r.text);
     let count_block = r.text.split("count           o2.o-1").nth(1).unwrap_or("");
     assert!(count_block.contains("  record INVALID ("), "{}", r.text);
+}
+
+// ---- RLT-003 · M1: multiplication (closed examples) ----
+
+/// M1-R*, L*, M*: each case gives its exit code, verdict and required reason.
+#[test]
+fn m1_rejected_and_malformed_cases() {
+    let tsv = std::fs::read_to_string(root().join("tests/m1/expected.tsv")).unwrap();
+    let mut n = 0;
+    for line in tsv.lines().filter(|l| !l.starts_with('#') && !l.is_empty()) {
+        let cols: Vec<&str> = line.split('\t').collect();
+        let (file, code, word, reason) =
+            (cols[0], cols[1].parse::<i32>().unwrap(), cols[2], cols[3]);
+        let r = check_file(&root(), &root().join(file));
+        assert_eq!(r.code, code, "{file}:\n{}", r.text);
+        assert!(
+            r.text.contains(&format!("verdict         {word}")),
+            "{file}:\n{}",
+            r.text
+        );
+        assert!(
+            r.text.contains(reason),
+            "{file}: missing `{reason}`:\n{}",
+            r.text
+        );
+        n += 1;
+    }
+    assert_eq!(n, 18);
+}
+
+/// M1-A1..A6: the exact statement, assumptions, axioms and kind of every
+/// accepted M1 theorem.
+#[test]
+fn m1_accepted_theorems_state_exactly_what_was_proved() {
+    for (file, proved, gamma, kind) in [
+        ("M1_two_three", "2 × 3 = 6", "Γ = ∅", "unconditional"),
+        ("M1_six_five", "6 × 5 = 30", "Γ = ∅", "unconditional"),
+        ("M1_thirty", "30 = (2 × 3) × 5", "Γ = ∅", "unconditional"),
+        ("M1_zero", "7 × 0 = 0", "Γ = ∅", "unconditional"),
+        (
+            "M1_comm_instance",
+            "3 × 2 = 2 × 3",
+            "Γ = ∅",
+            "unconditional",
+        ),
+        (
+            "M1_conditional",
+            "(2 × 3) + 1 = 8",
+            "Γ = { h : 2 × 3 = 7 }",
+            "conditional",
+        ),
+    ] {
+        let r = check_file(&root(), &root().join(format!("tests/accept/{file}.rlt")));
+        assert_eq!(r.code, ACCEPT, "{file}:\n{}", r.text);
+        has(&r, &[
+            &format!("proved          {proved}"),
+            &format!("assumptions     {gamma}"),
+            "result kind     closed (one equation between numeral expressions; it establishes this statement only, not a general theorem)",
+            &format!("verdict         ACCEPT — {kind} theorem relative to registered axiom set PEANO-ARITH"),
+            "axiom set       PEANO-ARITH (spec/peano-arith.rlt, source OLP-ROBINSON-Q)",
+        ]);
+        let rules = r
+            .text
+            .lines()
+            .find(|l| l.starts_with("rules used"))
+            .unwrap_or("");
+        for allowed in rules.trim_start_matches("rules used").split(',') {
+            assert!(
+                ["refl", "symm", "trans", "cong", "inst", "hyp"].contains(&allowed.trim()),
+                "{file}: rule {allowed:?} outside the six kernel rules"
+            );
+        }
+    }
+}
+
+/// The generator is reproducible and untrusted: the committed proofs are its
+/// exact output, and it writes no proof for a false equation.
+#[test]
+fn m1_generator_reproduces_committed_proofs_and_refuses_false_equations() {
+    for (w, id, file) in [
+        ("2 × 3 = 6", "M1.two-three", "M1_two_three"),
+        ("6 × 5 = 30", "M1.six-five", "M1_six_five"),
+        ("30 = 2 × 3 × 5", "M1.thirty", "M1_thirty"),
+        ("7 × 0 = 0", "M1.zero", "M1_zero"),
+        ("3 × 2 = 2 × 3", "M1.comm-instance", "M1_comm_instance"),
+    ] {
+        let g = rlt_cli::gen::generate(&root(), w, id).unwrap();
+        let on_disk =
+            std::fs::read_to_string(root().join(format!("tests/accept/{file}.rlt"))).unwrap();
+        assert_eq!(g, on_disk, "{file} differs from `rlt gen` output");
+    }
+    for w in ["2 × 3 = 7", "30 = 2 × 3 × 4", "0 = 1 × 1"] {
+        let e = rlt_cli::gen::generate(&root(), w, "X").unwrap_err();
+        assert!(
+            e.contains("is false in ℕ") && e.contains("no proof is generated"),
+            "{w}: {e}"
+        );
+    }
+}
+
+/// A tampered generated derivation never passes: every single-numeral change
+/// to any step of the 30 = 2 × 3 × 5 proof is rejected by the kernel.
+#[test]
+fn m1_tampered_generated_steps_are_rejected() {
+    let src = std::fs::read_to_string(root().join("tests/accept/M1_thirty.rlt")).unwrap();
+    let s = scratch_with("m1-tamper", &[]);
+    let path = s.join("tests/accept/M1_tamper.rlt");
+    let mut mutations = 0;
+    for (i, line) in src.lines().enumerate() {
+        let Some(claim_start) = line.find("(= ") else {
+            continue;
+        };
+        if !line.trim_start().starts_with("(s") {
+            continue;
+        }
+        // Bump the first numeral inside the step's claim.
+        let claim = &line[claim_start..];
+        let Some(pos) = claim.find(|c: char| c.is_ascii_digit()) else {
+            continue;
+        };
+        let end = claim[pos..]
+            .find(|c: char| !c.is_ascii_digit())
+            .map(|e| pos + e)
+            .unwrap_or(claim.len());
+        let n: u64 = claim[pos..end].parse().unwrap();
+        let mutated_line = format!(
+            "{}{}{}{}",
+            &line[..claim_start],
+            &claim[..pos],
+            n + 1,
+            &claim[end..]
+        );
+        let mutated: String = src
+            .lines()
+            .enumerate()
+            .map(|(j, l)| {
+                if j == i {
+                    mutated_line.clone()
+                } else {
+                    l.to_string()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        std::fs::write(&path, mutated).unwrap();
+        let r = check_file(&s, &path);
+        assert_ne!(
+            r.code,
+            ACCEPT,
+            "mutation of line {} accepted:\n{}",
+            i + 1,
+            r.text
+        );
+        mutations += 1;
+    }
+    // Dropping a step, or swapping two, is rejected too.
+    let lines: Vec<&str> = src.lines().collect();
+    let first_step = lines
+        .iter()
+        .position(|l| l.trim_start().starts_with("(s1 "))
+        .unwrap();
+    let dropped: Vec<&str> = lines
+        .iter()
+        .enumerate()
+        .filter(|(j, _)| *j != first_step)
+        .map(|(_, l)| *l)
+        .collect();
+    std::fs::write(&path, dropped.join("\n")).unwrap();
+    assert_ne!(check_file(&s, &path).code, ACCEPT);
+    let _ = std::fs::remove_dir_all(&s);
+    assert!(mutations >= 160, "{mutations}");
+}
+
+/// A deliberately incorrect multiplication axiom cannot reach the checker:
+/// the axiom file and its registry entry are pinned in the binary.
+#[test]
+fn m1_incorrect_axiom_cannot_bypass_the_pin() {
+    let bad = (
+        "spec/peano-arith.rlt",
+        "(axiom mul_succ (x y) (= (* x (S y)) (+ (* x y) x))",
+        "(axiom mul_succ (x y) (= (* x (S y)) (+ (* x y) (S x)))",
+    );
+    let s = scratch_with("m1-bad-axiom", &[bad]);
+    let m1 = check_file(&s, &s.join("tests/accept/M1_two_three.rlt"));
+    let add = check_file(&s, &s.join("tests/accept/T6_one_plus_one.rlt"));
+    let v = validate(&s);
+    // The edited file with a matching registry SHA is still refused by the binary pin.
+    let new_sha = {
+        use std::process::Command;
+        let out = Command::new("sha256sum")
+            .arg(s.join("spec/peano-arith.rlt"))
+            .output()
+            .unwrap();
+        String::from_utf8(out.stdout)
+            .unwrap()
+            .split_whitespace()
+            .next()
+            .unwrap()
+            .to_string()
+    };
+    let yaml = std::fs::read_to_string(s.join("spec/axioms.yaml")).unwrap();
+    let old_sha = yaml
+        .lines()
+        .skip_while(|l| !l.contains("id: PEANO-ARITH"))
+        .find(|l| l.trim_start().starts_with("sha256:"))
+        .unwrap()
+        .split_whitespace()
+        .last()
+        .unwrap()
+        .to_string();
+    std::fs::write(s.join("spec/axioms.yaml"), yaml.replace(&old_sha, &new_sha)).unwrap();
+    let m1_resha = check_file(&s, &s.join("tests/accept/M1_two_three.rlt"));
+    let _ = std::fs::remove_dir_all(&s);
+    for (name, r) in [("edited", &m1), ("re-registered", &m1_resha)] {
+        assert_eq!(r.code, MALFORMED, "{name}:\n{}", r.text);
+        assert!(r.text.contains("PEANO-ARITH"), "{name}:\n{}", r.text);
+        assert!(!r.text.contains("ACCEPT"), "{name}:\n{}", r.text);
+    }
+    assert_eq!(
+        add.code, ACCEPT,
+        "PEANO-ADD proofs stay independent:\n{}",
+        add.text
+    );
+    assert_ne!(v.code, ACCEPT, "{}", v.text);
+}
+
+/// M1-L3: a record cannot bind the conditional M1 proof as unconditional.
+#[test]
+fn m1_records_keep_the_proofs_assumptions() {
+    let count = "  - id: count.people\n    written: \"1 + 1 = 2\"\n    convention: NAT-DEC\n    proof: tests/accept/T6_one_plus_one.rlt\n    mode: unconditional\n    assumptions: []";
+    let laundered = "  - id: count.people\n    written: \"2 × 3 + 1 = 8\"\n    convention: NAT-DEC\n    proof: tests/accept/M1_conditional.rlt\n    mode: unconditional\n    assumptions: []";
+    let r = points_with("m1-l3", &[(PTS, count, laundered)]);
+    assert_points_invalid(&r, "conditional");
+    has(&r, &["→ ACCEPT — conditional theorem relative to registered axiom set PEANO-ARITH, Γ = { h : 2 × 3 = 7 }"]);
 }
