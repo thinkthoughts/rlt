@@ -376,7 +376,29 @@ pub fn check_file_outcome(root: &Path, file: &Path) -> CheckOutcome {
                     used.join(", ")
                 }
             );
-            let mut rules: Vec<&str> = po.steps.iter().map(|s| s.rule.as_str()).collect();
+            // Rules of the steps the result rests on: traced back from the last
+            // step through step references, so unused steps are not counted.
+            let mut needed: Vec<&str> = po
+                .steps
+                .last()
+                .map(|s| s.label.as_str())
+                .into_iter()
+                .collect();
+            let mut seen: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
+            let mut rules: Vec<&str> = Vec::new();
+            while let Some(label) = needed.pop() {
+                if !seen.insert(label) {
+                    continue;
+                }
+                if let Some(st) = po.steps.iter().find(|s| s.label == label) {
+                    rules.push(st.rule.as_str());
+                    for a in &st.args {
+                        if let rlt_kernel::Arg::Step(r) = a {
+                            needed.push(r.as_str());
+                        }
+                    }
+                }
+            }
             rules.sort();
             rules.dedup();
             let _ = writeln!(t, "rules used      {}", rules.join(", "));

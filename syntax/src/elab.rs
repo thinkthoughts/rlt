@@ -33,6 +33,7 @@ pub fn elaborate_term(w: &Written, conv: &Convention) -> Result<Term, String> {
                 depth: 0,
                 numeral_total: 0,
                 times: conv.operators.iter().any(|o| o == "×"),
+                operators: 0,
             };
             let t = p.expr()?;
             p.end()?;
@@ -73,6 +74,7 @@ pub fn elaborate_formula(w: &Written, conv: &Convention) -> Result<Formula, Stri
         depth: 0,
         numeral_total: 0,
         times: conv.operators.iter().any(|o| o == "×"),
+        operators: 0,
     };
     let lhs = p.expr()?;
     p.expect("=")?;
@@ -84,6 +86,9 @@ pub fn elaborate_formula(w: &Written, conv: &Convention) -> Result<Formula, Stri
 /// Maximum parenthesis depth and total numeral size accepted by NAT-DEC.
 pub const MAX_PAREN_DEPTH: usize = 256;
 pub const MAX_NUMERAL_TOTAL: u64 = 200_000;
+/// Maximum number of `+` and `×` operators in one NAT-DEC expression; a
+/// longer left-grouped chain would nest deeper than the checker's stack.
+pub const MAX_OPERATORS: usize = 4_096;
 
 struct Parser<'a> {
     toks: &'a [String],
@@ -92,6 +97,7 @@ struct Parser<'a> {
     numeral_total: u64,
     /// Whether `×` is read (multiplication, binding tighter than `+`).
     times: bool,
+    operators: usize,
 }
 
 impl Parser<'_> {
@@ -119,10 +125,20 @@ impl Parser<'_> {
             )),
         }
     }
+    fn operator(&mut self) -> Result<(), String> {
+        self.operators += 1;
+        if self.operators > MAX_OPERATORS {
+            return Err(format!(
+                "NAT-DEC: more than {MAX_OPERATORS} operators in one expression"
+            ));
+        }
+        self.pos += 1;
+        Ok(())
+    }
     fn expr(&mut self) -> Result<Term, String> {
         let mut t = self.product()?;
         while self.peek() == Some("+") {
-            self.pos += 1;
+            self.operator()?;
             let r = self.product()?;
             t = Term::plus(t, r);
         }
@@ -137,7 +153,7 @@ impl Parser<'_> {
                     "NAT-DEC: `×` is outside the operators this convention reads".to_string(),
                 );
             }
-            self.pos += 1;
+            self.operator()?;
             let r = self.atom()?;
             t = Term::App("*".into(), vec![t, r]);
         }
@@ -204,6 +220,15 @@ mod tests {
         assert_eq!(f.to_string(), "(2 × 3) + 1 = 7");
         let f = elaborate_formula(&Written::new("2 × (3 + 1) = 8"), &nat_times()).unwrap();
         assert_eq!(f.to_string(), "2 × (3 + 1) = 8");
+    }
+
+    #[test]
+    fn operator_chains_are_bounded() {
+        let long = format!("{} = 0", vec!["0"; MAX_OPERATORS + 2].join(" × "));
+        let e = elaborate_formula(&Written::new(&long), &nat_times()).unwrap_err();
+        assert!(e.contains("operators in one expression"), "{e}");
+        let ok = format!("{} = 0", vec!["0"; 100].join(" + "));
+        assert!(elaborate_formula(&Written::new(&ok), &nat_times()).is_ok());
     }
 
     #[test]

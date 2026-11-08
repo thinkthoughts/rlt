@@ -2097,7 +2097,7 @@ fn m1_rejected_and_malformed_cases() {
         );
         n += 1;
     }
-    assert_eq!(n, 15);
+    assert_eq!(n, 18);
 }
 
 /// M1-A1..A6: the exact statement, assumptions, axioms and kind of every

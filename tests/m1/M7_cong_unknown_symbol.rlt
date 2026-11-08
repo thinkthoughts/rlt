@@ -1,0 +1,4 @@
+; M1-M7 · reject — cong over a symbol outside the signature {0, S, +, *}.
+; (Audit case K14 used `*`, which M1 added; K14 now fails on arity instead.)
+(rlt-proof (id M1.M7) (convention NAT-DEC) (goal "1 = 1") (mode unconditional) (axioms PEANO-ARITH)
+  (steps (s0 (= 1 1) (refl 1)) (s1 (= (mul 1) (mul 1)) (cong mul s0))))

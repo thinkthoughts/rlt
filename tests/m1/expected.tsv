@@ -14,3 +14,6 @@ tests/m1/M3_numeral_limit.rlt	2	MALFORMED	numeral 1001 exceeds
 tests/m1/M4_unregistered_set.rlt	2	MALFORMED	axiom set `PEANO-MUL` is not pinned
 tests/m1/M5_unbalanced.rlt	2	MALFORMED	unclosed '('
 tests/m1/M6_ascii_star_goal.rlt	2	MALFORMED	NAT-DEC: expected `=`
+tests/m1/A7_unused_steps.rlt	0	ACCEPT	rules used      inst
+tests/m1/M7_cong_unknown_symbol.rlt	1	REJECT	cong: symbol `mul` is outside the signature
+tests/m1/M8_operator_chain.rlt	2	MALFORMED	more than 4096 operators in one expression
