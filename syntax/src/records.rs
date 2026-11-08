@@ -300,6 +300,34 @@ pub fn load_registry(path: &Path) -> Result<BTreeMap<String, Source>, String> {
     Ok(out)
 }
 
+/// One registered species entry of a `species-table` convention: an exact
+/// written formula, the species identifier it is read as, and its element
+/// composition, each with the source and locator that support the reading.
+/// An entry is an interpretation input; it proves nothing.
+#[derive(Clone, Debug)]
+pub struct SpeciesEntry {
+    pub written: String,
+    pub species: String,
+    /// (element symbol, count) in the order the entry lists them.
+    pub composition: Vec<(String, u64)>,
+    pub source: String,
+    pub locator: String,
+}
+
+impl SpeciesEntry {
+    pub fn total(&self) -> u64 {
+        self.composition.iter().map(|(_, n)| n).sum()
+    }
+    /// `C×1 O×2`, in the entry's order.
+    pub fn composition_text(&self) -> String {
+        self.composition
+            .iter()
+            .map(|(e, n)| format!("{e}×{n}"))
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ConventionRecord {
     pub convention: Convention,
@@ -307,6 +335,89 @@ pub struct ConventionRecord {
     pub sources: Vec<String>,
     pub authority: String,
     pub origin: Option<String>,
+    /// Element symbol → element identifier (species-table conventions).
+    pub elements: Vec<(String, String)>,
+    pub species: Vec<SpeciesEntry>,
+    /// Canonical text of the fields that decide interpretation: `id`,
+    /// `authority`, `sources`, `origin` and the `executable` block.
+    pub interpretation_canon: String,
+    /// Canonical text of the `explanation` block.
+    pub explanation_canon: String,
+}
+
+impl ConventionRecord {
+    /// The registered entry for an exact written formula, if any. Lookup is by
+    /// the whole string; no composition is ever computed from its letters.
+    pub fn species_entry(&self, written: &str) -> Option<&SpeciesEntry> {
+        self.species.iter().find(|e| e.written == written)
+    }
+    pub fn element_name(&self, symbol: &str) -> Option<&str> {
+        self.elements
+            .iter()
+            .find(|(s, _)| s == symbol)
+            .map(|(_, n)| n.as_str())
+    }
+}
+
+/// A canonical, unambiguous text for a parsed YAML value: mappings sorted by
+/// key, every string length-prefixed. Two files with the same parsed content
+/// give the same text; comments and layout do not count.
+pub fn canonical(y: &Yaml) -> Result<String, String> {
+    fn go(y: &Yaml, out: &mut String) -> Result<(), String> {
+        match y {
+            Yaml::String(s) => out.push_str(&format!("s{}:{s}", s.len())),
+            Yaml::Integer(i) => out.push_str(&format!("i{i};")),
+            Yaml::Real(r) => out.push_str(&format!("r{}:{r}", r.len())),
+            Yaml::Boolean(b) => out.push_str(if *b { "b1" } else { "b0" }),
+            Yaml::Null => out.push('n'),
+            Yaml::Array(v) => {
+                out.push('[');
+                for x in v {
+                    go(x, out)?;
+                }
+                out.push(']');
+            }
+            Yaml::Hash(h) => {
+                let mut items = Vec::new();
+                for (k, v) in h {
+                    let mut ks = String::new();
+                    go(k, &mut ks)?;
+                    let mut vs = String::new();
+                    go(v, &mut vs)?;
+                    items.push((ks, vs));
+                }
+                items.sort();
+                out.push('{');
+                for (k, v) in items {
+                    out.push_str(&k);
+                    out.push('=');
+                    out.push_str(&v);
+                }
+                out.push('}');
+            }
+            _ => return Err("a value YAML could not resolve".to_string()),
+        }
+        Ok(())
+    }
+    let mut out = String::new();
+    go(y, &mut out)?;
+    Ok(out)
+}
+
+pub const ELABORATORS: [&str; 4] = ["nat-dec", "symbol", "none", "species-table"];
+
+fn string_map(y: &Yaml, key: &str, ctx: &str) -> Result<Vec<(String, String)>, String> {
+    match &y[key] {
+        Yaml::BadValue | Yaml::Null => Ok(Vec::new()),
+        Yaml::Hash(h) => h
+            .iter()
+            .map(|(k, v)| match (k.as_str(), v.as_str()) {
+                (Some(k), Some(v)) => Ok((clean(k, key, ctx, false)?, clean(v, key, ctx, false)?)),
+                _ => Err(format!("{ctx}: `{key}` maps strings to strings")),
+            })
+            .collect(),
+        _ => Err(format!("{ctx}: field `{key}` must be a mapping")),
+    }
 }
 
 pub fn load_convention(path: &Path) -> Result<ConventionRecord, String> {
@@ -321,24 +432,128 @@ pub fn load_convention(path: &Path) -> Result<ConventionRecord, String> {
             "convention id {id:?}: use upper-case letters, digits and `-`"
         ));
     }
-    let mut symbols = BTreeMap::new();
-    if let Some(h) = y["symbols"].as_hash() {
-        for (k, v) in h {
-            if let (Some(k), Some(v)) = (k.as_str(), v.as_str()) {
-                symbols.insert(k.to_string(), v.to_string());
+    let ctx = format!("convention {id}");
+    only_keys(
+        &y,
+        &[
+            "id",
+            "authority",
+            "sources",
+            "origin",
+            "executable",
+            "explanation",
+        ],
+        &ctx,
+    )?;
+    let exe = &y["executable"];
+    only_keys(exe, &["elaborator", "symbols", "elements", "species"], &ctx)?;
+    let expl = &y["explanation"];
+    only_keys(
+        expl,
+        &["title", "reading", "limits", "conventions", "unresolved"],
+        &ctx,
+    )?;
+    let elaborator = req(exe, "elaborator", &ctx)?;
+    if !ELABORATORS.contains(&elaborator.as_str()) {
+        return Err(format!(
+            "{ctx}: elaborator `{elaborator}` is outside {}",
+            ELABORATORS.join(", ")
+        ));
+    }
+    let symbols: BTreeMap<String, String> = string_map(exe, "symbols", &ctx)?.into_iter().collect();
+    if !symbols.is_empty() && elaborator != "symbol" {
+        return Err(format!("{ctx}: `symbols` belong to the symbol elaborator"));
+    }
+    let elements = string_map(exe, "elements", &ctx)?;
+    let mut species = Vec::new();
+    for e in list(exe, "species", &ctx)? {
+        only_keys(
+            e,
+            &["written", "species", "composition", "source", "locator"],
+            &ctx,
+        )?;
+        let written = req(e, "written", &ctx)?;
+        let sc = format!("{ctx}: species entry {written:?}");
+        let mut composition = Vec::new();
+        match &e["composition"] {
+            Yaml::Hash(h) if !h.is_empty() => {
+                for (k, v) in h {
+                    let (Some(sym), Some(n)) = (k.as_str(), v.as_i64()) else {
+                        return Err(format!("{sc}: composition maps element symbols to counts"));
+                    };
+                    if !(1..=1000).contains(&n) {
+                        return Err(format!("{sc}: count {n} for {sym} is outside 1..1000"));
+                    }
+                    if !elements.iter().any(|(s, _)| s == sym) {
+                        return Err(format!(
+                            "{sc}: element {sym} is outside this convention's element table"
+                        ));
+                    }
+                    composition.push((sym.to_string(), n as u64));
+                }
+            }
+            _ => return Err(format!("{sc}: `composition` must be a non-empty mapping")),
+        }
+        species.push(SpeciesEntry {
+            species: plain_id(&req(e, "species", &sc)?, "species id", &sc)?,
+            source: req(e, "source", &sc)?,
+            locator: req(e, "locator", &sc)?,
+            written,
+            composition,
+        });
+    }
+    if (!elements.is_empty() || !species.is_empty()) != (elaborator == "species-table") {
+        return Err(format!(
+            "{ctx}: `elements` and `species` belong to the species-table elaborator, which needs both"
+        ));
+    }
+    for (sym, name) in &elements {
+        let mut cs = sym.chars();
+        let ok = cs.next().is_some_and(|c| c.is_ascii_uppercase())
+            && cs.all(|c| c.is_ascii_lowercase())
+            && sym.len() <= 3;
+        if !ok {
+            return Err(format!(
+                "{ctx}: element symbol {sym:?}: one capital and up to two small ASCII letters"
+            ));
+        }
+        plain_id(name, "element id", &ctx)?;
+    }
+    for (i, a) in species.iter().enumerate() {
+        for b in &species[..i] {
+            if a.written == b.written || a.species == b.species {
+                return Err(format!(
+                    "{ctx}: species entries {:?} and {:?} share a written form or species id",
+                    a.written, b.written
+                ));
             }
         }
     }
+    // Digests: interpretation fields and explanation, as canonical text.
+    let mut interp = Yaml::Hash(Default::default());
+    if let (Yaml::Hash(src), Yaml::Hash(dst)) = (&y, &mut interp) {
+        for (k, v) in src {
+            if k.as_str() != Some("explanation") {
+                dst.insert(k.clone(), v.clone());
+            }
+        }
+    }
+    let interpretation_canon = canonical(&interp).map_err(|e| format!("{ctx}: {e}"))?;
+    let explanation_canon = canonical(expl).map_err(|e| format!("{ctx}: {e}"))?;
     Ok(ConventionRecord {
         convention: Convention {
             id: id.clone(),
-            elaborator: req(&y, "elaborator", &id)?,
+            elaborator,
             symbols,
         },
-        reading: strings(&y, "reading", &id)?,
-        sources: strings(&y, "sources", &id)?,
-        authority: req(&y, "authority", &id)?,
-        origin: opt(&y, "origin", &id)?,
+        reading: strings(expl, "reading", &ctx)?,
+        sources: strings(&y, "sources", &ctx)?,
+        authority: req(&y, "authority", &ctx)?,
+        origin: opt(&y, "origin", &ctx)?,
+        elements,
+        species,
+        interpretation_canon,
+        explanation_canon,
     })
 }
 
@@ -610,6 +825,20 @@ pub struct Point {
     pub scope: String,
     pub physical_status: String,
     pub evidence: Vec<EvidenceItem>,
+    /// (element symbol, convention): an atom record's registered element.
+    pub element: Option<(String, String)>,
+    /// (written formula, convention): a molecule record's registered species.
+    pub species: Option<(String, String)>,
+}
+
+/// Which atom records this file counts as one molecule record's composition.
+/// A specification record: RLT checks it against the registered species
+/// entry; it states no observation, bond or specimen identity.
+#[derive(Clone, Debug)]
+pub struct Composition {
+    pub id: String,
+    pub molecule: String,
+    pub atoms: Vec<String>,
 }
 
 /// An equation checked by the kernel, associated by its author with groups of
@@ -643,6 +872,7 @@ pub struct PointsFile {
     pub references: Vec<String>,
     pub points: Vec<Point>,
     pub counts: Vec<Count>,
+    pub compositions: Vec<Composition>,
     pub relations: Vec<RelationClaim>,
 }
 
@@ -678,6 +908,7 @@ pub fn load_points(path: &Path) -> Result<PointsFile, String> {
             "basis",
             "references",
             "points",
+            "compositions",
             "counts",
             "relations",
         ],
@@ -708,7 +939,16 @@ pub fn load_points(path: &Path) -> Result<PointsFile, String> {
     for p in list(&y, "points", &ctx)? {
         only_keys(
             p,
-            &["id", "kind", "class", "description", "scope", "physical"],
+            &[
+                "id",
+                "kind",
+                "class",
+                "description",
+                "scope",
+                "physical",
+                "element",
+                "species",
+            ],
             &ctx,
         )?;
         let pid = plain_id(&req(p, "id", &ctx)?, "point id", &ctx)?;
@@ -722,6 +962,20 @@ pub fn load_points(path: &Path) -> Result<PointsFile, String> {
             scope: req(p, "scope", &pc)?,
             physical_status: req(phys, "status", &pc)?,
             evidence: evidence(phys, &pc)?,
+            element: match &p["element"] {
+                Yaml::BadValue | Yaml::Null => None,
+                e => {
+                    only_keys(e, &["symbol", "convention"], &pc)?;
+                    Some((req(e, "symbol", &pc)?, req(e, "convention", &pc)?))
+                }
+            },
+            species: match &p["species"] {
+                Yaml::BadValue | Yaml::Null => None,
+                e => {
+                    only_keys(e, &["written", "convention"], &pc)?;
+                    Some((req(e, "written", &pc)?, req(e, "convention", &pc)?))
+                }
+            },
             id: pid,
         });
     }
@@ -769,6 +1023,17 @@ pub fn load_points(path: &Path) -> Result<PointsFile, String> {
             scope: opt(c, "scope", &cc)?,
         });
     }
+    let mut compositions = Vec::new();
+    for c in list(&y, "compositions", &ctx)? {
+        only_keys(c, &["id", "molecule", "atoms"], &ctx)?;
+        let cid = plain_id(&req(c, "id", &ctx)?, "composition id", &ctx)?;
+        let cc = format!("{ctx}: composition {cid}");
+        compositions.push(Composition {
+            molecule: plain_id(&req(c, "molecule", &cc)?, "molecule", &cc)?,
+            atoms: ids(c, "atoms", &cc)?,
+            id: cid,
+        });
+    }
     let mut relations = Vec::new();
     for r in list(&y, "relations", &ctx)? {
         only_keys(r, &["id", "type", "between", "status", "evidence"], &ctx)?;
@@ -788,6 +1053,7 @@ pub fn load_points(path: &Path) -> Result<PointsFile, String> {
         basis,
         points,
         counts,
+        compositions,
         relations,
         id,
     })

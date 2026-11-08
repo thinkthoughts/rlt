@@ -23,7 +23,7 @@ examples (written)
 relationships (attached results, checked now)
   math29.pairing  "29 + 1 = 30" under NAT-DEC  →  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD, Γ = ∅  (tests/accept/R_math29_pairing.rlt)
 physical correspondence (evidence-graded, independent of verdicts)
-  math29.context [referent] unestablished (evidence: 0) — "a driver's immediate context at a specific stop sign"
+  math29.context [referent] record valid · physical unestablished (evidence: 0) — "a driver's immediate context at a specific stop sign"
 PiπΠ lifts
   (none recorded)
 exit 0

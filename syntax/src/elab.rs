@@ -46,6 +46,10 @@ pub fn elaborate_term(w: &Written, conv: &Convention) -> Result<Term, String> {
                 conv.id
             )),
         },
+        "species-table" => Err(format!(
+            "convention {} reads chemical formulas as registered species (rlt chem); it elaborates zero kernel terms",
+            conv.id
+        )),
         other => Err(format!(
             "convention {} has elaborator `{other}`: it elaborates zero expressions",
             conv.id

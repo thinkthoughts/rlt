@@ -21,10 +21,10 @@ relationships (attached results, checked now)
   math5.pairing  "5 + 1 = 6" under NAT-DEC  →  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD, Γ = ∅  (tests/accept/T1_math5_pairing.rlt)
   math5.count  "1 + 1 + 1 + 1 + 1 = 5" under NAT-DEC  →  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD, Γ = ∅  (tests/accept/R_math5_count.rlt)
 physical correspondence (evidence-graded, independent of verdicts)
-  math5.counting [behavior] unestablished (evidence: 0) — "a person counts five identifiable objects (agent: a counter; place, time and context unspecified)"
-  math5.lungs [referent] unestablished (evidence: 0) — "a grandma's left and right lungs supporting breathing"
-  math5.gas-exchange [referent] unestablished (evidence: 0) — "exchange of O₂ and CO₂"
-  math5.atoms [referent] unestablished (evidence: 0) — "a CO₂ molecule and an O₂ molecule together: 5 atoms (typed quantity; units deferred past RLT-001)"
+  math5.counting [behavior] record valid · physical unestablished (evidence: 0) — "a person counts five identifiable objects (agent: a counter; place, time and context unspecified)"
+  math5.lungs [referent] record valid · physical unestablished (evidence: 0) — "a grandma's left and right lungs supporting breathing"
+  math5.gas-exchange [referent] record valid · physical unestablished (evidence: 0) — "exchange of O₂ and CO₂"
+  math5.atoms [referent] record valid · physical unestablished (evidence: 0) — "a CO₂ molecule and an O₂ molecule together: 5 atoms (typed quantity; units deferred past RLT-001)"
 PiπΠ lifts
   math5-to-math29 → math29 via "6 × 5 = 30": proposed
 exit 0

@@ -1,0 +1,18 @@
+; T7 · accept — the equation 1 + 2 = 3, with no reading point or relationship of its own.
+; points/co2-and-o2.yaml binds it to the one carbon atom and the two oxygen atoms
+; that its composition record assigns to one CO₂ molecule. The kernel checks the
+; arithmetic only; species, elements and compositions stay specification records.
+(rlt-proof
+  (id T7.one-plus-two)
+  (convention NAT-DEC)
+  (goal "1 + 2 = 3")
+  (mode unconditional)
+  (axioms PEANO-ADD)
+  (steps
+    (s1 (= (+ 1 (S 1)) (S (+ 1 1)))      (inst add_succ (x 1) (y 1)))
+    (s2 (= (+ 1 (S 0)) (S (+ 1 0)))      (inst add_succ (x 1) (y 0)))
+    (s3 (= (+ 1 0) 1)                    (inst add_zero (x 1)))
+    (s4 (= (S (+ 1 0)) (S 1))            (cong S s3))
+    (s5 (= (+ 1 (S 0)) (S 1))            (trans s2 s4))
+    (s6 (= (S (+ 1 (S 0))) (S (S 1)))    (cong S s5))
+    (s7 (= (+ 1 (S 1)) (S (S 1)))        (trans s1 s6))))

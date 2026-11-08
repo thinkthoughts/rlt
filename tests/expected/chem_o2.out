@@ -1,0 +1,10 @@
+RLT chem
+written         "O₂"  tokens: O · ₂
+convention      CHEM-MOLFORMULA (interpretation input; executable: elaborator species-table, pinned)
+entry           O₂ ↦ dioxygen · O×2 (2 atoms) [IUPAC-BRIEF-GUIDE-2015 §1, Table 1 (examples of homoatomic entities), row O2 | dioxygen]
+elements        O ↦ oxygen (element identifiers are labels of this convention)
+source          IUPAC-BRIEF-GUIDE-2015 (reference)
+structure       not stated by this convention (composition only)
+physical        not assessed (notation only; no specimen is identified)
+verdict         INTERPRETED — a registered reading of notation; no kernel theorem and no physical claim
+exit 0

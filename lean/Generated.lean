@@ -34,4 +34,7 @@ theorem T5c_composition_conditional (h : 1 + 1 = 3) : (1 + 1) + 1 = 3 + 1 := by 
 -- tests/accept/T6_one_plus_one.rlt  (axiom set: PEANO-ADD)
 theorem T6_one_plus_one : 1 + 1 = 2 := by decide
 
+-- tests/accept/T7_one_plus_two.rlt  (axiom set: PEANO-ADD)
+theorem T7_one_plus_two : 1 + 2 = 3 := by decide
+
 end RLTGenerated

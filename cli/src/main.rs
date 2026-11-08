@@ -1,5 +1,6 @@
 use rlt_cli::{
-    check_file, lean_export, points_report, rp_report, validate, written_report, MALFORMED,
+    check_file, chem_report, lean_export, points_report, rp_report, validate, written_report,
+    MALFORMED,
 };
 use std::path::PathBuf;
 
@@ -11,6 +12,7 @@ usage:
   rlt validate                           consistency of sources, conventions and records
   rlt lean FILE...                       Lean 4 replay of the accepted statements
   rlt points FILE                        specification records: reading points, counts, relations
+  rlt chem WRITTEN CONVENTION            how a species-table convention reads a written formula
 options:
   --root DIR                             repository root (default: current directory)";
 
@@ -64,6 +66,11 @@ fn run() -> i32 {
         }
         Some("points") if args.len() == 2 => {
             let r = points_report(&root, &root.join(&args[1]));
+            print!("{}", r.text);
+            r.code
+        }
+        Some("chem") if args.len() == 3 => {
+            let r = chem_report(&root, &args[1], &args[2]);
             print!("{}", r.text);
             r.code
         }

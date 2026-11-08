@@ -1,5 +1,5 @@
 RLT-001 verification
-commit   bc47c754fa2c69a2e77bfc741b5d9f4234434911
+commit   6f64c497913548b316601d344cdd1d38ec9fdffa
 rustc    rustc 1.97.0 (2d8144b78 2026-07-07)
 
 == format and lints
@@ -10,7 +10,7 @@ clippy   ok
 ok
 
 == cargo test (unit + golden)
-test result: ok. 41 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+test result: ok. 56 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.63s
 test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
@@ -22,6 +22,7 @@ tests/accept/T4_math0_pairing.rlt                    exit 0  ACCEPT — uncondit
 tests/accept/T5a_math0_fiction_conditional.rlt       exit 0  ACCEPT — conditional theorem relative to registered axiom set PEANO-ADD
 tests/accept/T5c_composition_conditional.rlt         exit 0  ACCEPT — conditional theorem relative to registered axiom set PEANO-ADD
 tests/accept/T6_one_plus_one.rlt                     exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD
+tests/accept/T7_one_plus_two.rlt                     exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD
 tests/reject/T2_math5_broken_trans.rlt               exit 1  REJECT at step s3 — trans requires rhs(first) ≡ lhs(second); here `S(5 + 0)` ≢ `5 + 0`
 tests/reject/T3_math5_calc.rlt                       exit 1  REJECT at step s1 — rule `calc` is unregistered (registered: refl, symm, trans, cong, inst, hyp)
 tests/reject/T5b_math0_fiction_unconditional.rlt     exit 1  REJECT — unconditional goal requested, but the result depends on assumptions ["h"]
@@ -39,7 +40,15 @@ written ≡w      identical
 terms           structurally identical
 
 == specification records (points/)
-points/oxygen-and-people.yaml            exit 0  VALID — specification records consistent
+points/co2-and-o2.yaml                   exit 0  VALID — specification records consistent (13 record(s) valid; physical correspondence as reported per record)
+points/oxygen-and-people.yaml            exit 0  VALID — specification records consistent (7 record(s) valid; physical correspondence as reported per record)
+
+== chemical notation (rlt chem; 0 interpreted, 1 uninterpreted)
+CO₂    exit 0 (want 0)  INTERPRETED — a registered reading of notation; no kernel 
+O₂     exit 0 (want 0)  INTERPRETED — a registered reading of notation; no kernel 
+COO      exit 1 (want 1)  UNINTERPRETED — CHEM-MOLFORMULA has no entry for "COO"; no
+CO2      exit 1 (want 1)  UNINTERPRETED — CHEM-MOLFORMULA has no entry for "CO2"; no
+O2       exit 1 (want 1)  UNINTERPRETED — CHEM-MOLFORMULA has no entry for "O2"; no 
 
 == records
 PiπΠ            6 source conventions traced, 2 unresolved items recorded without definition
