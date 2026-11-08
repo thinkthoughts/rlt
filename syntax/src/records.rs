@@ -475,3 +475,202 @@ mod tests {
         assert!(list(&y, "absent", "t").unwrap().is_empty());
     }
 }
+
+// ---- RLT-002: specification records (points/*.yaml) ----
+
+/// One specified thing in a context.
+#[derive(Clone, Debug)]
+pub struct Point {
+    pub id: String,
+    pub kind: String,
+    pub class: Option<String>,
+    pub description: String,
+    /// `particular` (this identified reading point) or `general` (a stated class).
+    pub scope: String,
+    pub physical_status: String,
+    pub evidence: Vec<(String, String)>,
+}
+
+/// An equation checked by the kernel, associated by its author with groups of
+/// reading points: one group per numeral summand of the left side, in order.
+/// The association is a specification record; the kernel checks only the equation.
+#[derive(Clone, Debug)]
+pub struct Count {
+    pub claim: Relationship,
+    pub groups: Vec<Vec<String>>,
+    /// The scope the record states for its conclusion, if any.
+    pub scope: Option<String>,
+}
+
+/// A typed relation among reading points, with its own status and evidence.
+#[derive(Clone, Debug)]
+pub struct RelationClaim {
+    pub id: String,
+    pub rtype: String,
+    pub between: Vec<String>,
+    pub status: String,
+    pub evidence: Vec<(String, String)>,
+}
+
+#[derive(Clone, Debug)]
+pub struct PointsFile {
+    pub id: String,
+    pub context: String,
+    /// A verbatim excerpt of a registered source that states this context.
+    pub basis: Option<Meaning>,
+    /// Named reading points (readingpoints/*.yaml) referenced by id only.
+    pub references: Vec<String>,
+    pub points: Vec<Point>,
+    pub counts: Vec<Count>,
+    pub relations: Vec<RelationClaim>,
+}
+
+fn only_keys(y: &Yaml, allowed: &[&str], ctx: &str) -> Result<(), String> {
+    if let Some(h) = y.as_hash() {
+        for k in h.keys() {
+            let k = k.as_str().unwrap_or("?");
+            if !allowed.contains(&k) {
+                return Err(format!(
+                    "{ctx}: field `{k}` is outside this record type (allowed: {})",
+                    allowed.join(", ")
+                ));
+            }
+        }
+        Ok(())
+    } else {
+        Err(format!("{ctx}: expected a mapping"))
+    }
+}
+
+fn evidence(e: &Yaml, ctx: &str) -> Result<Vec<(String, String)>, String> {
+    list(e, "evidence", ctx)?
+        .iter()
+        .map(|v| Ok((req(v, "type", ctx)?, req(v, "ref", ctx)?)))
+        .collect()
+}
+
+pub fn load_points(path: &Path) -> Result<PointsFile, String> {
+    let y = load_yaml(path)?;
+    let stem = path
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let ctx = format!("points/{stem}.yaml");
+    only_keys(
+        &y,
+        &[
+            "id",
+            "context",
+            "basis",
+            "references",
+            "points",
+            "counts",
+            "relations",
+        ],
+        &ctx,
+    )?;
+    let id = req(&y, "id", &ctx)?;
+    if id != stem {
+        return Err(format!(
+            "{ctx}: record id {id:?} differs from its file name"
+        ));
+    }
+    let basis = match &y["basis"] {
+        Yaml::BadValue | Yaml::Null => None,
+        b => {
+            only_keys(b, &["text", "source"], &ctx)?;
+            Some(Meaning {
+                text: req(b, "text", &ctx)?,
+                source: req(b, "source", &ctx)?,
+            })
+        }
+    };
+    let mut points = Vec::new();
+    for p in list(&y, "points", &ctx)? {
+        only_keys(
+            p,
+            &["id", "kind", "class", "description", "scope", "physical"],
+            &ctx,
+        )?;
+        let pid = req(p, "id", &ctx)?;
+        let pc = format!("{ctx}: point {pid}");
+        let phys = &p["physical"];
+        only_keys(phys, &["status", "evidence"], &pc)?;
+        points.push(Point {
+            kind: req(p, "kind", &pc)?,
+            class: opt(p, "class", &pc)?,
+            description: req(p, "description", &pc)?,
+            scope: req(p, "scope", &pc)?,
+            physical_status: req(phys, "status", &pc)?,
+            evidence: evidence(phys, &pc)?,
+            id: pid,
+        });
+    }
+    let mut counts = Vec::new();
+    for c in list(&y, "counts", &ctx)? {
+        only_keys(
+            c,
+            &[
+                "id",
+                "written",
+                "convention",
+                "proof",
+                "mode",
+                "assumptions",
+                "groups",
+                "scope",
+            ],
+            &ctx,
+        )?;
+        let cid = req(c, "id", &ctx)?;
+        let cc = format!("{ctx}: count {cid}");
+        let groups = list(c, "groups", &cc)?
+            .iter()
+            .map(|g| match g {
+                Yaml::Array(v) => v
+                    .iter()
+                    .map(|m| {
+                        m.as_str()
+                            .map(str::to_string)
+                            .ok_or(format!("{cc}: group members are point ids"))
+                    })
+                    .collect::<Result<Vec<_>, _>>(),
+                _ => Err(format!("{cc}: each group is a list of point ids")),
+            })
+            .collect::<Result<_, _>>()?;
+        counts.push(Count {
+            claim: Relationship {
+                written: req(c, "written", &cc)?,
+                convention: req(c, "convention", &cc)?,
+                proof: req(c, "proof", &cc)?,
+                mode: req(c, "mode", &cc)?,
+                assumptions: strings(c, "assumptions", &cc)?,
+                id: cid,
+            },
+            groups,
+            scope: opt(c, "scope", &cc)?,
+        });
+    }
+    let mut relations = Vec::new();
+    for r in list(&y, "relations", &ctx)? {
+        only_keys(r, &["id", "type", "between", "status", "evidence"], &ctx)?;
+        let rid = req(r, "id", &ctx)?;
+        let rc = format!("{ctx}: relation {rid}");
+        relations.push(RelationClaim {
+            rtype: req(r, "type", &rc)?,
+            between: strings(r, "between", &rc)?,
+            status: req(r, "status", &rc)?,
+            evidence: evidence(r, &rc)?,
+            id: rid,
+        });
+    }
+    Ok(PointsFile {
+        context: req(&y, "context", &ctx)?,
+        references: strings(&y, "references", &ctx)?,
+        basis,
+        points,
+        counts,
+        relations,
+        id,
+    })
+}

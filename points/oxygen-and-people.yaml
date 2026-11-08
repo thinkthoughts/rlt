@@ -1,0 +1,59 @@
+# RLT-002 · T6 — one checked equation, two distinct specification records.
+#
+# The kernel checks 1 + 1 = 2 (tests/accept/T6_one_plus_one.rlt). This file
+# associates that equation, separately, with two oxygen atoms and with two
+# people. Each association is a specification record stated here; the kernel
+# proves the equation only. Sharing the equation relates none of these
+# reading points: any structural, physical or identity relation among them
+# needs a relation claim with its own evidence.
+
+id: oxygen-and-people
+context: "Two oxygen atoms of one O₂ molecule, and two people, each pair counted with 1 + 1 = 2."
+basis:
+  text: "Preserve distinct reading points for two oxygen atoms and two human beings."
+  source: RLT-002-REQUEST
+references: [math5]          # math5 documents an O₂ molecule; its meanings stay in readingpoints/math5.yaml
+
+points:
+  - id: o2.atom-1
+    kind: physical-object
+    class: oxygen-atom
+    description: "oxygen atom 1 of one O₂ molecule"
+    scope: particular
+    physical: {status: unestablished, evidence: []}
+  - id: o2.atom-2
+    kind: physical-object
+    class: oxygen-atom
+    description: "oxygen atom 2 of the same O₂ molecule"
+    scope: particular
+    physical: {status: unestablished, evidence: []}
+  - id: person.a
+    kind: physical-object
+    class: human-being
+    description: "person A"
+    scope: particular
+    physical: {status: unestablished, evidence: []}
+  - id: person.b
+    kind: physical-object
+    class: human-being
+    description: "person B"
+    scope: particular
+    physical: {status: unestablished, evidence: []}
+
+counts:
+  - id: count.oxygen
+    written: "1 + 1 = 2"
+    convention: NAT-DEC
+    proof: tests/accept/T6_one_plus_one.rlt
+    mode: unconditional
+    assumptions: []
+    groups: [[o2.atom-1], [o2.atom-2]]
+  - id: count.people
+    written: "1 + 1 = 2"
+    convention: NAT-DEC
+    proof: tests/accept/T6_one_plus_one.rlt
+    mode: unconditional
+    assumptions: []
+    groups: [[person.a], [person.b]]
+
+relations: []

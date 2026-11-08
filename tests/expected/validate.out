@@ -1,7 +1,7 @@
-sources         22 registered
+sources         24 registered
   ambiguous     1
   available     12
-  conversation  2
+  conversation  4
   missing       4
   reference     3
 conventions     NAT-DEC, PIPIPI, PRIME-COUNT, REAL-PI
@@ -9,5 +9,6 @@ PiπΠ            6 source conventions traced, 2 unresolved items recorded witho
 reading point   math0: 13 meanings, 2 relationships, 4 correspondence records, 1 lifts
 reading point   math29: 15 meanings, 1 relationships, 1 correspondence records, 0 lifts
 reading point   math5: 13 meanings, 2 relationships, 4 correspondence records, 1 lifts
+points          oxygen-and-people.yaml: 0 problem(s)
 verdict         VALID — records consistent
 exit 0

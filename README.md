@@ -25,6 +25,8 @@ target/release/rlt written "1+1" NAT-DEC "2" NAT-DEC
 target/release/rlt rp math5
 target/release/rlt validate
 target/release/rlt lean tests/accept/*.rlt                    # Lean replay of the accepted statements
+target/release/rlt points points/oxygen-and-people.yaml       # RLT-002: one equation, distinct reading points
+scripts/demo-rlt-002.sh                                       # RLT-002 workflow demonstration
 scripts/verify.sh SOURCE_CLONES_DIR                           # fmt, clippy, tests, proofs, records, Lean, excerpts; exit 0 only if all hold
 ```
 
@@ -38,4 +40,4 @@ Parsers, conventions, sources, reading-point and correspondence records, and the
 
 Limits: numerals up to 1000 (unary in the kernel; no leading zeros), nesting depth 256, 1,000,000 term nodes per proof file; control characters are refused in proof files and records.
 
-Status: RLT-001 (initial implementation, under review). Reports: `docs/RLT-000.md`, `docs/RLT-001.md`, `docs/RLT-001-AUDIT.md`.
+Status: RLT-001 merged; RLT-002 (specification records, first increment) under review. Reports: `docs/RLT-000.md`, `docs/RLT-001.md`, `docs/RLT-001-AUDIT.md`, `docs/RLT-002.md`.

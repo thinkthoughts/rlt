@@ -1,4 +1,6 @@
-use rlt_cli::{check_file, lean_export, rp_report, validate, written_report, MALFORMED};
+use rlt_cli::{
+    check_file, lean_export, points_report, rp_report, validate, written_report, MALFORMED,
+};
 use std::path::PathBuf;
 
 const USAGE: &str = "\
@@ -8,6 +10,7 @@ usage:
   rlt rp ID                              a reading point: meanings, relationships, correspondence
   rlt validate                           consistency of sources, conventions and records
   rlt lean FILE...                       Lean 4 replay of the accepted statements
+  rlt points FILE                        specification records: reading points, counts, relations
 options:
   --root DIR                             repository root (default: current directory)";
 
@@ -56,6 +59,11 @@ fn run() -> i32 {
         Some("lean") if args.len() >= 2 => {
             let files: Vec<PathBuf> = args[1..].iter().map(|f| root.join(f)).collect();
             let r = lean_export(&root, &files);
+            print!("{}", r.text);
+            r.code
+        }
+        Some("points") if args.len() == 2 => {
+            let r = points_report(&root, &root.join(&args[1]));
             print!("{}", r.text);
             r.code
         }

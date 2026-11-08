@@ -420,6 +420,19 @@ pub fn bind_relationship(
     rp_id: &str,
     r: &Relationship,
 ) -> (CheckOutcome, Result<(), String>) {
+    bind_proof(root, Some(rp_id), r)
+}
+
+/// Bind a stated equation (written form, convention, mode, Γ) to a proof
+/// file. With `rp_id`, the proof must also name that reading point and the
+/// relationship id (RLT-001 relationships). Without it (RLT-002 counts), the
+/// binding is by statement alone, so one checked equation can serve several
+/// specification records.
+pub fn bind_proof(
+    root: &Path,
+    rp_id: Option<&str>,
+    r: &Relationship,
+) -> (CheckOutcome, Result<(), String>) {
     let path = root.join(&r.proof);
     let contained = match (
         root.join(&r.proof).canonicalize(),
@@ -466,17 +479,19 @@ pub fn bind_relationship(
     let out = check_file_outcome(root, &path);
     let res = (|| {
         let pf = out.proof.as_ref().ok_or("proof file is malformed")?;
-        if pf.readingpoint.as_deref() != Some(rp_id) {
-            return Err(format!(
-                "proof names reading point {:?}, record is `{rp_id}`",
-                pf.readingpoint
-            ));
-        }
-        if pf.relationship.as_deref() != Some(r.id.as_str()) {
-            return Err(format!(
-                "proof names relationship {:?}, record is `{}`",
-                pf.relationship, r.id
-            ));
+        if let Some(rp_id) = rp_id {
+            if pf.readingpoint.as_deref() != Some(rp_id) {
+                return Err(format!(
+                    "proof names reading point {:?}, record is `{rp_id}`",
+                    pf.readingpoint
+                ));
+            }
+            if pf.relationship.as_deref() != Some(r.id.as_str()) {
+                return Err(format!(
+                    "proof names relationship {:?}, record is `{}`",
+                    pf.relationship, r.id
+                ));
+            }
         }
         if pf.convention != r.convention {
             return Err(format!(
@@ -701,7 +716,7 @@ pub fn rp_report(root: &Path, id: &str) -> Report {
 /// untagged, retagged to another reading point, or newly cited only through a
 /// reviewed code change. Update it with the digest `rlt validate` prints.
 pub const PINNED_REGISTRY_SHA: &str =
-    "b58a93d38add9f97e633965835bad3518c9e504fe27dee450136f3f9fee101bb";
+    "1a8593eaebc4e56f3e9bb46ff3b61c85f7ef161574323ede24412d6116e63e7c";
 
 /// Canonical digest of the registry: for every source (in id order) its id,
 /// status and location, then each excerpt's text, `defines` and `split`, one
@@ -1016,6 +1031,27 @@ pub fn validate(root: &Path) -> Report {
             }
         }
     }
+    // RLT-002 specification records.
+    let mut pts: Vec<PathBuf> = std::fs::read_dir(root.join("points"))
+        .map(|d| d.filter_map(|e| e.ok().map(|e| e.path())).collect())
+        .unwrap_or_default();
+    pts.sort();
+    for p in &pts {
+        let name = p
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let plain = !name.chars().any(|c| c.is_control()) && name.ends_with(".yaml");
+        if !plain || std::fs::symlink_metadata(p).is_ok_and(|m| !m.file_type().is_file()) {
+            problems.push(format!(
+                "points/ holds {name:?}: every entry must be a regular *.yaml specification record"
+            ));
+            continue;
+        }
+        let (_, ps) = points_check(root, p);
+        let _ = writeln!(t, "points          {}: {} problem(s)", name, ps.len());
+        problems.extend(ps);
+    }
     let rp_ids: Vec<String> = rps
         .iter()
         .filter_map(|p| p.file_stem().map(|s| s.to_string_lossy().to_string()))
@@ -1154,4 +1190,395 @@ pub fn lean_export(root: &Path, files: &[PathBuf]) -> Report {
     }
     let _ = writeln!(t, "end RLTGenerated");
     Report { text: t, code }
+}
+
+// ---- RLT-002: specification records (points/*.yaml) ----
+
+/// Kinds of reading point a points file may declare.
+pub const POINT_KINDS: [&str; 10] = [
+    "written-expression",
+    "mathematical-object",
+    "physical-object",
+    "physical-relationship",
+    "observed-event",
+    "human-action",
+    "imagined-possibility",
+    "depicted-subject",
+    "description",
+    "generalization",
+];
+
+/// Relation types a points file may declare. A relation carries its own
+/// status and evidence; counts and theorems are never evidence for one.
+pub const RELATION_TYPES: [&str; 7] = [
+    "same-structure",
+    "same-species",
+    "bonded-to",
+    "parent-of",
+    "sibling-of",
+    "part-of",
+    "history",
+];
+
+/// The numeral summands of a sum `a + b + …` (left-nested), if every leaf is a numeral.
+fn numeral_summands(t: &rlt_kernel::Term) -> Option<Vec<u64>> {
+    use rlt_kernel::Term;
+    if let Some(n) = t.as_numeral() {
+        return Some(vec![n]);
+    }
+    match t {
+        Term::App(f, a) if f == "+" && a.len() == 2 => {
+            let mut v = numeral_summands(&a[0])?;
+            v.extend(numeral_summands(&a[1])?);
+            Some(v)
+        }
+        _ => None,
+    }
+}
+
+/// Validate one points file and build its report. Returns (report, problems).
+pub fn points_check(root: &Path, file: &Path) -> (String, Vec<String>) {
+    use rlt_syntax::records::load_points;
+    let mut t = String::new();
+    let mut problems: Vec<String> = Vec::new();
+    let shown = shown_path(root, file);
+    let _ = writeln!(t, "RLT points      {shown}");
+    let pf = match load_points(file) {
+        Ok(p) => p,
+        Err(e) => {
+            problems.push(e);
+            return (t, problems);
+        }
+    };
+    let reg = match load_registry(&root.join("sources/registry.yaml")) {
+        Ok(r) => r,
+        Err(e) => {
+            problems.push(e);
+            return (t, problems);
+        }
+    };
+    let status = match load_status(&root.join("correspondence/status.yaml")) {
+        Ok(s) => s,
+        Err(e) => {
+            problems.push(e);
+            return (t, problems);
+        }
+    };
+    let _ = writeln!(t, "context         {} — \"{}\"", pf.id, pf.context);
+    if let Some(b) = &pf.basis {
+        let _ = writeln!(t, "  basis         \"{}\"  [{}]", b.text, b.source);
+        match reg.get(&b.source) {
+            Some(src) if CITABLE.contains(&src.status.as_str()) => {
+                if !src.excerpts.iter().any(|x| x.units().contains(&b.text)) {
+                    problems.push(format!(
+                        "{}: basis \"{}\" equals zero whole units of `{}`",
+                        pf.id, b.text, b.source
+                    ));
+                }
+            }
+            _ => problems.push(format!(
+                "{}: basis source `{}` must be an available or conversation source",
+                pf.id, b.source
+            )),
+        }
+    }
+    for r in &pf.references {
+        if load_readingpoint(&rp_path(root, r)).is_ok() {
+            let _ = writeln!(
+                t,
+                "references      {r} (its documented meanings stay in readingpoints/{r}.yaml)"
+            );
+        } else {
+            problems.push(format!("{}: references unknown reading point `{r}`", pf.id));
+        }
+    }
+
+    // Reading points.
+    let mut ids: Vec<&str> = Vec::new();
+    let _ = writeln!(t, "reading points  {}", pf.points.len());
+    for p in &pf.points {
+        if ids.contains(&p.id.as_str()) {
+            problems.push(format!("{}: point id `{}` appears twice", pf.id, p.id));
+        }
+        ids.push(&p.id);
+        if !POINT_KINDS.contains(&p.kind.as_str()) {
+            problems.push(format!(
+                "{}: point {} kind `{}` is outside the point kinds",
+                pf.id, p.id, p.kind
+            ));
+        }
+        if !["particular", "general"].contains(&p.scope.as_str()) {
+            problems.push(format!(
+                "{}: point {} scope `{}`: use particular or general",
+                pf.id, p.id, p.scope
+            ));
+        }
+        if !status.correspondence.contains(&p.physical_status) {
+            problems.push(format!(
+                "{}: point {} physical status `{}` is outside the vocabulary",
+                pf.id, p.id, p.physical_status
+            ));
+        }
+        if p.physical_status == "imagined" && p.kind != "imagined-possibility" {
+            problems.push(format!(
+                "{}: point {} status `imagined` applies to imagined-possibility points only",
+                pf.id, p.id
+            ));
+        }
+        if p.evidence.is_empty() && !status.without_evidence.contains(&p.physical_status) {
+            problems.push(format!(
+                "{}: point {} physical status `{}` requires evidence",
+                pf.id, p.id, p.physical_status
+            ));
+        }
+        for (ty, r) in &p.evidence {
+            if !status.allowed_support.contains(ty) {
+                problems.push(format!(
+                    "{}: point {} evidence type `{ty}` is outside allowed_support",
+                    pf.id, p.id
+                ));
+            }
+            if !reg.get(r).is_some_and(|s| s.status == "available") {
+                problems.push(format!(
+                    "{}: point {} evidence ref `{r}` must be an available registered source",
+                    pf.id, p.id
+                ));
+            }
+        }
+        let _ = writeln!(
+            t,
+            "  {:<14}{} · class {} · scope {} · physical {} (evidence: {}) — \"{}\"",
+            p.id,
+            p.kind,
+            p.class.as_deref().unwrap_or("—"),
+            p.scope,
+            p.physical_status,
+            p.evidence.len(),
+            p.description
+        );
+    }
+    let point = |id: &str| pf.points.iter().find(|p| p.id == id);
+
+    // Counts: a checked equation associated with groups of reading points.
+    let mut used_proofs: Vec<(String, String)> = Vec::new();
+    for c in &pf.counts {
+        let _ = writeln!(t, "count           {}", c.claim.id);
+        let (out, binding) = bind_proof(root, None, &c.claim);
+        let verdict = match (&out.theorem, out.report.code) {
+            (Some(th), ACCEPT) => format!(
+                "ACCEPT — {} theorem relative to registered axiom set {}, {}",
+                if th.is_unconditional() {
+                    "unconditional"
+                } else {
+                    "conditional"
+                },
+                out.proof
+                    .as_ref()
+                    .map(|p| p.axiom_set.as_str())
+                    .unwrap_or("?"),
+                gamma(th)
+            ),
+            (_, REJECT) => "REJECT".to_string(),
+            _ => "MALFORMED".to_string(),
+        };
+        let _ = writeln!(
+            t,
+            "  equation      \"{}\" under {} → {}  ({})",
+            c.claim.written, c.claim.convention, verdict, c.claim.proof
+        );
+        if let Err(e) = &binding {
+            problems.push(format!("{}: count {}: {e}", pf.id, c.claim.id));
+        }
+        if out.report.code != ACCEPT {
+            problems.push(format!(
+                "{}: count {}: its proof is not accepted by the kernel",
+                pf.id, c.claim.id
+            ));
+        }
+        // The binding of numerals to reading points: checked for consistency only.
+        if let Some(goal) = &out.goal {
+            match numeral_summands(&goal.lhs) {
+                None => problems.push(format!(
+                    "{}: count {}: the left side must be a sum of numerals",
+                    pf.id, c.claim.id
+                )),
+                Some(nums) => {
+                    if nums.len() != c.groups.len() {
+                        problems.push(format!(
+                            "{}: count {}: {} summand(s) but {} group(s)",
+                            pf.id,
+                            c.claim.id,
+                            nums.len(),
+                            c.groups.len()
+                        ));
+                    }
+                    for (i, (n, g)) in nums.iter().zip(&c.groups).enumerate() {
+                        if *n != g.len() as u64 {
+                            problems.push(format!(
+                                "{}: count {}: summand {} is {n} but its group names {} reading point(s)",
+                                pf.id,
+                                c.claim.id,
+                                i + 1,
+                                g.len()
+                            ));
+                        }
+                    }
+                    let parts: Vec<String> = nums
+                        .iter()
+                        .zip(&c.groups)
+                        .map(|(n, g)| format!("{n} ↦ {{{}}}", g.join(", ")))
+                        .collect();
+                    let _ = writeln!(t, "  binding       {}", parts.join(" · "));
+                }
+            }
+            let mut members: Vec<&str> = Vec::new();
+            for m in c.groups.iter().flatten() {
+                match point(m) {
+                    None => problems.push(format!("{}: count {}: unknown point `{m}`", pf.id, c.claim.id)),
+                    Some(p) if p.scope != "particular" => problems.push(format!(
+                        "{}: count {}: point {m} has scope {}; a count binds particular, identified reading points",
+                        pf.id, c.claim.id, p.scope
+                    )),
+                    _ => {}
+                }
+                if members.contains(&m.as_str()) {
+                    problems.push(format!(
+                        "{}: count {}: point {m} is named in two groups",
+                        pf.id, c.claim.id
+                    ));
+                }
+                members.push(m);
+            }
+            if goal.rhs.as_numeral() != Some(members.len() as u64) {
+                problems.push(format!(
+                    "{}: count {}: the right side must be the numeral {} (the distinct reading points bound)",
+                    pf.id,
+                    c.claim.id,
+                    members.len()
+                ));
+            }
+            let mut classes: Vec<&str> = members
+                .iter()
+                .filter_map(|m| point(m).and_then(|p| p.class.as_deref()))
+                .collect();
+            classes.sort();
+            classes.dedup();
+            let _ = writeln!(
+                t,
+                "  identities    {} — {} distinct reading point(s); class {}",
+                members.join(", "),
+                members.len(),
+                if classes.is_empty() {
+                    "—".to_string()
+                } else {
+                    classes.join(", ")
+                }
+            );
+            let scope = c.scope.as_deref().unwrap_or("particular");
+            if scope != "particular" {
+                problems.push(format!(
+                    "{}: count {}: states scope `{scope}`; a count of particular reading points keeps scope particular, and widening needs its own source or evidence",
+                    pf.id, c.claim.id
+                ));
+            }
+            let _ = writeln!(t, "  scope         particular (the reading points listed)");
+            let _ = writeln!(t, "  association   a specification record: the kernel checked the equation; this file states what each numeral counts");
+        }
+        used_proofs.push((c.claim.id.clone(), c.claim.proof.clone()));
+    }
+    let mut proofs: Vec<&str> = used_proofs.iter().map(|(_, p)| p.as_str()).collect();
+    proofs.sort();
+    proofs.dedup();
+    for p in proofs {
+        let sharing: Vec<&str> = used_proofs
+            .iter()
+            .filter(|(_, q)| q == p)
+            .map(|(c, _)| c.as_str())
+            .collect();
+        if sharing.len() > 1 {
+            let _ = writeln!(
+                t,
+                "shared theorem  {} rest on the same checked equation ({p}); sharing it relates none of their reading points",
+                sharing.join(" and ")
+            );
+        }
+    }
+
+    // Relations: each with its own status and evidence.
+    if pf.relations.is_empty() {
+        let _ = writeln!(t, "relations       none recorded; structural, physical and identity relations among these reading points stay unestablished");
+    }
+    for r in &pf.relations {
+        if !RELATION_TYPES.contains(&r.rtype.as_str()) {
+            problems.push(format!(
+                "{}: relation {} type `{}` is outside the relation types",
+                pf.id, r.id, r.rtype
+            ));
+        }
+        for b in &r.between {
+            if point(b).is_none() {
+                problems.push(format!("{}: relation {}: unknown point `{b}`", pf.id, r.id));
+            }
+        }
+        if !status.correspondence.contains(&r.status) || r.status == "imagined" {
+            problems.push(format!(
+                "{}: relation {} status `{}` is outside the relation statuses",
+                pf.id, r.id, r.status
+            ));
+        }
+        if r.evidence.is_empty() && !status.without_evidence.contains(&r.status) {
+            problems.push(format!(
+                "{}: relation {} status `{}` requires evidence",
+                pf.id, r.id, r.status
+            ));
+        }
+        for (ty, rf) in &r.evidence {
+            if !status.allowed_support.contains(ty) {
+                problems.push(format!(
+                    "{}: relation {} evidence type `{ty}` is outside allowed_support (counts and theorems are never evidence for a relation)",
+                    pf.id, r.id
+                ));
+            }
+            if !reg.get(rf).is_some_and(|s| s.status == "available") {
+                problems.push(format!(
+                    "{}: relation {} evidence ref `{rf}` must be an available registered source",
+                    pf.id, r.id
+                ));
+            }
+        }
+        let _ = writeln!(
+            t,
+            "relation        {} [{}] {} : {} (evidence: {})",
+            r.id,
+            r.rtype,
+            r.between.join(", "),
+            r.status,
+            r.evidence.len()
+        );
+    }
+    (t, problems)
+}
+
+/// `rlt points FILE`: the report for one points file, with its validation.
+pub fn points_report(root: &Path, file: &Path) -> Report {
+    let (mut t, problems) = points_check(root, file);
+    for p in &problems {
+        let _ = writeln!(t, "problem         {p}");
+    }
+    if problems.is_empty() {
+        let _ = writeln!(
+            t,
+            "verdict         VALID — specification records consistent"
+        );
+        Report {
+            text: t,
+            code: ACCEPT,
+        }
+    } else {
+        let _ = writeln!(t, "verdict         INVALID — {} problem(s)", problems.len());
+        Report {
+            text: t,
+            code: REJECT,
+        }
+    }
 }

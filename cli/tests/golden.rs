@@ -4,7 +4,8 @@
 //! must exit 1. Regenerate with `UPDATE_GOLDEN=1 cargo test`.
 
 use rlt_cli::{
-    check_file, lean_export, rp_report, validate, written_report, Report, ACCEPT, MALFORMED, REJECT,
+    check_file, lean_export, points_report, rp_report, validate, written_report, Report, ACCEPT,
+    MALFORMED, REJECT,
 };
 use std::path::{Path, PathBuf};
 
@@ -127,6 +128,7 @@ fn scratch_with(name: &str, edits: &[(&str, &str, &str)]) -> PathBuf {
         "conventions",
         "correspondence",
         "readingpoints",
+        "points",
         "spec",
         "tests/accept",
     ] {
@@ -687,4 +689,235 @@ fn r3_q3_record_files_and_proof_paths() {
     assert_invalid(&validate(&s), "must be a tests/");
     let _ = std::fs::remove_dir_all(s);
     let _ = std::fs::remove_dir_all(outside);
+}
+
+// ---- RLT-002 · T6: one checked equation, distinct specification records ----
+
+const PTS: &str = "points/oxygen-and-people.yaml";
+
+fn points_with(name: &str, edits: &[(&str, &str, &str)]) -> Report {
+    let s = scratch_with(name, edits);
+    let r = points_report(&s, &s.join(PTS));
+    let _ = std::fs::remove_dir_all(s);
+    r
+}
+
+fn assert_points_invalid(r: &Report, needle: &str) {
+    assert_eq!(r.code, REJECT, "expected INVALID:\n{}", r.text);
+    assert!(
+        r.text.contains(needle),
+        "expected `{needle}` in:\n{}",
+        r.text
+    );
+}
+
+const NO_RELATIONS: &str = "relations: []\n";
+
+/// T6 positive: one theorem, two counts, disjoint identities, zero relations.
+#[test]
+fn t6_shared_equation_keeps_distinct_reading_points() {
+    let r = points_report(&root(), &root().join(PTS));
+    assert_eq!(r.code, ACCEPT, "{}", r.text);
+    golden("points_oxygen-and-people", &r);
+    for line in [
+        "binding       1 ↦ {o2.atom-1} · 1 ↦ {o2.atom-2}",
+        "binding       1 ↦ {person.a} · 1 ↦ {person.b}",
+        "identities    o2.atom-1, o2.atom-2 — 2 distinct reading point(s); class oxygen-atom",
+        "identities    person.a, person.b — 2 distinct reading point(s); class human-being",
+        "sharing it relates none of their reading points",
+        "structural, physical and identity relations among these reading points stay unestablished",
+        "a specification record: the kernel checked the equation",
+    ] {
+        assert!(r.text.contains(line), "missing `{line}`:\n{}", r.text);
+    }
+    assert_eq!(
+        r.text
+            .matches(
+                "ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD, Γ = ∅"
+            )
+            .count(),
+        2
+    );
+}
+
+/// T6 positive: a relation recorded as unestablished stays unestablished and is reported.
+#[test]
+fn t6_unestablished_relation_is_reported_as_unestablished() {
+    let rel = "relations:\n  - id: rel.same\n    type: same-structure\n    between: [o2.atom-1, person.a]\n    status: unestablished\n    evidence: []\n";
+    let r = points_with("t6-rel-unest", &[(PTS, NO_RELATIONS, rel)]);
+    assert_eq!(r.code, ACCEPT, "{}", r.text);
+    assert!(r.text.contains("relation        rel.same [same-structure] o2.atom-1, person.a : unestablished (evidence: 0)"), "{}", r.text);
+}
+
+/// T6 negatives: arithmetic equality never establishes structural or physical equivalence.
+#[test]
+fn t6_equal_counts_never_establish_equivalence() {
+    let rel = |status: &str, evidence: &str| {
+        format!("relations:\n  - id: rel.same\n    type: same-structure\n    between: [o2.atom-1, person.a]\n    status: {status}\n    evidence: {evidence}\n")
+    };
+    // The theorem offered as evidence for structural sameness.
+    let e = rel(
+        "supported",
+        "\n      - type: kernel_theorem\n        ref: tests/accept/T6_one_plus_one.rlt",
+    );
+    assert_points_invalid(
+        &points_with("t6-n1", &[(PTS, NO_RELATIONS, &e)]),
+        "counts and theorems are never evidence for a relation",
+    );
+    // Sameness asserted with zero evidence.
+    let e = rel("supported", "[]");
+    assert_points_invalid(
+        &points_with("t6-n2", &[(PTS, NO_RELATIONS, &e)]),
+        "requires evidence",
+    );
+    // A count cited as the evidence reference.
+    let e = rel(
+        "supported",
+        "\n      - type: physical_measurement\n        ref: count.oxygen",
+    );
+    assert_points_invalid(
+        &points_with("t6-n3", &[(PTS, NO_RELATIONS, &e)]),
+        "must be an available registered source",
+    );
+    // Sameness of species between oxygen and a person, from equal counts.
+    let e = "relations:\n  - id: rel.species\n    type: same-species\n    between: [o2.atom-2, person.b]\n    status: supported\n    evidence: []\n";
+    assert_points_invalid(
+        &points_with("t6-n4", &[(PTS, NO_RELATIONS, e)]),
+        "requires evidence",
+    );
+}
+
+/// T6/T11 negatives: the binding of numerals to reading points stays consistent.
+#[test]
+fn t6_bindings_preserve_identities() {
+    let people = "groups: [[person.a], [person.b]]";
+    assert_points_invalid(
+        &points_with(
+            "t6-dup",
+            &[(PTS, people, "groups: [[person.a], [person.a]]")],
+        ),
+        "named in two groups",
+    );
+    assert_points_invalid(
+        &points_with(
+            "t6-size",
+            &[(PTS, people, "groups: [[person.a, person.b], []]")],
+        ),
+        "summand 1 is 1 but its group names 2",
+    );
+    assert_points_invalid(
+        &points_with(
+            "t6-unknown",
+            &[(PTS, people, "groups: [[person.a], [person.c]]")],
+        ),
+        "unknown point `person.c`",
+    );
+    assert_points_invalid(
+        &points_with("t6-arity", &[(PTS, people, "groups: [[person.a]]")]),
+        "2 summand(s) but 1 group(s)",
+    );
+}
+
+/// T12-style negatives: the count is bound to its proof by statement, convention, mode and Γ.
+#[test]
+fn t6_counts_are_bound_to_their_proof() {
+    let w = "written: \"1 + 1 = 2\"\n    convention: NAT-DEC\n    proof: tests/accept/T6_one_plus_one.rlt\n    mode: unconditional\n    assumptions: []\n    groups: [[person.a], [person.b]]";
+    let edit = |from: &str, to: &str| w.replacen(from, to, 1);
+    assert_points_invalid(
+        &points_with(
+            "t6-goal",
+            &[(PTS, w, &edit("\"1 + 1 = 2\"", "\"1 + 1 = 3\""))],
+        ),
+        "record states `1 + 1 = 3`, proof checks `1 + 1 = 2`",
+    );
+    assert_points_invalid(
+        &points_with(
+            "t6-mode",
+            &[(PTS, w, &edit("mode: unconditional", "mode: conditional"))],
+        ),
+        "record expects mode conditional",
+    );
+    assert_points_invalid(
+        &points_with(
+            "t6-gamma",
+            &[(PTS, w, &edit("assumptions: []", "assumptions: [\"1 = 1\"]"))],
+        ),
+        "record expects Γ",
+    );
+    assert_points_invalid(
+        &points_with(
+            "t6-conv",
+            &[(PTS, w, &edit("convention: NAT-DEC", "convention: REAL-PI"))],
+        ),
+        "proof uses convention NAT-DEC, record says REAL-PI",
+    );
+}
+
+/// Scope: a count of particular reading points keeps scope particular.
+#[test]
+fn t6_scope_is_retained() {
+    let people = "groups: [[person.a], [person.b]]";
+    assert_points_invalid(
+        &points_with(
+            "t6-scope",
+            &[(
+                PTS,
+                people,
+                "groups: [[person.a], [person.b]]\n    scope: general",
+            )],
+        ),
+        "keeps scope particular",
+    );
+    let pa = "description: \"person A\"\n    scope: particular";
+    assert_points_invalid(
+        &points_with(
+            "t6-general-point",
+            &[(PTS, pa, "description: \"person A\"\n    scope: general")],
+        ),
+        "a count binds particular, identified reading points",
+    );
+}
+
+/// Reading points: references by id only; statuses and kinds from the vocabulary.
+#[test]
+fn t6_records_reference_without_duplicating() {
+    assert_points_invalid(
+        &points_with(
+            "t6-ref",
+            &[(PTS, "references: [math5]", "references: [math7]")],
+        ),
+        "references unknown reading point `math7`",
+    );
+    assert_points_invalid(
+        &points_with(
+            "t6-copy",
+            &[(
+                PTS,
+                "references: [math5]",
+                "references: [math5]\nmeanings: [\"local anatomy\"]",
+            )],
+        ),
+        "field `meanings` is outside this record type",
+    );
+    let pa = "description: \"person A\"\n    scope: particular\n    physical: {status: unestablished, evidence: []}";
+    assert_points_invalid(&points_with("t6-sup", &[(PTS, pa, "description: \"person A\"\n    scope: particular\n    physical: {status: supported, evidence: []}")]), "requires evidence");
+    assert_points_invalid(&points_with("t6-imag", &[(PTS, pa, "description: \"person A\"\n    scope: particular\n    physical: {status: imagined, evidence: []}")]), "applies to imagined-possibility points only");
+    assert_points_invalid(
+        &points_with(
+            "t6-basis",
+            &[(PTS, "and two human beings.\"", "and two humans.\"")],
+        ),
+        "equals zero whole units",
+    );
+    assert_points_invalid(
+        &points_with(
+            "t6-kind",
+            &[(
+                PTS,
+                "kind: physical-object\n    class: human-being\n    description: \"person A\"",
+                "kind: hunch\n    class: human-being\n    description: \"person A\"",
+            )],
+        ),
+        "kind `hunch`",
+    );
 }

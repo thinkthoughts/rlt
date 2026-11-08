@@ -1,5 +1,5 @@
 RLT-001 verification
-commit   debec9efcc5fbbeaac2658f7ca82ab4e37228142
+commit   d6528abefd9c889ce7cfb346abb66c613129592c
 rustc    rustc 1.97.0 (2d8144b78 2026-07-07)
 
 == format and lints
@@ -10,7 +10,7 @@ clippy   ok
 ok
 
 == cargo test (unit + golden)
-test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
 test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
@@ -21,6 +21,7 @@ tests/accept/T1_math5_pairing.rlt                    exit 0  ACCEPT — uncondit
 tests/accept/T4_math0_pairing.rlt                    exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD
 tests/accept/T5a_math0_fiction_conditional.rlt       exit 0  ACCEPT — conditional theorem relative to registered axiom set PEANO-ADD
 tests/accept/T5c_composition_conditional.rlt         exit 0  ACCEPT — conditional theorem relative to registered axiom set PEANO-ADD
+tests/accept/T6_one_plus_one.rlt                     exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD
 tests/reject/T2_math5_broken_trans.rlt               exit 1  REJECT at step s3 — trans requires rhs(first) ≡ lhs(second); here `S(5 + 0)` ≢ `5 + 0`
 tests/reject/T3_math5_calc.rlt                       exit 1  REJECT at step s1 — rule `calc` is unregistered (registered: refl, symm, trans, cong, inst, hyp)
 tests/reject/T5b_math0_fiction_unconditional.rlt     exit 1  REJECT — unconditional goal requested, but the result depends on assumptions ["h"]
@@ -36,6 +37,9 @@ terms           structurally distinct
 -- tests/written/spacing_written.args
 written ≡w      identical
 terms           structurally identical
+
+== specification records (points/)
+points/oxygen-and-people.yaml            exit 0  VALID — specification records consistent
 
 == records
 PiπΠ            6 source conventions traced, 2 unresolved items recorded without definition
