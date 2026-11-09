@@ -10,7 +10,7 @@ M3b establishes meaning: axioms and definitions. It proves no non-divisibility r
 - ROBINSON-Q is registered: Q1–Q7, with the Open Logic Project's numbering and orientation. It is pinned, and Q4–Q7 are checked identical to PEANO-ARITH.
 - Three definitions are registered and pinned: `<` (Q8's right-hand side), `∣` (Lean core's `Dvd Nat`) and `free235` (RLT-authored).
 - The only kernel change is that `inst` instantiates axioms whose body is a formula. No inference rule is added; there are still 20.
-- 15 accepted demonstrations and 23 rejected files behave as specified. 11 further cases run as Rust tests.
+- 15 accepted demonstrations and 23 rejected files behave as specified. 13 further cases run as Rust tests.
 - Earlier verdicts are preserved. 273 of 274 earlier proof files give byte-identical reports. The 274th is M3a's R24, which tested that ROBINSON-Q was unregistered and is retargeted (§5).
 
 ## 1. What changed
@@ -80,10 +80,10 @@ Definitions are read only by proof files whose convention is NAT-DEF (D8). Every
 
 | Suite | Result |
 |---|---|
-| `cargo test` | all pass: 69 golden, 9 hardening, 44 M2, 8 M3a, 13 M3b, 29 kernel, 21 syntax |
+| `cargo test` | all pass: 69 golden, 9 hardening, 44 M2, 8 M3a, 14 M3b, 29 kernel, 21 syntax |
 | tests/m3b/accept | 15 of 15 ACCEPT under ROBINSON-Q; B-A11 is conditional, Γ = {h} |
 | tests/m3b/reject | 23 of 23 refused with the required exit code and reason |
-| Rust-run cases | B-R1, B-R2, B-R3, B-R9, B-R11, B-R12, B-R17, B-R18, B-R23, B-R26, B-R27, B-R30 |
+| Rust-run cases | B-R1, B-R2, B-R3, B-R9, B-R11, B-R12, B-R17, B-R18, B-R23, B-R26, B-R27, B-R30, B-R32 (added after the audit, §9) |
 | `verify.sh` | `RESULT all checks hold`. All generators reproduce their files. All Lean files compile with the axiom gates. All excerpts pass, including the eight OLP excerpts and two Lean-core excerpts |
 
 Demonstrations, B-A1 to B-A15:
@@ -126,6 +126,8 @@ Other checks:
    - `definitions`: the definitions expanded, with the file hash.
 
    A separate folded kernel rendering would need the elaborator to keep folded structure. The written goal carries the same information.
+
+   The `definitions` line covers the whole file: goal, declared assumptions and steps. A definition can therefore be listed although the `folded` line does not contain it. In B-A11 the goal is written unfolded (`∃k. 7 = 2 × k`), and `dvd` is listed because the assumption `h : "2 ∣ 7"` uses it; the `written assume` line shows that use.
 2. **No successor symbol in written goals.** NAT-DEF writes no S, so the goals of B-A4, B-A5, B-A8 and B-A12 use `x + 1`. Their proofs bridge x + 1 = S(x) with add_succ and add_zero. B-A8 is therefore ∀x. ¬(0 = x + 1), the source orientation, where the architecture named ∀x. ¬(S(x) = 0).
 3. **M3a's R24 retargeted** (§5).
 4. **`rlt lean` tactic list.** Lean is outside the trusted base.
@@ -142,6 +144,11 @@ Other checks:
 - **Lean's role.** Lean checks the statements and the tier-2 correspondence. It establishes no RLT derivation.
 - **Free variables.** `∀x. x ∣ x` is stated but not provable in RLT: x = x × 1 needs induction, which is outside M3.
 - **No backed-by links.** M3b adds no `backed by` link; the residue record refuses such keys (B-R18) until M3e.
+- **Prefix notation and spaces (audit W2).** `free 235(7)` with a space reads as `free235(7)`. The token stream keeps no whitespace, and the elaborator joins a letter token followed by a digit token into one prefix name. Both spellings can only name the one registered definition, so no other meaning is reachable. A whitespace-sensitive reading is left to a later milestone.
+- **Depth after expansion (audit W3).** A formula that exceeds the depth limit (256) only after expansion is reported REJECT, not MALFORMED. The file is refused either way; only the exit category differs.
+- **Reserved names when an axiom set fails to load (audit W3).** `load_definitions` refuses a definition named like a rule or a registered axiom. It collects the axiom names from every pinned set that loads; a set that fails to load contributes none. Every proof that cites that set is refused anyway, because the set itself fails to load. Its axiom names are then not checked against the definitions.
+- **Excerpt owner (audit W3).** `scripts/check_excerpts.py` accepts a GitHub location at any owner. The pinned registry hash fixes each source's location, so an edited owner fails the registry pin.
+- **Names of labels and assumptions (audit W3).** Step labels and assumption names may equal a definition name. Parameters and binders, which occur in terms and formulas, are refused (B-R32 and the earlier reject files).
 
 ## 8. Reproduce
 
@@ -153,4 +160,24 @@ target/release/rlt check tests/m3b/accept/BA06_two_divides_eight.rlt
 
 ## 9. Independent adversarial audit
 
-The audit's findings and the follow-ups to them are added in this section once the audit completes.
+**Method.** The auditor had no part in writing the implementation. It worked from a clean checkout of c8ea002, built the binary from source, and wrote its own attack files and its own reference expander.
+- It ran the full suite and `verify.sh`, and repeated the 9bfde18 comparison.
+- It fuzzed 1,700 random definition expansions (nesting, capture-prone names, definitions inside quantifiers and inside other definitions) against its independent reference, with no disagreement.
+- It attacked `inst` with nested quantifiers, capture attempts and bound indices in bindings.
+- It edited pins, hashes, sources and definitions, and checked the Lean gates.
+
+**Verdict.** Merge recommended. No soundness or source-fidelity finding: every attack on the kernel boundary was refused for the right reason, and every pin, source excerpt and Lean axiom gate held.
+
+**Findings and follow-ups.**
+
+| ID | Severity | Finding | Follow-up |
+|---|---|---|---|
+| W1 | low | `(convention "NAT-DEF")`, quoted, loaded the convention without reserving the definition names, so `(params dvd)` with binders named `lt` was accepted. The proof was still checked by the kernel against unfolded formulas, so the theorem was valid, but the name gate did not apply. | Fixed. The gate matches symbol and string forms. B-R32 checks both spellings are refused MALFORMED, "parameter `dvd` collides with a definition name". The test fails on c8ea002 and passes after the fix. |
+| W2 | note | `free 235(7)` reads as `free235(7)`. | Documented (§7). |
+| W3 | note | Depth category after expansion; doubled `definitions:` prefix in a load error; axiom sets that fail to load add no reserved names in `load_definitions`; owner in `check_excerpts.py`; label and assumption names. | Prefix fixed; others documented (§7). |
+| Doc | note | "11 further cases" should be 12; the B-A11 `folded` line needs explaining. | Fixed: 13 with B-R32; §6 item 1 explains B-A11. |
+
+**After the follow-ups.**
+- `cargo test`: all pass (69 golden, 9 hardening, 44 M2, 8 M3a, 14 M3b, 29 kernel, 21 syntax).
+- `verify.sh`: `RESULT all checks hold`.
+- `compare-reports.sh` against 9bfde18: unchanged (273 of 274 proof files identical, R24 retargeted; `validate` additive).

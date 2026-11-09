@@ -478,7 +478,7 @@ pub fn check_file_outcome_with(
                 }
                 convention.defs = Some(d.clone());
             }
-            Some(Err(e)) => bail!(format!("definitions: {e}")),
+            Some(Err(e)) => bail!(e.clone()),
             None => bail!("definitions: unavailable".to_string()),
         }
     }

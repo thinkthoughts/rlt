@@ -360,13 +360,15 @@ pub fn parse_proof_file_with(
     };
     // Parameters and assumption names are read first: steps resolve names against them.
     let mut scope = Scope::default();
-    let reads_definitions = fields.iter().any(
-        |f| matches!(f.head(), Some(("convention", [Sexp::Sym(c)])) if c == DEFINITIONS_CONVENTION),
-    );
+    // A convention may be written as a symbol or a quoted string; both
+    // name the same convention and both bring the definitions into scope.
+    let reads_definitions = fields.iter().any(|f| {
+        matches!(f.head(), Some(("convention", [Sexp::Sym(c) | Sexp::Str(c)])) if c == DEFINITIONS_CONVENTION)
+    });
     if reads_definitions {
         match defs {
             Some(Ok(d)) => scope.defs = Some(d),
-            Some(Err(e)) => return Err(format!("definitions: {e}")),
+            Some(Err(e)) => return Err(e),
             None => return Err("definitions: unavailable to this reader".into()),
         }
     }

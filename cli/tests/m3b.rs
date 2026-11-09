@@ -3,7 +3,7 @@
 //! The accepted demonstrations (tests/m3b/accept) and rejected cases
 //! (tests/m3b/expected.tsv), plus the cases that need a scratch repository,
 //! the kernel API or a report check: B-R1, B-R2, B-R3, B-R9, B-R11, B-R12,
-//! B-R17, B-R18, B-R23, B-R26, B-R27 and B-R30.
+//! B-R17, B-R18, B-R23, B-R26, B-R27, B-R30 and B-R32.
 
 use rlt_cli::{
     check_file, definition_source_problem, load_axiom_set, load_definitions, pinned_registry,
@@ -374,6 +374,30 @@ fn b_r30_reports_separate_the_registered_set_from_the_axioms_used() {
         "{}",
         r.text
     );
+}
+
+#[test]
+fn b_r32_a_quoted_convention_reads_the_definitions_too() {
+    // Audit W1: `(convention "NAT-DEF")` names the same convention as
+    // `(convention NAT-DEF)`, so the definition names are reserved in both.
+    let body = |conv: &str| {
+        format!(
+            "(rlt-proof\n  (id ATK.A17)\n  (convention {conv})\n  (goal \"∀x. x < x + 1 → x < x + 1\")\n  (mode unconditional)\n  (axioms ROBINSON-Q)\n  (params dvd)\n  (steps\n    (a (exists z (= (+ (S z) dvd) (+ dvd 1))) (hyp h))\n    (b (imp (exists z (= (+ (S z) dvd) (+ dvd 1))) (exists z (= (+ (S z) dvd) (+ dvd 1)))) (imp-intro h a))\n    (c (forall lt (imp (exists z (= (+ (S z) lt) (+ lt 1))) (exists z (= (+ (S z) lt) (+ lt 1))))) (forall-intro dvd b))))\n"
+        )
+    };
+    let s = scratch("b-r32", &[]);
+    for (name, conv) in [("sym", "NAT-DEF"), ("str", "\"NAT-DEF\"")] {
+        let f = format!("tests/m3b/b_r32_{name}.rlt");
+        std::fs::write(s.join(&f), body(conv)).unwrap();
+        let r = check_in(&s, &f);
+        assert_eq!(r.code, MALFORMED, "{name}: {}", r.text);
+        assert!(
+            r.text
+                .contains("parameter `dvd` collides with a definition name"),
+            "{name}: {}",
+            r.text
+        );
+    }
 }
 
 #[test]
