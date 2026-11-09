@@ -134,4 +134,24 @@ EA_07: cites E_T1 and instantiates it at 7.
 
 ## 6. Independent adversarial audit
 
-See the section added below once the audit completes.
+An auditor with no part in the implementation audited b7353ce on a clean clone. Verdict: **merge recommended, no substantive findings.** All six required items pass:
+
+1. **Gates.** 227 tests pass, `verify.sh` prints `RESULT all checks hold`, and compare-reports finds 373 of 373 identical to main 3d0f8e2.
+2. **Trusted base.** There is no diff in any trusted directory, and the release binary is byte-identical to main's.
+3. **Meaning.** An independent parser of E_T1's kernel form confirms:
+   - the antecedent ∃z. S(z) + r = 30;
+   - both R₈ occurrences, exactly 1, 7, 11, 13, 17, 19, 23, 29, left-nested;
+   - free235 unfolded exactly.
+
+   An independent graph count gives 23, 24 and 2 citations, for 49 checks, and every hash matches. All 22 PD and 24 ND leaves are arithmetically true.
+4. **Attacks.** All 17 false or mismatched variants are refused: representatives swapped, dropped or substituted (27 for 29, 25 for 29), labels swapped, the PEANO-ARITH axiom set, `↔`, changed bounds, a false leaf ¬(5 ∣ 25), false 2 ∣ 7, mislabelled and hash-swapped citations, a citation of a rejected file, and the budget exceeded. The true controls 2 ∤ 25 and 3 ∤ 25 are accepted.
+5. **Lean.** M3eGenerated (54) and M3eReadings (3) use standard axioms only. All 54 exported statements are identical to raw `rlt lean` output; only the two documented proof bodies differ. The GDT lemma is plausible on review and compiles in CI's `gdt-comparison` job, which is green on b7353ce.
+6. **Doc claims.** All figures in §§1–5 match.
+
+The auditor created 22 files: 19 attack proofs and 3 scripts.
+
+**Non-substantive notes.**
+- This section was a placeholder at b7353ce; it is now filled.
+- Running verify.sh rewrites the tracked verification record, as before.
+- E-T1 uses 49 of 64 citation checks, which §5 records.
+- The auditor's own axiom check ran outside `lean/` and agrees with verify.sh's pinned-toolchain run.

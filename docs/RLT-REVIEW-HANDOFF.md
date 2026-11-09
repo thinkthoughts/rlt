@@ -14,7 +14,7 @@ Development stops after M3e. The next phase is a broader review of RLT as a usab
 | M3b | merged (93e85a5) | Robinson's Q; definitions of `<`, `∣` and `free235` |
 | M3c | merged (73198e6) | ¬(d ∣ 7) for every witness; free235(7); theorem citation |
 | M3d | merged (3d0f8e2) | ∀x. x < 30 → x = 0 ∨ … ∨ x = 29 |
-| M3e | **draft PR #9** (branch `rlt-003-m3e`) | the modulo-30 classification, E-T1; see docs/RLT-003-M3e.md |
+| M3e | **draft PR #9** (branch `rlt-003-m3e`): independent audit recommends merge, no substantive findings; CI green | the modulo-30 classification, E-T1; see docs/RLT-003-M3e.md |
 
 **Not yet done, and held for the review:**
 - merging M3e;
@@ -23,7 +23,7 @@ Development stops after M3e. The next phase is a broader review of RLT as a usab
 - release and deployment.
 
 **Resume on Friday:**
-1. Read docs/RLT-003-M3e.md §6 (audit) and the PR #9 CI status.
+1. Read docs/RLT-003-M3e.md §6 (audit: merge recommended) and confirm CI on PR #9's head.
 2. Decide whether to merge M3e.
 3. Start the broader review from the design principles below.
 
