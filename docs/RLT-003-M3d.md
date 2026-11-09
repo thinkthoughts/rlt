@@ -175,10 +175,10 @@ It created 68 files in all.
 1. **Reproduction:** 219 tests, fmt and clippy clean, `verify.sh` prints `RESULT all checks hold`, and compare-reports shows 352 of 352 identical.
 2. **Trusted base:** the diff of every trusted directory against 73198e6 is empty. The 9d1d2f5 release binary is byte-identical to the 73198e6 binary.
 3. **Mathematics:** the independent counts match §2 exactly. The independent CT2 parser finds the antecedent ∃z. S(z) + x = 30 and exactly 30 distinct equalities 0 … 29, in order, left-nested. The eigenvariables are distinct.
-4. **Attacks:** every false enumeration is refused, including dropped, duplicated or replaced values, bound 31 or 29 with the wrong layer count, ∀x. x < 30 → x < 29, ¬(29 < 30), eigenvariable reuse, swapped motives, a skipped last split, `lt` reversed, capture through the citation, and a reordered goal on DA01's proof. A correctly generated proof of a reordered goal is accepted: a different, true formula.
+4. **Attacks:** every false enumeration is refused, including dropped, duplicated or replaced values, bound 31, or bound 30 with only 29 layers, ∀x. x < 30 → x < 29, ¬(29 < 30), eigenvariable reuse, swapped motives, a skipped last split, `lt` reversed, capture through the citation, and a reordered goal on DA01's proof. A correctly generated proof of a reordered goal is accepted: a different, true formula.
 5. **Citation:** DA05's `cites` block equals DA01's own check, and its `rules used` is `forall-elim` with `theorems cited D1`. Hash, substitution and path attacks are refused.
 6. **Lean:** M3dGenerated (5) and M3dReadings (6) use standard axioms only. The generated file reproduces, and earlier Lean files are unchanged.
-7. **Size:** DA01 is 215,390 nodes (21.5%), and its check takes 123–183 ms.
+7. **Size:** DA01 is 215,390 nodes (21.5%), and its check takes 123–183 ms from the command line (167 ms in the test harness).
 8. **Doc claims:** confirmed, with the wording notes below.
 
 **Non-substantive findings and follow-ups.**
