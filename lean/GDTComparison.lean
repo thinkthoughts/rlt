@@ -39,6 +39,15 @@ theorem d_30_1 : d 30 1 = 1 := by simp [d, rad]
 theorem R_30_1 : R 30 1 = 30 := by simp [R, d_30_1, rad_30]
 theorem Tmin_30_1 : Tmin 30 1 = 30 := by simp [Tmin, R_30_1]
 
+/-- RLT-003 M3e: below 30, GDT's accepted set is the free235 set RLT's E-T1
+classifies: accepted 30 1 0 n holds exactly when ¬ 2 ∣ n ∧ ¬ 3 ∣ n ∧ ¬ 5 ∣ n. -/
+theorem accepted_iff_free235 :
+    ∀ n, n < 30 → (accepted 30 1 0 n ↔ ((¬ 2 ∣ n ∧ ¬ 3 ∣ n) ∧ ¬ 5 ∣ n)) := by
+  intro n hn
+  rw [accepted_30_1_0_iff]
+  revert n
+  decide
+
 end RLTGDTComparison
 
 -- Audit gate: each statement may rest only on Lean's standard axioms
@@ -50,3 +59,4 @@ end RLTGDTComparison
 #print axioms RLTGDTComparison.d_30_1
 #print axioms RLTGDTComparison.R_30_1
 #print axioms RLTGDTComparison.Tmin_30_1
+#print axioms RLTGDTComparison.accepted_iff_free235
