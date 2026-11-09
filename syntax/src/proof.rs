@@ -4,10 +4,10 @@
 //! replays. Its one interpretive act — elaborating the written goal and
 //! written assumptions under the named convention — is reported verbatim.
 
-use crate::elab::{elaborate_formula, Convention};
+use crate::elab::{elaborate_formula, elaborate_prop, Convention};
 use crate::sexpr::{parse_all, Sexp};
 use crate::written::Written;
-use rlt_kernel::{Arg, Axiom, Formula, Mode, ProofObject, Step, Term};
+use rlt_kernel::{Arg, Axiom, Formula, Mode, ProofObject, Prop, Step, Term};
 
 #[derive(Clone, Debug)]
 pub struct ProofFile {
@@ -19,6 +19,8 @@ pub struct ProofFile {
     pub goal: Written,
     pub mode: Mode,
     pub assumptions: Vec<(String, Written)>,
+    /// Declared parameters (eigenvariables), `(params a b)`; RLT-003 M3a.
+    pub params: Vec<String>,
     /// Id of a registered axiom set (spec/axioms.yaml); never a path.
     pub axiom_set: String,
     pub steps: Vec<Step>,
@@ -52,6 +54,91 @@ pub fn term(e: &Sexp, vars: &[String]) -> Result<Term, String> {
     }
 }
 
+/// Names in scope while reading a step: declared parameters, declared
+/// assumption names, and the binders enclosing the current position
+/// (innermost last). Every name resolves once, into exactly one class.
+#[derive(Clone, Debug, Default)]
+pub struct Scope {
+    pub params: Vec<String>,
+    pub assumptions: Vec<String>,
+    pub binders: Vec<String>,
+}
+
+impl Scope {
+    fn bind(&self, x: &str) -> Result<Scope, String> {
+        if !is_ident(x) || x.chars().next().is_some_and(|c| c.is_ascii_uppercase()) {
+            return Err(format!(
+                "binder `{}`: use a lower-case identifier",
+                x.escape_debug()
+            ));
+        }
+        if self.binders.iter().any(|b| b == x)
+            || self.params.iter().any(|p| p == x)
+            || self.assumptions.iter().any(|a| a == x)
+        {
+            return Err(format!(
+                "shadowed name `{x}`: a binder may not reuse a binder, parameter or assumption name"
+            ));
+        }
+        let mut s = self.clone();
+        s.binders.push(x.to_string());
+        Ok(s)
+    }
+}
+
+/// A proof term with parameters and bound variables (RLT-003 M3a). With no
+/// parameters and no binders in scope it reads exactly as `term`.
+pub fn scoped_term(e: &Sexp, sc: &Scope) -> Result<Term, String> {
+    match e {
+        Sexp::Sym(s) => {
+            if let Some(k) = sc.binders.iter().rposition(|b| b == s) {
+                Ok(Term::Bound(sc.binders.len() - 1 - k))
+            } else if sc.params.contains(s) {
+                Ok(Term::Param(s.clone()))
+            } else {
+                term(e, &[])
+            }
+        }
+        Sexp::List(items) => match items.split_first() {
+            Some((Sexp::Sym(f), args)) => Ok(Term::App(
+                f.clone(),
+                args.iter()
+                    .map(|a| scoped_term(a, sc))
+                    .collect::<Result<_, _>>()?,
+            )),
+            _ => Err(format!("term: expected (symbol args…), found {e:?}")),
+        },
+        other => term(other, &[]),
+    }
+}
+
+/// A formula in proof syntax: `(= s t)`, `false`, `(and φ ψ)`, `(or φ ψ)`,
+/// `(imp φ ψ)`, `(not φ)` (read as `(imp φ false)`), `(forall x φ)`,
+/// `(exists x φ)`.
+pub fn prop(e: &Sexp, sc: &Scope) -> Result<Prop, String> {
+    let bin = |a: &Sexp, b: &Sexp| -> Result<(Box<Prop>, Box<Prop>), String> {
+        Ok((Box::new(prop(a, sc)?), Box::new(prop(b, sc)?)))
+    };
+    match (e, e.head()) {
+        (Sexp::Sym(s), _) if s == "false" => Ok(Prop::False),
+        (_, Some(("=", [a, b]))) => Ok(Prop::eq(scoped_term(a, sc)?, scoped_term(b, sc)?)),
+        (_, Some(("and", [a, b]))) => bin(a, b).map(|(x, y)| Prop::And(x, y)),
+        (_, Some(("or", [a, b]))) => bin(a, b).map(|(x, y)| Prop::Or(x, y)),
+        (_, Some(("imp", [a, b]))) => bin(a, b).map(|(x, y)| Prop::Imp(x, y)),
+        (_, Some(("not", [a]))) => Ok(Prop::Imp(Box::new(prop(a, sc)?), Box::new(Prop::False))),
+        (_, Some((q @ ("forall" | "exists"), [Sexp::Sym(x), body]))) => {
+            let inner = sc.bind(x)?;
+            let b = Box::new(prop(body, &inner)?);
+            Ok(if q == "forall" {
+                Prop::Forall(x.clone(), b)
+            } else {
+                Prop::Exists(x.clone(), b)
+            })
+        }
+        _ => Err(format!("formula: expected (= lhs rhs), found {e:?}")),
+    }
+}
+
 pub fn formula(e: &Sexp, vars: &[String]) -> Result<Formula, String> {
     match e.head() {
         Some(("=", [a, b])) => Ok(Formula::new(term(a, vars)?, term(b, vars)?)),
@@ -67,7 +154,7 @@ fn string_of(rest: &[Sexp], key: &str) -> Result<String, String> {
     }
 }
 
-fn step(e: &Sexp) -> Result<Step, String> {
+fn step(e: &Sexp, sc: &Scope) -> Result<Step, String> {
     let items = e
         .list()
         .ok_or("step: expected (label claim (rule args…))")?;
@@ -80,21 +167,66 @@ fn step(e: &Sexp) -> Result<Step, String> {
         .sym()
         .ok_or("step label must be a symbol")?
         .to_string();
-    let claim = formula(claim, &[]).map_err(|m| format!("step {label}: {m}"))?;
+    let claim = prop(claim, sc).map_err(|m| format!("step {label}: {m}"))?;
     let (rule_name, args) = rule
         .head()
         .ok_or(format!("step {label}: expected (rule args…)"))?;
+    let name = |a: &Sexp, what: &str| -> Result<Arg, String> {
+        match a {
+            Sexp::Sym(s) => Ok(Arg::Name(s.clone())),
+            other => Err(format!("step {label}: expected {what}, found {other:?}")),
+        }
+    };
+    let param = |a: &Sexp| -> Result<Arg, String> {
+        match a {
+            Sexp::Sym(s) if sc.params.contains(s) => Ok(Arg::Name(s.clone())),
+            Sexp::Sym(s) => Err(format!("step {label}: parameter `{s}` is undeclared")),
+            other => Err(format!(
+                "step {label}: expected a parameter name, found {other:?}"
+            )),
+        }
+    };
+    let label_arg = |a: &Sexp| -> Result<Arg, String> {
+        match a {
+            Sexp::Sym(s) => Ok(Arg::Step(s.clone())),
+            other => Err(format!(
+                "step {label}: expected a step label, found {other:?}"
+            )),
+        }
+    };
     let mut out = Vec::new();
     for (i, a) in args.iter().enumerate() {
         let arg = match (rule_name, i, a) {
-            ("refl", _, a) => Arg::Term(term(a, &[])?),
+            ("refl", _, a) => Arg::Term(scoped_term(a, sc)?),
             ("inst" | "cong" | "hyp", 0, Sexp::Sym(s)) => Arg::Name(s.clone()),
             ("inst", _, Sexp::List(b)) => match b.as_slice() {
-                [Sexp::Sym(v), t] => Arg::Bind(v.clone(), term(t, &[])?),
+                [Sexp::Sym(v), t] => Arg::Bind(v.clone(), scoped_term(t, sc)?),
                 _ => return Err(format!("step {label}: inst binding must be (var term)")),
             },
+            ("subst", 1, m) => match m.head() {
+                Some(("at", [Sexp::Sym(x), body])) => {
+                    let inner = sc
+                        .bind(x)
+                        .map_err(|e| format!("step {label}: motive: {e}"))?;
+                    let b = prop(body, &inner).map_err(|e| format!("step {label}: motive: {e}"))?;
+                    Arg::Motive(x.clone(), b)
+                }
+                _ => return Err(format!("step {label}: subst motive must be (at x formula)")),
+            },
+            ("or-cases", 1 | 3, a) => name(a, "an assumption name")?,
+            ("imp-intro", 0, a) => name(a, "an assumption name")?,
+            ("exists-elim", 2, a) => name(a, "an assumption name")?,
+            ("forall-intro", 0, a) | ("exists-elim", 1, a) => param(a)?,
+            ("forall-elim", 1, a) | ("exists-intro", 0, a) => Arg::Term(scoped_term(a, sc)?),
+            (
+                "subst" | "and-intro" | "and-left" | "and-right" | "or-left" | "or-right"
+                | "or-cases" | "imp-intro" | "imp-elim" | "false-elim" | "forall-intro"
+                | "forall-elim" | "exists-intro" | "exists-elim",
+                _,
+                a,
+            ) => label_arg(a)?,
             (_, _, Sexp::Sym(s)) => Arg::Step(s.clone()),
-            (_, _, other) => Arg::Term(term(other, &[])?),
+            (_, _, other) => Arg::Term(scoped_term(other, sc)?),
         };
         out.push(arg);
     }
@@ -176,9 +308,38 @@ pub fn parse_proof_file(src: &str) -> Result<ProofFile, String> {
         goal: Written::new(""),
         mode: Mode::Unconditional,
         assumptions: Vec::new(),
+        params: Vec::new(),
         axiom_set: String::new(),
         steps: Vec::new(),
     };
+    // Parameters and assumption names are read first: steps resolve names against them.
+    let mut scope = Scope::default();
+    for f in fields {
+        match f.head() {
+            Some(("params", names)) => {
+                for n in names {
+                    match n {
+                        Sexp::Sym(s)
+                            if is_ident(s)
+                                && s.chars().next().is_some_and(|c| c.is_ascii_lowercase()) =>
+                        {
+                            if scope.params.contains(s) {
+                                return Err(format!("parameter `{s}` declared twice"));
+                            }
+                            scope.params.push(s.clone())
+                        }
+                        other => {
+                            return Err(format!(
+                                "(params …): parameter names are lower-case identifiers, found {other:?}"
+                            ))
+                        }
+                    }
+                }
+            }
+            Some(("assume", [Sexp::Sym(n), ..])) => scope.assumptions.push(n.clone()),
+            _ => {}
+        }
+    }
     let mut mode_seen = false;
     let mut seen_keys: Vec<String> = Vec::new();
     for f in fields {
@@ -226,7 +387,13 @@ pub fn parse_proof_file(src: &str) -> Result<ProofFile, String> {
                 }
                 _ => return Err("(assume NAME \"written formula\")".into()),
             },
-            "steps" => pf.steps = rest.iter().map(step).collect::<Result<_, _>>()?,
+            "params" => pf.params = scope.params.clone(),
+            "steps" => {
+                pf.steps = rest
+                    .iter()
+                    .map(|e| step(e, &scope))
+                    .collect::<Result<_, _>>()?
+            }
             other => return Err(format!("unknown field `{other}`")),
         }
     }
@@ -249,12 +416,12 @@ pub fn parse_proof_file(src: &str) -> Result<ProofFile, String> {
 impl ProofFile {
     /// Elaborate the written goal and assumptions, giving the kernel's proof object.
     pub fn to_proof_object(&self, conv: &Convention) -> Result<ProofObject, String> {
-        let goal = elaborate_formula(&self.goal, conv).map_err(|e| format!("goal: {e}"))?;
+        let goal = elaborate_goal(&self.goal, conv).map_err(|e| format!("goal: {e}"))?;
         let assumptions = self
             .assumptions
             .iter()
             .map(|(n, w)| {
-                elaborate_formula(w, conv)
+                elaborate_goal(w, conv)
                     .map(|f| (n.clone(), f))
                     .map_err(|e| format!("assume {n}: {e}"))
             })
@@ -263,8 +430,29 @@ impl ProofFile {
             goal,
             mode: self.mode,
             assumptions,
+            params: self.params.clone(),
             steps: self.steps.clone(),
         })
+    }
+}
+
+/// A written goal: an equation reads exactly as before (RLT-001 to M2,
+/// including every error message); a written formula with logical symbols
+/// reads through `elaborate_prop` when the convention lists them.
+pub fn elaborate_goal(w: &Written, conv: &Convention) -> Result<Prop, String> {
+    match elaborate_formula(w, conv) {
+        Ok(f) => Ok(Prop::Eq(f)),
+        Err(e) => {
+            let logical = w.tokens.iter().any(|t| {
+                crate::elab::CONNECTIVES.contains(&t.as_str())
+                    || t.chars().all(|c| c.is_ascii_lowercase())
+            });
+            if logical && !conv.connectives.is_empty() {
+                elaborate_prop(w, conv)
+            } else {
+                Err(e)
+            }
+        }
     }
 }
 

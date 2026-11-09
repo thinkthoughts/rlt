@@ -1,0 +1,25 @@
+id: NAT-LOGIC
+authority: interpretation   # selects a reading of notation; proofs come only from the kernel
+sources: []
+origin: rlt-authored        # RLT-003 M3a: written first-order formulas over NAT-DEC's arithmetic
+
+# Executable fields: they decide what a written expression elaborates to.
+# Pinned in the binary (PINNED_CONVENTIONS, interpretation digest).
+executable:
+  elaborator: nat-dec
+  operators: ["+", "×"]
+  connectives: ["⊥", "¬", "∧", "∨", "→", "∀", "∃"]
+
+# Explanation: prose no check uses to elaborate. Pinned separately
+# (PINNED_CONVENTIONS, explanation digest), so a prose edit needs review too.
+explanation:
+  title: Written first-order formulas over decimal natural-number arithmetic
+  reading:
+    - "Numerals, +, ×, = and parentheses read exactly as in NAT-DEC: every NAT-DEC equation elaborates to the same kernel term under NAT-LOGIC."
+    - "⊥ denotes falsity; ¬A reads A → ⊥; ∧, ∨ and → denote and, or and implies."
+    - "Tightest first: =, ¬, ∧, ∨, →. ∧ and ∨ group to the left; → groups to the right."
+    - "∀x. and ∃x. bind a variable x (one lower-case letter) ranging over the natural numbers; the quantified formula extends as far right as possible."
+  limits:
+    - "A free variable, or a quantifier that reuses a variable already bound, is refused."
+    - "<, ≤, ∣, ≠, mod and units are outside NAT-LOGIC (RLT-003 M3b adds definitions)."
+    - "NAT-DEC is unchanged: proof files that name NAT-DEC read equations only, exactly as before RLT-003 M3a."

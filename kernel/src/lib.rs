@@ -10,9 +10,11 @@
 //! inputs; they carry zero proof authority.
 
 pub mod check;
+pub mod prop;
 pub mod rules;
 pub mod term;
 
 pub use check::{check, Arg, Mode, ProofObject, Step, Verdict, RULES};
+pub use prop::Prop;
 pub use rules::{Axiom, Theorem};
 pub use term::{Formula, Term};

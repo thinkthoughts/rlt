@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# RLT-001 verification (extended by RLT-002 and RLT-003 M1–M2): formatting, lints, build, unit and golden tests,
+# RLT-001 verification (extended by RLT-002 and RLT-003 M1, M2 and M3a): formatting, lints, build, unit and golden tests,
 # every proof file, written-layer cases, record validation, the Lean replay,
 # and the source-excerpt check. Writes verification/RLT-001-results.txt.
 # Exits 0 only if every stage holds.
@@ -118,6 +118,33 @@ for pin in "readingpoints/math29.yaml 828ca404210423cc3a2f8f82aa34ee6f1933262321
   [ "$(sha256sum "$f" | cut -d' ' -f1)" = "$want" ] && echo "$f unchanged (sha256 $want)" || { echo "  UNEXPECTED: $f changed"; fail=1; }
 done
 
+echo; echo "== logical checker, RLT-003 M3a (tests/m3a: accepted controls, rejected cases with reasons)"
+m3a_tmp=$(mktemp -d)
+if python3 -I scripts/gen-m3a-tests.py "$rlt" "$m3a_tmp" && diff -r tests/m3a "$m3a_tmp" >/dev/null; then
+  echo "scripts/gen-m3a-tests.py reproduces tests/m3a"
+else
+  echo "  UNEXPECTED: tests/m3a differs from scripts/gen-m3a-tests.py output"; fail=1
+fi
+rm -rf "$m3a_tmp"
+m3a_ok=0; m3a_n=0
+for f in tests/m3a/accept/*.rlt; do
+  m3a_n=$((m3a_n + 1))
+  "$rlt" check "$f" | grep -q '^verdict         ACCEPT — unconditional theorem' && m3a_ok=$((m3a_ok + 1)) || { echo "  UNEXPECTED: $f"; fail=1; }
+done
+echo "tests/m3a/accept: $m3a_ok of $m3a_n ACCEPT, unconditional"
+m3a_r=0; m3a_rn=0
+while IFS=$'\t' read -r f want reason; do
+  case "$f" in ''|'#'*) continue ;; esac
+  m3a_rn=$((m3a_rn + 1))
+  m3a_log=$("$rlt" check "$f"); m3a_code=$?
+  { [ "$m3a_code" = "$want" ] && echo "$m3a_log" | grep '^verdict' | grep -qF -- "$reason"; } && m3a_r=$((m3a_r + 1)) || { echo "  UNEXPECTED: $f exit $m3a_code (want $want): $(echo "$m3a_log" | grep '^verdict')"; fail=1; }
+done < tests/m3a/expected.tsv
+echo "tests/m3a/reject: $m3a_r of $m3a_rn refused with the required exit code and reason"
+if [ -n "${RLT_REFERENCE:-}" ]; then
+  # RLT_REFERENCE=BINARY:ROOT of the merged M2 main (bf3c9cc): byte-compare earlier reports (O4).
+  scripts/compare-reports.sh "${RLT_REFERENCE%%:*}" "${RLT_REFERENCE#*:}" "$rlt" . | grep -E '^(DIFF|proof files|differences)'
+fi
+
 echo; echo "== chemical notation (rlt chem; 0 interpreted, 1 uninterpreted)"
 for case in "CO₂:0" "O₂:0" "COO:1" "CO2:1" "O2:1"; do
   w=${case%:*}; want=${case##*:}
@@ -136,7 +163,7 @@ lean_bin=$(command -v lean || { [ -x "$HOME/.elan/bin/lean" ] && echo "$HOME/.el
 if [ -n "$lean_bin" ]; then
   # Run inside lean/ so elan selects lean/lean-toolchain. Any Lean message
   # other than the #print axioms lines (a warning, `sorry`, an error) fails.
-  lean_log=$(cd lean && "$lean_bin" --version && "$lean_bin" RLT001.lean && "$lean_bin" Generated.lean && "$lean_bin" M2Generated.lean && "$lean_bin" M2Readings.lean 2>&1); lean_code=$?
+  lean_log=$(cd lean && "$lean_bin" --version && "$lean_bin" RLT001.lean && "$lean_bin" Generated.lean && "$lean_bin" M2Generated.lean && "$lean_bin" M2Readings.lean && "$lean_bin" M3aGenerated.lean 2>&1); lean_code=$?
   echo "$lean_log"
   if [ $lean_code != 0 ] || echo "$lean_log" | grep -qiE "warning|error|sorry"; then
     echo "FAILED"; fail=1
@@ -147,6 +174,8 @@ if [ -n "$lean_bin" ]; then
   m2_listed=$(echo "$lean_log" | grep -cE "RLTM2Readings\..*(depends on axioms|does not depend on any axioms)")
   m2_bad=$(echo "$lean_log" | grep "RLTM2Readings\." | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound' | sort -u)
   { [ "$m2_listed" = "$m2_n" ] && [ -z "$m2_bad" ]; } && echo "M2Readings.lean: $m2_n statements, standard axioms only" || { echo "M2Readings.lean: axiom gate FAILED ($m2_listed of $m2_n listed; non-standard: $m2_bad)"; fail=1; }
+  m3a_regen=$(scripts/gen-m3a-lean.sh "$rlt")
+  [ "$m3a_regen" = "$(cat lean/M3aGenerated.lean)" ] && echo "M3aGenerated.lean is current ($(grep -c '^theorem' lean/M3aGenerated.lean) statements; Lean-checked over ℕ, outside the trusted base)" || { echo "M3aGenerated.lean is STALE (scripts/gen-m3a-lean.sh target/release/rlt > lean/M3aGenerated.lean)"; fail=1; }
   m2_regen=$(scripts/gen-m2-lean.sh "$rlt")
   [ "$m2_regen" = "$(cat lean/M2Generated.lean)" ] && echo "M2Generated.lean is current (111 statements; tier 1). M2Readings.lean compiled (tier 2; Lean-checked, not RLT theorems)" || { echo "M2Generated.lean is STALE (scripts/gen-m2-lean.sh target/release/rlt > lean/M2Generated.lean)"; fail=1; }
   regen=$("$rlt" lean tests/accept/*.rlt)

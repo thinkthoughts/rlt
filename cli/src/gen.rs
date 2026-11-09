@@ -28,7 +28,8 @@ fn sx(t: &Term) -> String {
             let inner: Vec<String> = args.iter().map(sx).collect();
             format!("({f} {})", inner.join(" "))
         }
-        Term::Var(v) => v.clone(),
+        Term::Var(v) | Term::Param(v) => v.clone(),
+        Term::Bound(i) => format!("#{i}"),
     }
 }
 
