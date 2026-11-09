@@ -10,7 +10,7 @@ Architecture review: <https://claude.ai/artifact/3LDhtmXQ9tBdK5sWbrLAgq>; its §
 - **General statements:** RLT proves ∀k. ¬(7 = d × k) and ¬(d ∣ 7) for d = 2, 3 and 5 under ROBINSON-Q. Each multiplication witness is eliminated as an eigenvariable, and a finite case tree built from Q3 closes every case with Q1 and Q2. No induction axiom is used.
 - **free235(7):** proved by citing the three independently checked non-divisibility theorems. Its report carries each dependency's file hash, proved formula, Γ, axiom set and axioms used.
 - **Kernel:** the 20 inference rules are unchanged. The only trusted addition is the approved citation mechanism (§2).
-- **Tests:** 9 accepted proofs and 31 rejected files behave as specified, and 15 further checks run as Rust tests.
+- **Tests:** 9 accepted proofs and 31 rejected files behave as specified, and 17 further checks run as Rust tests.
 - **Earlier results:** all 312 earlier proof-file reports are byte-identical to main 93e85a5, and so are the outputs of `rlt validate` and every record command.
 
 ## 1. What changed
@@ -22,7 +22,7 @@ Architecture review: <https://claude.ai/artifact/3LDhtmXQ9tBdK5sWbrLAgq>; its §
 | `cli/src/lib.rs` | `citation_path` (repository-relative `.rlt` path of plain components, checked on the raw spelling as well, no symlink at any level, a regular file at the end); `check_inner` with the citing chain (cycle refusal, at most `MAX_CITATION_DEPTH` = 8 citing files in a chain), a budget of `MAX_CITED_CHECKS` = 64 cited-file checks per top-level check, and the exact bytes that were hashed; `cites` report lines; definitions loaded from the parsed convention field (M3b audit note 1). |
 | `scripts/gen-m3c-tests.py` | Deterministic, untrusted generator for tests/m3c (D4). |
 | `tests/m3c/` | `accept/` CA01–CA09; `reject/` 31 files; `expected.tsv`. |
-| `cli/tests/m3c.rs` | 15 tests: accept and reject suites, CT1–CT3, CR14, CR23c, citation depth and work bounds, path spellings, convention mismatch, file swap, and three kernel-API refusals of forged or altered cited theorems. |
+| `cli/tests/m3c.rs` | 17 tests: accept and reject suites, CT1–CT3, CR14, CR23c, citation depth and work bounds, path spellings, convention mismatch, file swap, citations kept out of `rules used`, and three kernel-API refusals of forged or altered cited theorems. |
 | `lean/M3cGenerated.lean`, `scripts/gen-m3c-lean.sh` | Tier 1: the nine checked goals over ℕ. |
 | `lean/M3cReadings.lean` | Tier 2: six correspondence lemmas. |
 | `scripts/verify.sh` | M3c stage; Lean compile and per-theorem axiom gates for M3cGenerated, M3cReadings and M3aGenerated (M3b audit note 4); M3cGenerated regeneration check. |
@@ -44,7 +44,7 @@ Unchanged, checked by hash or byte comparison:
 3. **Hash.** The file is read once, and those bytes' SHA-256 must equal the recorded hash.
 4. **Check.** The cited file is checked from scratch on exactly those bytes, by the same function, with the citing chain extended.
 5. **Requirements on the result:** verdict ACCEPT, a kernel theorem, the same axiom set id as the citing file, the same convention, and Γ = ∅.
-6. **Report.** Six lines are printed: `cites` (label, path, cited proof id), `sha256`, `proved`, `assumptions`, `axiom set` and `axioms used`.
+6. **Report.** Six lines are printed: `cites` (label, path, cited proof id), `sha256`, `proved`, `assumptions`, `axiom set` and `axioms used`. After acceptance, `rules used` lists only the kernel inference rules the result rests on. A separate `theorems cited` line names the citations it rests on and calls them checked theorem dependencies, not inference rules.
 7. **Hand-off.** The kernel theorem that check returned is passed to the citing file's proof object.
 
 **What the kernel does.** Before replay, the kernel re-validates each cited `Theorem`:
@@ -97,10 +97,10 @@ Every one of these files uses exactly the seven ROBINSON-Q axioms. Their step la
 
 | Suite | Result |
 |---|---|
-| `cargo test` | all pass: 69 golden, 9 hardening, 44 M2, 8 M3a, 14 M3b, 15 M3c, 29 kernel, 21 syntax (209) |
+| `cargo test` | all pass: 69 golden, 9 hardening, 44 M2, 8 M3a, 14 M3b, 17 M3c, 29 kernel, 21 syntax (211) |
 | tests/m3c/accept | 9 of 9 ACCEPT as unconditional theorems under ROBINSON-Q |
 | tests/m3c/reject | 31 of 31 refused with the required exit code and reason (`expected.tsv`) |
-| Rust-run checks | CT1, CT2, CT3, CR14, CR23c (symlinked file and symlinked directory), citation depth (exactly 8 citing files accepted, 9 refused), citation work (62 checks accepted, 126 refused), `.` and empty path components refused, a cited theorem under another convention refused, cited file swapped for another proof of the same goal, kernel refusal of a foreign-axiom, a conditional and a parametric cited theorem, `cite` outside `RULES` with an undeclared label refused |
+| Rust-run checks | CT1, CT2, CT3, CR14, CR23c (symlinked file and symlinked directory), citation depth (exactly 8 citing files accepted, 9 refused), citation work (62 checks accepted, 126 refused), `.` and empty path components refused, a cited theorem under another convention refused, cited file swapped for another proof of the same goal, kernel refusal of a foreign-axiom, a conditional and a parametric cited theorem, `cite` outside `RULES` with an undeclared label refused, `rules used` naming only kernel rules across every accepted proof, a proof made only of a citation (`rules used none`) |
 | `verify.sh` | `RESULT all checks hold`. Generators reproduce tests/m3c byte for byte. M3cGenerated (9), M3cReadings (6), M3aGenerated (17) and every earlier Lean file compile under the standard-axiom gates. Source excerpts: 0 problems. |
 
 Rejected cases (exit code · refusing step and reason; exact substrings in `tests/m3c/expected.tsv`):
@@ -149,7 +149,7 @@ The reading points, RESIDUE-30, the axiom sets, the definitions and every conven
 ## 6. Report-format changes and deviations, for review
 
 1. **`cites` lines.** These are the approved addition (review §6). They appear only in files that cite.
-2. **`rules used` lists `cite`** in files with a citation step (CA05: `and-intro, cite`). The line names the step kinds the result rests on. `cite` is bookkeeping, absent from `RULES`, and the 20-rule count is unchanged.
+2. **`theorems cited` line.** Reusing an established theorem is reported apart from deriving one. `rules used` lists only kernel inference rules (CA05: `and-intro`; a proof made only of a citation: `none`). Citing files add one line: theorems cited · T2, T3, T4 — checked theorem dependencies (see `cites`), not inference rules. A Rust test checks every accepted proof in the repository: each name in `rules used` is one of the 20 `RULES`, and `cite` appears only as a dependency. Files without citations print no new line, so earlier reports are unchanged.
 3. **Citation failures are MALFORMED (exit 2).** The review table listed CR18 as REJECT. A citation failure (path, hash, cycle, depth, a cited file that does not check, a different axiom set or convention, a conditional theorem) means the citing file's input is invalid, so it is reported as MALFORMED. The nested verdict is quoted, and CR18 shows `REJECT at step e — …`. A citing step whose claim differs from the cited conclusion is a kernel REJECT (CR22, CR24).
 4. **CA09 added.** The review's CT2 asked for the witness-wise to ¬-form bridge "in a separate accepted demonstration". CA09 is that demonstration, and it obtains its premise by citing CA06. Accepted files: 9.
 5. **Step labels use underscores** (`L2_z_q2`) where the review sketched dots (`L2.z.c3`).
@@ -180,7 +180,7 @@ scripts/compare-reports.sh OLD_RLT OLD_ROOT target/release/rlt .   # OLD = main 
 **Method.** An auditor with no part in the implementation worked from a clean clone of 9dc3bd9 and built it from source. It reran the full suite and the comparison against a built 93e85a5. Its own work:
 - an s-expression counter, independent of CT1;
 - an independent scheme generator;
-- 70 attack files;
+- attack files: 70 derivation-attack files (56 + 14) in item 2, among 239 `.rlt` files the auditor wrote in all, including its citation, cycle, depth and fan-out cases (the auditor's counts, from its confirmation report);
 - a scratch kernel-API test.
 
 **Verdict.** Merge recommended. There are no substantive findings, and all six required checks pass:
@@ -202,6 +202,10 @@ scripts/compare-reports.sh OLD_RLT OLD_ROOT target/release/rlt .   # OLD = main 
 | 5 | No test isolated a convention mismatch | Added: a Rust test where a ROBINSON-Q NAT-LOGIC theorem cited from a NAT-DEF file is refused. |
 | 6 | README trusted-base section still said "the six rules" | Fixed: it now names the 20 rules and the citation mechanism. |
 | 7 | `verification/RLT-001-results.txt` records the commit before itself | Expected for a self-recording file. |
+
+**Final reporting corrections (approved 2026-11-09).**
+- **Audit counts:** the counts above are the auditor's exact figures.
+- **Citations reported apart:** citations are reported as theorem dependencies, apart from the 20 inference rules (§6 item 2). Two regression tests cover this.
 
 **After the follow-ups.**
 - `cargo test`: 209 of 209 pass.

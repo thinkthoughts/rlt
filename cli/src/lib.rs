@@ -765,11 +765,20 @@ fn check_inner(
                 .collect();
             let mut seen: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
             let mut rules: Vec<&str> = Vec::new();
+            let mut cited_used: Vec<&str> = Vec::new();
             while let Some(label) = needed.pop() {
                 if !seen.insert(label) {
                     continue;
                 }
                 if let Some(st) = po.steps.iter().find(|s| s.label == label) {
+                    // RLT-003 M3c: a citation reuses a checked theorem; it is a
+                    // dependency, reported apart from the inference rules.
+                    if st.rule == "cite" {
+                        if let [rlt_kernel::Arg::Name(c)] = st.args.as_slice() {
+                            cited_used.push(c.as_str());
+                        }
+                        continue;
+                    }
                     rules.push(st.rule.as_str());
                     for a in &st.args {
                         if let rlt_kernel::Arg::Step(r) = a {
@@ -780,7 +789,24 @@ fn check_inner(
             }
             rules.sort();
             rules.dedup();
-            let _ = writeln!(t, "rules used      {}", rules.join(", "));
+            let _ = writeln!(
+                t,
+                "rules used      {}",
+                if rules.is_empty() {
+                    "none".to_string()
+                } else {
+                    rules.join(", ")
+                }
+            );
+            if !pf.cites.is_empty() {
+                cited_used.sort();
+                cited_used.dedup();
+                let _ = writeln!(
+                    t,
+                    "theorems cited  {} — checked theorem dependencies (see `cites`), not inference rules",
+                    if cited_used.is_empty() { "none".to_string() } else { cited_used.join(", ") }
+                );
+            }
             // result kind describes scope for readers; it is computed only
             // after acceptance and never affects the verdict (M3a O9).
             let _ = writeln!(t, "result kind     {}", classify(th.conclusion()));

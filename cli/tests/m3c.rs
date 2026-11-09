@@ -492,3 +492,80 @@ fn kernel_cite_is_bookkeeping_not_a_rule() {
     let r = reason(check(&po, &robinson()));
     assert!(r.contains("is not a declared citation"), "{r}");
 }
+
+// ── Citations are dependencies, not inference rules ────────────────────────
+
+fn line<'a>(text: &'a str, key: &str) -> Option<&'a str> {
+    text.lines()
+        .find(|l| l.starts_with(key))
+        .map(|l| l[key.len()..].trim())
+}
+
+#[test]
+fn rules_used_names_only_kernel_rules_and_citations_are_listed_apart() {
+    // Every accepted proof file in the repository: `rules used` lists only
+    // members of the kernel's 20 RULES; `cite` never appears there.
+    let mut n = 0;
+    for dir in [
+        "tests/accept",
+        "tests/m3a/accept",
+        "tests/m3b/accept",
+        "tests/m3c/accept",
+    ] {
+        for f in files(dir) {
+            let r = check_file(&root(), &f);
+            if r.code != ACCEPT {
+                continue;
+            }
+            let used = line(&r.text, "rules used").expect("rules used line");
+            for name in used.split(", ").filter(|x| *x != "none") {
+                assert!(
+                    rlt_kernel::RULES.contains(&name),
+                    "{}: `{name}` in rules used is no kernel rule",
+                    f.display()
+                );
+            }
+            n += 1;
+        }
+    }
+    assert!(n > 40, "{n} accepted files checked");
+    let r = check_file(&root(), &root().join(CA05));
+    assert_eq!(line(&r.text, "rules used"), Some("and-intro"));
+    assert_eq!(
+        line(&r.text, "theorems cited"),
+        Some("T2, T3, T4 — checked theorem dependencies (see `cites`), not inference rules")
+    );
+    let r9 = check_file(
+        &root(),
+        &root().join("tests/m3c/accept/CA09_witnesswise_gives_not_dvd.rlt"),
+    );
+    assert_eq!(
+        line(&r9.text, "rules used"),
+        Some("exists-elim, forall-elim, hyp, imp-elim, imp-intro")
+    );
+    assert!(line(&r9.text, "theorems cited")
+        .unwrap()
+        .starts_with("T6 —"));
+    // Files without citations print no `theorems cited` line.
+    let r2 = check_file(&root(), &root().join(CA02));
+    assert!(line(&r2.text, "theorems cited").is_none(), "{}", r2.text);
+}
+
+#[test]
+fn a_proof_made_only_of_a_citation_uses_no_inference_rule() {
+    let s = scratch("onlycite");
+    let h = sha(&std::fs::read(s.join(CA02)).unwrap());
+    let f = "tests/m3c/onlycite.rlt";
+    std::fs::write(
+        s.join(f),
+        citing("M3c.Only", "T", CA02, &h, "(not (dvd 2 7))", "¬(2 ∣ 7)"),
+    )
+    .unwrap();
+    let r = check_file(&s, &s.join(f));
+    let _ = std::fs::remove_dir_all(&s);
+    assert_eq!(r.code, ACCEPT, "{}", r.text);
+    assert_eq!(line(&r.text, "rules used"), Some("none"));
+    assert!(line(&r.text, "theorems cited").unwrap().starts_with("T —"));
+    // The citation's formula, assumptions, axiom set and hash stay printed.
+    assert!(r.text.contains(&format!("cites           T = {CA02} (M3c.CA02)\n  sha256        {h}\n  proved        ¬(∃k. 7 = 2 × k)\n  assumptions   Γ = ∅\n  axiom set     ROBINSON-Q\n")), "{}", r.text);
+}
