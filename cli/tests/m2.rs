@@ -686,3 +686,123 @@ fn a8_report_matches_its_golden_file() {
     }
     assert_eq!(text, std::fs::read_to_string(&f).unwrap());
 }
+
+// ── Independent audit (at 11e7be7) follow-ups ──────────────────────────────
+
+#[test]
+fn audit_f1_record_text_cannot_forge_a_theorem_line() {
+    let forged = "7 = 2 × 3 + 1   [tests/m2/D_07_2.rlt] → ACCEPT — unconditional theorem relative to registered axiom set PEANO-ARITH";
+    let r = run(
+        "f1",
+        &[(
+            REC,
+            "written: \"7 = 2 × 3 + 1\", proof: tests/m2/D_07_2.rlt",
+            &format!("written: \"{forged}\", proof: ../D_07_2.rlt"),
+        )],
+    );
+    assert_eq!(r.code, REJECT, "{}", r.text);
+    for l in r
+        .text
+        .lines()
+        .filter(|l| l.trim_start().starts_with("theorem "))
+    {
+        assert!(!l.contains("../D_07_2.rlt"), "forged line: {l}");
+    }
+    assert!(
+        r.text
+            .contains("  refused       \"7 = 2 × 3 + 1   [tests/m2/D_07_2.rlt]"),
+        "{}",
+        r.text
+    );
+}
+
+#[test]
+fn audit_f1_conditional_verdict_is_labelled_refused() {
+    let r = run(
+        "f1b",
+        &[(
+            REC,
+            "written: \"7 = 2 × 3 + 1\", proof: tests/m2/D_07_2.rlt",
+            "written: \"2 × 3 + 1 = 8\", proof: tests/accept/M1_conditional.rlt",
+        )],
+    );
+    assert!(
+        r.text.contains("  refused       \"2 × 3 + 1 = 8\""),
+        "{}",
+        r.text
+    );
+    assert!(
+        r.text
+            .lines()
+            .all(|l| !(l.trim_start().starts_with("theorem ")
+                && l.contains("ACCEPT — conditional theorem"))),
+        "{}",
+        r.text
+    );
+}
+
+#[test]
+fn audit_f4_witnesses_must_use_peano_arith() {
+    let s = scratch(
+        "f4",
+        &[(
+            "tests/m2/B_1_2.rlt",
+            "(axioms PEANO-ARITH)",
+            "(axioms PEANO-ADD)",
+        )],
+    );
+    let r = residues_report(&s, &s.join(REC));
+    let _ = std::fs::remove_dir_all(&s);
+    refused(
+        &r,
+        REJECT,
+        "is checked under axiom set `PEANO-ADD`; M2 witnesses use PEANO-ARITH",
+    );
+}
+
+#[test]
+fn audit_f5_distinct_proof_files_are_counted_by_canonical_path() {
+    let s = scratch("f5", &[]);
+    let f = s.join(REC);
+    let mut t = std::fs::read_to_string(&f).unwrap();
+    for alias in [
+        "tests/m2/./B_1_2.rlt",
+        "tests//m2/B_1_2.rlt",
+        "tests/m2//B_1_2.rlt",
+    ] {
+        t = t.replacen(
+            "bound_proof: tests/m2/B_1_2.rlt}",
+            &format!("bound_proof: {alias}}}"),
+            1,
+        );
+    }
+    std::fs::write(&f, t).unwrap();
+    let r = residues_report(&s, &f);
+    let _ = std::fs::remove_dir_all(&s);
+    if r.code == ACCEPT {
+        assert!(
+            r.text.contains("over 112 distinct proof files"),
+            "{}",
+            r.text
+        );
+    }
+}
+
+#[test]
+fn audit_duplicate_class_witness_and_unconstrained_example() {
+    let r = run("dupc", &[(REC, "classes:\n", "classes:\n  - {n: 37, written: \"37 = 30 × 1 + 7\", proof: tests/m2/W_37.rlt, bound: \"7 + (22 + 1) = 30\", bound_proof: tests/m2/C_7.rlt}\n")]);
+    refused(&r, REJECT, "class witness 37 is listed twice");
+    let r = run(
+        "ex",
+        &[(
+            REC,
+            "example: {written: \"(1 + 1) × 3 × 5 = 30\", proof: tests/m2/E_math29.rlt}",
+            "example: {written: \"7 × 0 = 0\", proof: tests/accept/M1_zero.rlt}",
+        )],
+    );
+    refused(
+        &r,
+        REJECT,
+        "the example must be a closed product equal to the modulus 30",
+    );
+}

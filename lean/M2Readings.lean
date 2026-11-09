@@ -45,3 +45,12 @@ theorem class_witnesses :
 theorem eight : [1, 7, 11, 13, 17, 19, 23, 29].length = 8 := by decide
 
 end RLTM2Readings
+
+-- Audit gate: each statement may rest only on Lean's standard axioms
+-- (propext, Classical.choice, Quot.sound); the scripts refuse any other.
+#print axioms RLTM2Readings.classification_table
+#print axioms RLTM2Readings.rule_agrees_with_gcd
+#print axioms RLTM2Readings.gcd_table
+#print axioms RLTM2Readings.remainders_bounded
+#print axioms RLTM2Readings.class_witnesses
+#print axioms RLTM2Readings.eight

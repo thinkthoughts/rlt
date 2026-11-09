@@ -29,6 +29,9 @@ thread_local! {
 use std::fmt::Write as _;
 use std::path::Path;
 
+/// The axiom set every M2 witness, bound, example and tally is checked under.
+pub const M2_AXIOM_SET: &str = "PEANO-ARITH";
+
 /// Statements M2 leaves open, printed on every report.
 pub const NOT_ESTABLISHED: &str = "uniqueness of remainders · non-divisibility · gcd(r, 30) = 1 · completeness of the representatives · congruence · periodicity · statements about primes > 5";
 
@@ -80,31 +83,62 @@ fn bind(
         assumptions: Vec::new(),
     };
     let (out, res) = bind_proof(root, None, &rel);
-    let shown = out
-        .goal
+    // Audit F1: record text is printed only quoted (escaped), and the
+    // `theorem` label only for a goal the kernel accepted unconditionally
+    // under PEANO-ARITH and that the record binds. Anything else is `refused`.
+    let axioms_ok = out
+        .proof
         .as_ref()
-        .map(|g| g.to_string())
-        .unwrap_or_else(|| written.to_string());
+        .is_some_and(|p| p.axiom_set == M2_AXIOM_SET);
+    let bound = out.report.code == ACCEPT && res.is_ok() && axioms_ok;
+    let shown = match (&out.goal, bound) {
+        (Some(g), true) => g.to_string(),
+        _ => format!("{:?}", written),
+    };
+    let label = if bound {
+        "theorem      "
+    } else {
+        "refused      "
+    };
     let _ = writeln!(
         t,
-        "  theorem       {shown}   [{proof}] → {}",
+        "  {label} {shown}   [{}] → {}",
+        proof.escape_debug(),
         verdict_text(&out.report)
     );
     match (out.report.code, res) {
-        (ACCEPT, Ok(())) => {
-            ACCEPTED.with(|a| {
-                let mut a = a.borrow_mut();
-                a.0 += 1;
-                a.1.insert(proof.to_string());
-            });
-            out.goal
-        }
         (_, Err(e)) => {
             problems.push(format!("{who}: {e}"));
             None
         }
+        (ACCEPT, Ok(())) if !axioms_ok => {
+            problems.push(format!(
+                "{who}: {} is checked under axiom set `{}`; M2 witnesses use {M2_AXIOM_SET}",
+                proof.escape_debug(),
+                out.proof
+                    .as_ref()
+                    .map(|p| p.axiom_set.as_str())
+                    .unwrap_or("?")
+            ));
+            None
+        }
+        (ACCEPT, Ok(())) => {
+            // Audit F5: count proof files by canonical path, not by spelling.
+            let key = std::fs::canonicalize(root.join(proof))
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|_| proof.to_string());
+            ACCEPTED.with(|a| {
+                let mut a = a.borrow_mut();
+                a.0 += 1;
+                a.1.insert(key);
+            });
+            out.goal
+        }
         (_, Ok(())) => {
-            problems.push(format!("{who}: the kernel did not accept {proof}"));
+            problems.push(format!(
+                "{who}: the kernel did not accept {}",
+                proof.escape_debug()
+            ));
             None
         }
     }
@@ -324,7 +358,12 @@ pub fn residues_check(root: &Path, file: &Path) -> (String, Vec<String>, (usize,
     // Context: basis, quotations, references.
     let b = &rf.basis;
     let _ = writeln!(t, "context         {}", rf.id);
-    let _ = writeln!(t, "  basis         \"{}\"  [{}]", b.text, b.source);
+    let _ = writeln!(
+        t,
+        "  basis         {:?}  [{}]",
+        b.text,
+        b.source.escape_debug()
+    );
     let cite = |m: &Meaning, what: &str, problems: &mut Vec<String>| match reg.get(&m.source) {
         Some(src) if CITABLE.contains(&src.status.as_str()) => {
             match src.excerpts.iter().find(|x| x.units().contains(&m.text)) {
@@ -351,9 +390,9 @@ pub fn residues_check(root: &Path, file: &Path) -> (String, Vec<String>, (usize,
         let defines = cite(q, "quotation", &mut problems);
         let _ = writeln!(
             t,
-            "  quotation     \"{}\"  [{}]{} (quoted; the definition stays with its source)",
+            "  quotation     {:?}  [{}]{} (quoted; the definition stays with its source)",
             q.text,
-            q.source,
+            q.source.escape_debug(),
             defines
                 .map(|d| format!(" defines {d}; readingpoints/{d}.yaml is unchanged"))
                 .unwrap_or_default()
@@ -400,8 +439,10 @@ pub fn residues_check(root: &Path, file: &Path) -> (String, Vec<String>, (usize,
     );
     let _ = writeln!(
         t,
-        "  representatives {:?} quoted from [{}] \"{}\"",
-        rt.representatives, rt.quote.source, rt.quote.text
+        "  representatives {:?} quoted from [{}] {:?}",
+        rt.representatives,
+        rt.quote.source.escape_debug(),
+        rt.quote.text
     );
     let (_, line) = record_verdict(c0, &problems, &mut tally);
     let _ = writeln!(t, "  {line} (convention)");
@@ -508,9 +549,14 @@ pub fn residues_check(root: &Path, file: &Path) -> (String, Vec<String>, (usize,
     let _ = writeln!(t, "  {line}");
 
     // Class witnesses: n = modulus × q + r.
+    let mut class_seen: Vec<u64> = Vec::new();
     for c in &rf.classes {
         let k0 = problems.len();
         let _ = writeln!(t, "class witness {}", c.n);
+        if class_seen.contains(&c.n) {
+            problems.push(format!("{}: class witness {} is listed twice", rf.id, c.n));
+        }
+        class_seen.push(c.n);
         let who = format!("{}: class witness {}", rf.id, c.n);
         let g = check_witness(
             root,
@@ -541,7 +587,7 @@ pub fn residues_check(root: &Path, file: &Path) -> (String, Vec<String>, (usize,
     if let Some(ex) = &rf.example {
         let k0 = problems.len();
         let _ = writeln!(t, "example");
-        bind(
+        let g = bind(
             root,
             &format!("{}: example", rf.id),
             &ex.written,
@@ -549,6 +595,16 @@ pub fn residues_check(root: &Path, file: &Path) -> (String, Vec<String>, (usize,
             &mut t,
             &mut problems,
         );
+        // The example states the modulus as a closed product, as math29's
+        // (1 + 1) × 3 × 5 = 30 does.
+        if let Some(g) = g {
+            if g.rhs.as_numeral() != Some(rt.modulus) || app(&g.lhs, "*").is_none() {
+                problems.push(format!(
+                    "{}: the example must be a closed product equal to the modulus {}",
+                    rf.id, rt.modulus
+                ));
+            }
+        }
         let (_, line) = record_verdict(k0, &problems, &mut tally);
         let _ = writeln!(t, "  {line}");
     }

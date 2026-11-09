@@ -40,3 +40,13 @@ theorem R_30_1 : R 30 1 = 30 := by simp [R, d_30_1, rad_30]
 theorem Tmin_30_1 : Tmin 30 1 = 30 := by simp [Tmin, R_30_1]
 
 end RLTGDTComparison
+
+-- Audit gate: each statement may rest only on Lean's standard axioms
+-- (propext, Classical.choice, Quot.sound); the scripts refuse any other.
+#print axioms RLTGDTComparison.accepted_30_1_0_iff
+#print axioms RLTGDTComparison.S_30_29_1_0
+#print axioms RLTGDTComparison.primeFactors_30
+#print axioms RLTGDTComparison.rad_30
+#print axioms RLTGDTComparison.d_30_1
+#print axioms RLTGDTComparison.R_30_1
+#print axioms RLTGDTComparison.Tmin_30_1

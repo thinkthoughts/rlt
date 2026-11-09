@@ -1,5 +1,5 @@
 RLT-001 verification
-commit   feb03c93b3bdd8e744ab4faa721a32f41809c4d3
+commit   11e7be7bb93bf68d7791ba9f778252f80883f8b8
 rustc    rustc 1.97.0 (2d8144b78 2026-07-07)
 
 == format and lints
@@ -10,8 +10,8 @@ clippy   ok
 ok
 
 == cargo test (unit + golden)
-test result: ok. 69 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.52s
-test result: ok. 39 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.43s
+test result: ok. 69 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.60s
+test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.70s
 test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
@@ -100,7 +100,14 @@ Lean (version 4.34.0-rc2, x86_64-unknown-linux-gnu, commit 6a10ac8c22beadecabdbb
 'RLT001.T5a' does not depend on any axioms
 'RLT001.T5c' does not depend on any axioms
 'RLT001.T5b_unconditional_false' does not depend on any axioms
+'RLTM2Readings.classification_table' does not depend on any axioms
+'RLTM2Readings.rule_agrees_with_gcd' does not depend on any axioms
+'RLTM2Readings.gcd_table' does not depend on any axioms
+'RLTM2Readings.remainders_bounded' does not depend on any axioms
+'RLTM2Readings.class_witnesses' does not depend on any axioms
+'RLTM2Readings.eight' does not depend on any axioms
 ok
+M2Readings.lean: 6 statements, standard axioms only
 M2Generated.lean is current (111 statements; tier 1). M2Readings.lean compiled (tier 2; Lean-checked, not RLT theorems)
 Generated.lean is current
 

@@ -24,5 +24,9 @@ echo "$log"
 if [ $code != 0 ] || echo "$log" | grep -qiE "warning|error|sorry"; then
   unverified "lean/GDTComparison.lean did not compile cleanly"
 fi
-n=$(grep -c "^theorem" "$here/lean/GDTComparison.lean")
+n=$(grep -c "^theorem " "$here/lean/GDTComparison.lean")
+listed=$(echo "$log" | grep -cE "depends on axioms|does not depend on any axioms")
+[ "$listed" = "$n" ] || unverified "axioms listed for $listed of $n statements"
+bad=$(echo "$log" | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound' | sort -u)
+[ -z "$bad" ] || unverified "a statement depends on non-standard axioms: $bad"
 echo "GDT comparison: compiled at $pin (lean/GDTComparison.lean, $n statements; Lean-checked, not RLT theorems)"
