@@ -1,5 +1,5 @@
 //! RLT-003 M3a: the logical checker. Accepted controls A1–A15, rejected
-//! cases R1–R34 (each with its required exit code and reason, from
+//! cases R1–R37 (each with its required exit code and reason, from
 //! tests/m3a/expected.tsv), the cases that need a scratch repository (R26,
 //! R28), and the reporting obligation O9.
 
@@ -70,8 +70,8 @@ fn rejected_cases_fail_for_their_stated_reason() {
         n += 1;
     }
     assert_eq!(
-        n, 35,
-        "R1–R34 with R12, R22 and R23 in two files each, R26 and R28 below"
+        n, 38,
+        "R1–R37 with R12, R22 and R23 in two files each, R26 and R28 below"
     );
 }
 
@@ -168,15 +168,62 @@ fn earlier_proofs_keep_their_verdicts_under_nat_dec() {
     for d in ["tests/accept", "tests/reject", "tests/m1", "tests/m2"] {
         rlt_files(&root().join(d), &mut files);
     }
+    let m1_text = std::fs::read_to_string(root().join("tests/m1/expected.tsv")).unwrap();
+    let m1_expected: Vec<(String, i32)> = m1_text
+        .lines()
+        .filter(|l| l.starts_with("tests/"))
+        .map(|l| {
+            let mut c = l.split('\t');
+            (
+                c.next().unwrap().to_string(),
+                c.next().unwrap().parse().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(m1_expected.len(), 18);
     for f in &files {
         let text = std::fs::read_to_string(f).unwrap();
         assert!(!text.contains("NAT-LOGIC"), "{}", f.display());
         let r = check_file(&root(), f);
-        let want = if f.starts_with(root().join("tests/reject")) {
+        // Each earlier file's expected exit code, independent of this run
+        // (audit at 6ba9f1e, weakness 5): accept/ and m2/ accept, reject/
+        // rejects, and m1/ follows its own expected.tsv.
+        let rel = f.strip_prefix(root()).unwrap().display().to_string();
+        let want = if rel.starts_with("tests/reject") {
             REJECT
+        } else if rel.starts_with("tests/m1") {
+            m1_expected
+                .iter()
+                .find(|(file, _)| *file == rel)
+                .map(|(_, c)| *c)
+                .unwrap_or(ACCEPT)
         } else {
-            r.code
+            ACCEPT
         };
         assert_eq!(r.code, want, "{}", f.display());
     }
+}
+
+#[test]
+fn o8_open_refuses_an_instantiation_over_the_node_limit() {
+    // forall-elim of a body with many occurrences of its variable, opened
+    // with a large term (fixture from the audit at 6ba9f1e): refused before
+    // the result is built (O8).
+    let text =
+        std::fs::read_to_string(root().join("cli/tests/fixtures/O8_open_limit.rlt")).unwrap();
+    let s = std::env::temp_dir().join(format!("rlt-m3a-o8-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&s);
+    for d in ["sources", "conventions", "spec"] {
+        copy_dir(&root().join(d), &s.join(d));
+    }
+    std::fs::create_dir_all(s.join("tests")).unwrap();
+    std::fs::write(s.join("tests/O8.rlt"), text).unwrap();
+    let r = check_file(&s, &s.join("tests/O8.rlt"));
+    let _ = std::fs::remove_dir_all(&s);
+    assert_eq!(r.code, REJECT, "{}", r.text);
+    assert!(
+        verdict(&r.text).contains("above the limit 1000000"),
+        "{}",
+        r.text
+    );
 }

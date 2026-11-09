@@ -336,7 +336,10 @@ impl Parser<'_> {
         if self.peek() == Some("(") {
             // A parenthesised formula, or an equation whose left side starts
             // with a parenthesised term: try the formula, then the equation.
+            // Backtracking restores every piece of parser state, the bound
+            // names included (audit at 6ba9f1e, hygiene).
             let save = (self.pos, self.depth, self.numeral_total, self.operators);
+            let saved_vars = self.vars.clone();
             self.pos += 1;
             if let Ok(p) = self.imp(c) {
                 if self.peek() == Some(")") {
@@ -345,6 +348,7 @@ impl Parser<'_> {
                 }
             }
             (self.pos, self.depth, self.numeral_total, self.operators) = save;
+            self.vars = saved_vars;
         }
         let lhs = self.expr()?;
         self.expect("=")?;

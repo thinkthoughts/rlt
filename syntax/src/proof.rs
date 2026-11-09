@@ -213,6 +213,15 @@ fn step(e: &Sexp, sc: &Scope) -> Result<Step, String> {
                 }
                 _ => return Err(format!("step {label}: subst motive must be (at x formula)")),
             },
+            // Discharged names are assumption names: identifiers, like
+            // declared ones (audit at 6ba9f1e, weakness 1).
+            ("or-cases", 1 | 3, Sexp::Sym(s)) | ("imp-intro", 0, Sexp::Sym(s)) | ("exists-elim", 2, Sexp::Sym(s))
+                if !is_ident(s) =>
+            {
+                return Err(format!(
+                    "step {label}: assumption name {s:?} is not an identifier (ASCII letters, digits, _)"
+                ))
+            }
             ("or-cases", 1 | 3, a) => name(a, "an assumption name")?,
             ("imp-intro", 0, a) => name(a, "an assumption name")?,
             ("exists-elim", 2, a) => name(a, "an assumption name")?,

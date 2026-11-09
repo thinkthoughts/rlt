@@ -1771,7 +1771,16 @@ pub fn lean_export(root: &Path, files: &[PathBuf]) -> Report {
             }
             _ => String::new(),
         };
-        let tactic = if th.conclusion().as_eq().is_none() {
+        // Assumptions that are not equations: their truth in ℕ is not
+        // evaluated here (audit at 6ba9f1e, weakness 3), so the replay says so
+        // and Lean is offered the full tactic list.
+        let unclassified: Vec<&str> = th
+            .assumptions()
+            .iter()
+            .filter(|(_, phi)| phi.as_eq().is_none())
+            .map(|(n, _)| n.as_str())
+            .collect();
+        let tactic = if th.conclusion().as_eq().is_none() || !unclassified.is_empty() {
             format!("first | {witness}decide | omega | (intros; omega) | simp | (intros; simp_all)")
         } else if th.is_unconditional() {
             "decide".to_string()
@@ -1793,6 +1802,13 @@ pub fn lean_export(root: &Path, files: &[PathBuf]) -> Report {
                 t,
                 "-- VACUOUS REPLAY: hypothesis {} is false in ℕ, so `omega` proves any statement from it.\n-- This theorem confirms only that the statement is stated with RLT's Γ; it adds no evidence.",
                 false_hyps.join(", ")
+            );
+        }
+        if !unclassified.is_empty() {
+            let _ = writeln!(
+                t,
+                "-- UNCLASSIFIED HYPOTHESIS: {} is not an equation; whether it is false in ℕ is not checked here,\n-- so this replay may be vacuous. If Lean's tactics do not close it, compilation fails visibly.",
+                unclassified.join(", ")
             );
         }
         let _ = writeln!(

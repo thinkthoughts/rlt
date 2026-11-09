@@ -285,6 +285,19 @@ rej("R34_motive_shadows_parameter", 2, "shadowed name `a`", proof("R34", G, [
     "(s1 (= 0 0) (refl 0))",
     "(s2 (= 0 0) (subst s1 (at a (= 0 0)) s1))"], params="a"))
 
+# Audit at 6ba9f1e: hardening cases (weaknesses 1, 2, 4, 7).
+rej("R35_vacuous_discharge_binds_other_formula", 1, "local name `w` is bound to two formulas", proof("R35", "(∃x. x = 1) → 0 = 0", [
+    "(s1 (exists x (= x 1)) (hyp w))",
+    "(s2 (= 0 0) (refl 0))",
+    "(s3 (= 0 0) (exists-elim s1 a w s2))",
+    "(s4 (imp (exists x (= x 1)) (= 0 0)) (imp-intro w s3))"], params="a"))
+rej("R36_local_named_like_rule", 1, "local name `refl` collides with a parameter, axiom or rule name", proof("R36", "0 = 0 → 0 = 0", [
+    "(s1 (= 0 0) (hyp refl))",
+    "(s2 (imp (= 0 0) (= 0 0)) (imp-intro refl s1))"]))
+rej("R37_local_name_not_identifier", 2, "is not an identifier", proof("R37", "0 = 0 → 0 = 0", [
+    "(s1 (= 0 0) (hyp h\u202e))",
+    "(s2 (imp (= 0 0) (= 0 0)) (imp-intro h\u202e s1))"]))
+
 os.makedirs(os.path.join(out, "accept"), exist_ok=True)
 os.makedirs(os.path.join(out, "reject"), exist_ok=True)
 for name, text in accept.items():

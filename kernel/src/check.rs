@@ -119,6 +119,38 @@ fn premise<'a>(done: &'a BTreeMap<String, Theorem>, arg: &Arg) -> Result<&'a The
     }
 }
 
+/// The (name, formula) pairs an accepted discharging step discharges.
+fn discharged_formulas(step: &Step, done: &BTreeMap<String, Theorem>) -> Vec<(String, Prop)> {
+    let concl = |a: Option<&Arg>| match a {
+        Some(Arg::Step(l)) => done.get(l).map(|t| t.conclusion().clone()),
+        _ => None,
+    };
+    let name = |a: Option<&Arg>| match a {
+        Some(Arg::Name(n)) => Some(n.clone()),
+        _ => None,
+    };
+    let a = &step.args;
+    match step.rule.as_str() {
+        "imp-intro" => match (&step.claim, name(a.first())) {
+            (Prop::Imp(phi, _), Some(h)) => vec![(h, (**phi).clone())],
+            _ => vec![],
+        },
+        "or-cases" => match (concl(a.first()), name(a.get(1)), name(a.get(3))) {
+            (Some(Prop::Or(l, r)), Some(h1), Some(h2)) => {
+                vec![(h1, (*l).clone()), (h2, (*r).clone())]
+            }
+            _ => vec![],
+        },
+        "exists-elim" => match (concl(a.first()), name(a.get(1)), name(a.get(2))) {
+            (Some(Prop::Exists(_, body)), Some(p), Some(h)) => {
+                vec![(h, body.open(&Term::Param(p)))]
+            }
+            _ => vec![],
+        },
+        _ => vec![],
+    }
+}
+
 struct Ctx<'a> {
     done: &'a BTreeMap<String, Theorem>,
     axioms: &'a BTreeMap<String, Axiom>,
@@ -394,11 +426,11 @@ pub fn check(proof: &ProofObject, axioms: &[Axiom]) -> Verdict {
         .collect();
     if let Some(n) = locals
         .iter()
-        .find(|n| params.contains(*n) || axioms.contains_key(*n))
+        .find(|n| params.contains(*n) || axioms.contains_key(*n) || RULES.contains(&n.as_str()))
     {
         return reject(
             None,
-            format!("local name `{n}` collides with a parameter or axiom name"),
+            format!("local name `{n}` collides with a parameter, axiom or rule name"),
         );
     }
     let mut local_formula: BTreeMap<String, Prop> = BTreeMap::new();
@@ -455,6 +487,27 @@ pub fn check(proof: &ProofObject, axioms: &[Axiom]) -> Verdict {
                     th.conclusion()
                 ),
             );
+        }
+        // One formula per local name also at discharges (audit at 6ba9f1e,
+        // weakness 2): the formula a discharging step requires for its name
+        // must agree with every other use of that name, even when the
+        // discharge is vacuous.
+        for (h, f) in discharged_formulas(step, &done) {
+            if !locals.contains(&h) {
+                continue;
+            }
+            match local_formula.get(&h) {
+                Some(g) if g != &f => {
+                    return reject(
+                        label,
+                        format!("local name `{h}` is bound to two formulas: `{g}` and `{f}`"),
+                    )
+                }
+                Some(_) => {}
+                None => {
+                    local_formula.insert(h, f);
+                }
+            }
         }
         done.insert(step.label.clone(), th.clone());
         last = Some(th);

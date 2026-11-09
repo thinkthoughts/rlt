@@ -22,7 +22,7 @@ for c in "${cmds[@]}"; do
 done
 for a in tests/written/*.args; do
   mapfile -t w < "$a"
-  x=$(old written "${w[@]}"); y=$(new written "${w[@]}")
+  x=$(old written "${w[@]}"; echo "exit $?"); y=$(new written "${w[@]}"; echo "exit $?")
   [ "$x" = "$y" ] || { d=$((d+1)); echo "DIFF $a"; }
 done
 x=$(old lean tests/accept/*.rlt); y=$(new lean tests/accept/*.rlt)
