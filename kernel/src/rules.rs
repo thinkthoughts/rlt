@@ -314,7 +314,9 @@ pub fn subst(eq: &Theorem, motive: &Prop, th: &Theorem) -> Result<Theorem, Strin
     motive
         .check_wf(1)
         .map_err(|m| format!("subst: motive: {m}"))?;
-    let left = motive.open(&e.lhs);
+    let left = motive
+        .open_checked(&e.lhs)
+        .map_err(|m| format!("subst: {m}"))?;
     if th.concl != left {
         return Err(format!(
             "subst: motive does not match premise: the motive at `{}` gives `{left}`, the premise proves `{}`",
@@ -324,7 +326,9 @@ pub fn subst(eq: &Theorem, motive: &Prop, th: &Theorem) -> Result<Theorem, Strin
     let (hyps, axioms) = union(&[eq, th])?;
     Ok(Theorem {
         hyps,
-        concl: motive.open(&e.rhs),
+        concl: motive
+            .open_checked(&e.rhs)
+            .map_err(|m| format!("subst: {m}"))?,
         axioms,
     })
 }
@@ -481,7 +485,9 @@ pub fn forall_elim(th: &Theorem, t: &Term) -> Result<Theorem, String> {
     match &th.concl {
         Prop::Forall(_, body) => Ok(Theorem {
             hyps: th.hyps.clone(),
-            concl: body.open(t),
+            concl: body
+                .open_checked(t)
+                .map_err(|m| format!("forall-elim: {m}"))?,
             axioms: th.axioms.clone(),
         }),
         other => Err(format!(
@@ -494,7 +500,9 @@ pub fn forall_elim(th: &Theorem, t: &Term) -> Result<Theorem, String> {
 pub fn exists_intro(hint: &str, body: &Prop, t: &Term, th: &Theorem) -> Result<Theorem, String> {
     closed_term("exists-intro", t)?;
     body.check_wf(1).map_err(|m| format!("exists-intro: {m}"))?;
-    let inst = body.open(t);
+    let inst = body
+        .open_checked(t)
+        .map_err(|m| format!("exists-intro: {m}"))?;
     if th.concl != inst {
         return Err(format!(
             "exists-intro: witness does not match premise: `{t}` gives `{inst}`, the premise proves `{}`",
@@ -533,7 +541,9 @@ pub fn exists_elim(ex: &Theorem, a: &str, h: &str, th: &Theorem) -> Result<Theor
             th.concl
         ));
     }
-    let witness = body.open(&Term::Param(a.to_string()));
+    let witness = body
+        .open_checked(&Term::Param(a.to_string()))
+        .map_err(|m| format!("exists-elim: {m}"))?;
     let rest = discharge("exists-elim", &th.hyps, h, &witness)?;
     if params_of(&rest).contains(a) {
         return Err(format!(

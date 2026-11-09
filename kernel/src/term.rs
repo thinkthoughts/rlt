@@ -122,6 +122,25 @@ impl Term {
         }
     }
 
+    /// Node count of this term (each symbol, variable or index counts one).
+    pub fn size(&self) -> u64 {
+        match self {
+            Term::App(_, args) => args.iter().fold(1u64, |a, t| a.saturating_add(t.size())),
+            _ => 1,
+        }
+    }
+
+    /// Occurrences of `Bound(k)` (the index opened at depth k) in this term.
+    pub(crate) fn bound_occurrences(&self, k: usize) -> u64 {
+        match self {
+            Term::Bound(i) if *i == k => 1,
+            Term::App(_, args) => args
+                .iter()
+                .fold(0u64, |a, t| a.saturating_add(t.bound_occurrences(k))),
+            _ => 0,
+        }
+    }
+
     /// Parameter names occurring in this term.
     pub fn params(&self, out: &mut std::collections::BTreeSet<String>) {
         match self {

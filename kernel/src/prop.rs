@@ -53,6 +53,10 @@ impl Eq for Prop {}
 /// Upper bound on binder and connective nesting in one formula.
 pub const MAX_PROP_DEPTH: usize = 256;
 
+/// Upper bound on the nodes of one formula the kernel builds (the proof-file
+/// node limit, RLT-003 M3a obligation O8). `open` checks it before building.
+pub const MAX_PROP_NODES: u64 = 1_000_000;
+
 fn check_term(t: &Term, depth: usize) -> Result<(), String> {
     match t {
         Term::Var(v) => Err(format!(
@@ -140,6 +144,65 @@ impl Prop {
         matches!(self, Prop::Eq(f) if !f.lhs.has_param_or_bound() && !f.rhs.has_param_or_bound())
     }
 
+    /// Node count: connectives, binders and every term node.
+    pub fn size(&self) -> u64 {
+        match self {
+            Prop::Eq(f) => 1u64
+                .saturating_add(f.lhs.size())
+                .saturating_add(f.rhs.size()),
+            Prop::False => 1,
+            Prop::And(a, b) | Prop::Or(a, b) | Prop::Imp(a, b) => {
+                1u64.saturating_add(a.size()).saturating_add(b.size())
+            }
+            Prop::Forall(_, b) | Prop::Exists(_, b) => 1u64.saturating_add(b.size()),
+        }
+    }
+
+    fn occurrences(&self, k: usize) -> u64 {
+        match self {
+            Prop::Eq(f) => f
+                .lhs
+                .bound_occurrences(k)
+                .saturating_add(f.rhs.bound_occurrences(k)),
+            Prop::False => 0,
+            Prop::And(a, b) | Prop::Or(a, b) | Prop::Imp(a, b) => {
+                a.occurrences(k).saturating_add(b.occurrences(k))
+            }
+            Prop::Forall(_, b) | Prop::Exists(_, b) => b.occurrences(k + 1),
+        }
+    }
+
+    /// Node count of open(self, t), computed without building it.
+    pub fn open_size(&self, t: &Term) -> u64 {
+        self.size().saturating_add(
+            self.occurrences(0)
+                .saturating_mul(t.size().saturating_sub(1)),
+        )
+    }
+
+    /// open, refused before building when the result would exceed
+    /// `MAX_PROP_NODES` (O8).
+    pub fn open_checked(&self, t: &Term) -> Result<Prop, String> {
+        let n = self.open_size(t);
+        if n > MAX_PROP_NODES {
+            return Err(format!(
+                "the instantiated formula would have {n} nodes, above the limit {MAX_PROP_NODES}"
+            ));
+        }
+        Ok(self.open(t))
+    }
+
+    /// Whether this formula has a quantifier anywhere.
+    pub fn has_quantifier(&self) -> bool {
+        match self {
+            Prop::Eq(_) | Prop::False => false,
+            Prop::And(a, b) | Prop::Or(a, b) | Prop::Imp(a, b) => {
+                a.has_quantifier() || b.has_quantifier()
+            }
+            Prop::Forall(..) | Prop::Exists(..) => true,
+        }
+    }
+
     fn map_terms(&self, k: usize, g: &dyn Fn(&Term, usize) -> Term) -> Prop {
         match self {
             Prop::Eq(f) => Prop::Eq(Formula::new(g(&f.lhs, k), g(&f.rhs, k))),
@@ -163,6 +226,18 @@ impl Prop {
     }
 
     fn render(&self, names: &mut Vec<String>, kernel: bool, top: bool) -> String {
+        let mut avoid = BTreeSet::new();
+        self.params(&mut avoid);
+        self.render_avoiding(names, &avoid, kernel, top)
+    }
+
+    fn render_avoiding(
+        &self,
+        names: &mut Vec<String>,
+        avoid: &BTreeSet<String>,
+        kernel: bool,
+        top: bool,
+    ) -> String {
         let term = |t: &Term, names: &[String]| {
             if kernel {
                 t.kernel_form_in(names)
@@ -171,7 +246,7 @@ impl Prop {
             }
         };
         let sub = |p: &Prop, names: &mut Vec<String>| {
-            let s = p.render(names, kernel, false);
+            let s = p.render_avoiding(names, avoid, kernel, false);
             match p {
                 Prop::Eq(_) | Prop::False => s,
                 Prop::Imp(_, b) if **b == Prop::False => s,
@@ -183,7 +258,7 @@ impl Prop {
             Prop::Eq(f) => format!("{} = {}", term(&f.lhs, names), term(&f.rhs, names)),
             Prop::False => "⊥".to_string(),
             Prop::Imp(a, b) if **b == Prop::False => match **a {
-                Prop::Eq(_) => format!("¬({})", a.render(names, kernel, false)),
+                Prop::Eq(_) => format!("¬({})", a.render_avoiding(names, avoid, kernel, false)),
                 _ => format!("¬{}", sub(a, names)),
             },
             Prop::And(a, b) => format!("{} ∧ {}", sub(a, names), sub(b, names)),
@@ -196,14 +271,22 @@ impl Prop {
                     "∃"
                 };
                 // Binder hints are printing names only; a hint already in
-                // scope is primed so the printed formula stays unambiguous.
+                // scope, or equal to a parameter of the formula, is primed so
+                // the printed formula stays unambiguous.
                 let mut h = h.clone();
-                while names.contains(&h) {
+                while names.contains(&h) || avoid.contains(&h) {
                     h.push('′');
                 }
                 names.push(h.clone());
-                let body = b.render(names, kernel, true);
+                let inner = b.render_avoiding(names, avoid, kernel, true);
                 names.pop();
+                // A quantifier extends as far right as possible; a binary
+                // body is bracketed so the scope is visible (audit W4).
+                let body = match &**b {
+                    Prop::And(..) | Prop::Or(..) => format!("({inner})"),
+                    Prop::Imp(_, r) if **r != Prop::False => format!("({inner})"),
+                    _ => inner,
+                };
                 format!("{q}{h}. {body}")
             }
         }
@@ -275,7 +358,9 @@ mod tests {
             Box::new(Prop::eq(Term::Bound(1), Term::Bound(0))),
         );
         let opened = body.open(&p("y"));
-        assert_eq!(opened.to_string(), "∃y. y = y");
+        // The printed hint is primed away from the parameter's name, so the
+        // display cannot suggest a capture that the terms do not contain.
+        assert_eq!(opened.to_string(), "∃y′. y = y′");
         let capture = Prop::Exists(
             "y".into(),
             Box::new(Prop::eq(Term::Bound(0), Term::Bound(0))),

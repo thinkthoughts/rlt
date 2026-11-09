@@ -1,5 +1,5 @@
 RLT-001 verification
-commit   bf3c9cc9e26d8429fa27aad1de2b822280e20dd2
+commit   2fa2903aff2cce6548d69ad94cc6939603e2982d
 rustc    rustc 1.97.0 (2d8144b78 2026-07-07)
 
 == format and lints
@@ -10,10 +10,10 @@ clippy   ok
 ok
 
 == cargo test (unit + golden)
-test result: ok. 69 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.10s
-test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
+test result: ok. 69 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.14s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.56s
 test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.39s
-test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.15s
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.05s
 test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
@@ -89,11 +89,6 @@ readingpoints/math29.yaml unchanged (sha256 828ca404210423cc3a2f8f82aa34ee6f1933
 scripts/gen-m3a-tests.py reproduces tests/m3a
 tests/m3a/accept: 16 of 16 ACCEPT, unconditional
 tests/m3a/reject: 35 of 35 refused with the required exit code and reason
-DIFF tests/m1/R3a_comm_rule.rlt
-DIFF tests/reject/T3_math5_calc.rlt
-proof files: 215 compared, 2 differ
-DIFF: rlt validate
-differences: 3
 
 == chemical notation (rlt chem; 0 interpreted, 1 uninterpreted)
 CO₂    exit 0 (want 0)  INTERPRETED — a registered reading of notation; no kernel 
