@@ -3,6 +3,7 @@
 //! golden file.
 
 pub mod gen;
+pub mod residues;
 use rlt_kernel::{check, Axiom, Formula, Mode, Theorem, Verdict};
 use rlt_syntax::elab::{elaborate_formula, elaborate_term, Convention};
 use rlt_syntax::proof::{parse_axiom_file, parse_proof_file, ProofFile};
@@ -25,7 +26,7 @@ pub struct Report {
     pub code: i32,
 }
 
-fn malformed(text: &mut String, msg: String) -> Report {
+pub(crate) fn malformed(text: &mut String, msg: String) -> Report {
     let _ = writeln!(text, "verdict         MALFORMED — {msg}");
     Report {
         text: std::mem::take(text),
@@ -48,7 +49,7 @@ fn shown_path(root: &Path, p: &Path) -> String {
         .collect()
 }
 
-fn rp_path(root: &Path, id: &str) -> PathBuf {
+pub(crate) fn rp_path(root: &Path, id: &str) -> PathBuf {
     root.join("readingpoints").join(format!("{id}.yaml"))
 }
 
@@ -515,7 +516,17 @@ pub fn bind_proof(
             )),
         );
     }
-    if std::fs::symlink_metadata(&path).is_ok_and(|m| m.file_type().is_symlink()) {
+    // Every component below the root (tests/, its subdirectories, the file) is
+    // a real directory or file: a symbolic link anywhere on the path could
+    // point outside the repository while still canonicalizing under tests/.
+    let linked = {
+        let mut at = root.to_path_buf();
+        Path::new(&r.proof).components().any(|c| {
+            at.push(c);
+            std::fs::symlink_metadata(&at).is_ok_and(|m| m.file_type().is_symlink())
+        })
+    };
+    if linked {
         let out = CheckOutcome {
             report: Report {
                 text: String::new(),
@@ -525,7 +536,13 @@ pub fn bind_proof(
             goal: None,
             theorem: None,
         };
-        return (out, Err(format!("proof `{}` is a symbolic link", r.proof)));
+        return (
+            out,
+            Err(format!(
+                "proof `{}` is a symbolic link or lies under one; proof paths are regular directories and files",
+                r.proof
+            )),
+        );
     }
     let out = check_file_outcome(root, &path);
     let res = (|| {
@@ -892,7 +909,7 @@ pub fn chem_report(root: &Path, written: &str, conv_id: &str) -> Report {
 /// untagged, retagged to another reading point, or newly cited only through a
 /// reviewed code change. Update it with the digest `rlt validate` prints.
 pub const PINNED_REGISTRY_SHA: &str =
-    "d015038c4dbbd6becdb189a4d0c490c4a0d2b5d098b3601fe25fdf1ec652a111";
+    "d3b3584565115efb2f499c2c9f9f628361c3758ecc0189fd3ce67e2945ae041c";
 
 /// Canonical digest of the registry: for every source (in id order) its id,
 /// status and location, then each excerpt's text, `defines` and `split`, one
@@ -995,6 +1012,12 @@ pub const PINNED_CONVENTIONS: &[(&str, &str, &str)] = &[
         "PRIME-COUNT",
         "5f582cd0ccfd7315ca6f4d08a4b5e2f73b6bf7ce78864f2cdd68ad94d687a423",
         "0f9bac9aecf2fc0f9d610ab9d75a672781ec6ff8aa768ca3b9e8500a93555a8b",
+    ),
+    // RLT-003 M2: closed quotient–remainder witnesses modulo 30.
+    (
+        "RESIDUE-30",
+        "1f59729992864d504e8d4e0e929f8a4da17b7bb7409d188e0a1e0277b8b53552",
+        "d8127ccea388172a085ca54a7d0dca440e978db4fe99eaaa6a257bec355420ca",
     ),
     (
         "REAL-PI",
@@ -1183,7 +1206,7 @@ const CORRESPONDENCE_KINDS: [&str; 3] = ["behavior", "representation", "referent
 
 /// Source statuses that may document a reading-point meaning. `conversation`
 /// sources are statements made in the RLT review itself and are quoted verbatim.
-const CITABLE: [&str; 2] = ["available", "conversation"];
+pub(crate) const CITABLE: [&str; 2] = ["available", "conversation"];
 
 fn collapse_ws(s: &str) -> String {
     s.split_whitespace().collect::<Vec<_>>().join(" ")
@@ -1288,6 +1311,8 @@ pub fn validate(root: &Path) -> Report {
                 ));
             }
         }
+        // RLT-003 M2: a residue-table convention's factorization theorem and quotation.
+        problems.extend(residues::residue_table_problems(root, c, &reg));
         if c.sources.is_empty() && c.origin.as_deref() != Some("rlt-authored") {
             problems.push(format!(
                 "convention {}: cites zero sources, so it must be marked `origin: rlt-authored`",
@@ -1509,6 +1534,27 @@ pub fn validate(root: &Path) -> Report {
         let _ = writeln!(t, "points          {}: {} problem(s)", name, ps.len());
         problems.extend(ps);
     }
+    // RLT-003 M2 witness records.
+    let mut res: Vec<PathBuf> = std::fs::read_dir(root.join("residues"))
+        .map(|d| d.filter_map(|e| e.ok().map(|e| e.path())).collect())
+        .unwrap_or_default();
+    res.sort();
+    for p in &res {
+        let name = p
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let plain = !name.chars().any(|c| c.is_control()) && name.ends_with(".yaml");
+        if !plain || std::fs::symlink_metadata(p).is_ok_and(|m| !m.file_type().is_file()) {
+            problems.push(format!(
+                "residues/ holds {name:?}: every entry must be a regular *.yaml witness record"
+            ));
+            continue;
+        }
+        let (_, ps, _) = residues::residues_check(root, p);
+        let _ = writeln!(t, "residues        {}: {} problem(s)", name, ps.len());
+        problems.extend(ps);
+    }
     let rp_ids: Vec<String> = rps
         .iter()
         .filter_map(|p| p.file_stem().map(|s| s.to_string_lossy().to_string()))
@@ -1685,7 +1731,7 @@ pub const RELATION_TYPES: [&str; 7] = [
 ];
 
 /// The numeral summands of a sum `a + b + …` (left-nested), if every leaf is a numeral.
-fn numeral_summands(t: &rlt_kernel::Term) -> Option<Vec<u64>> {
+pub(crate) fn numeral_summands(t: &rlt_kernel::Term) -> Option<Vec<u64>> {
     use rlt_kernel::Term;
     if let Some(n) = t.as_numeral() {
         return Some(vec![n]);
@@ -1702,7 +1748,7 @@ fn numeral_summands(t: &rlt_kernel::Term) -> Option<Vec<u64>> {
 
 /// Validate one points file and build its report. Returns (report, problems).
 /// The verdict text of a check report, after `verdict`.
-fn verdict_text(r: &Report) -> String {
+pub(crate) fn verdict_text(r: &Report) -> String {
     r.text
         .lines()
         .rev()
@@ -1712,7 +1758,7 @@ fn verdict_text(r: &Report) -> String {
 }
 
 /// One record's verdict line: valid, or invalid with its problem count.
-fn record_verdict(
+pub(crate) fn record_verdict(
     before: usize,
     problems: &[String],
     tally: &mut (usize, usize),

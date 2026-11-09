@@ -31,6 +31,8 @@ target/release/rlt chem "CO₂" CHEM-MOLFORMULA                 # T7: a register
 target/release/rlt points points/co2-and-o2.yaml              # T7: two molecules, five atoms, three checked counts
 target/release/rlt check tests/accept/M1_thirty.rlt           # RLT-003 M1: 30 = 2 × 3 × 5 under PEANO-ARITH
 target/release/rlt gen "30 = 2 × 3 × 5" M1.thirty             # untrusted generator; the kernel checks its output
+target/release/rlt residues residues/residue-30.yaml          # RLT-003 M2: 111 closed witnesses modulo 30 and their registered readings
+scripts/gdt-compare.sh GDT_CHECKOUT                           # M2 GDT comparison, reported separately (compiled or unverified)
 scripts/verify.sh SOURCE_CLONES_DIR                           # fmt, clippy, tests, proofs, records, Lean, excerpts; exit 0 only if all hold
 ```
 
@@ -44,4 +46,4 @@ Parsers, conventions, sources, reading-point and correspondence records, and the
 
 Limits: numerals up to 1000 (unary in the kernel; no leading zeros), nesting depth 256, 1,000,000 term nodes per proof file; control characters are refused in proof files and records.
 
-Status: RLT-001 merged; RLT-002 merged; RLT-003 M1 (multiplication, closed examples) under review. Reports: `docs/RLT-000.md`, `docs/RLT-001.md`, `docs/RLT-001-AUDIT.md`, `docs/RLT-002.md`, `docs/RLT-002-AUDIT.md`, `docs/RLT-002-T7.md`, `docs/RLT-003-M1.md`.
+Status: RLT-001 merged; RLT-002 merged; RLT-003 M1 merged; RLT-003 M2 (closed quotient–remainder witnesses modulo 30) under review. Reports: `docs/RLT-000.md`, `docs/RLT-001.md`, `docs/RLT-001-AUDIT.md`, `docs/RLT-002.md`, `docs/RLT-002-AUDIT.md`, `docs/RLT-002-T7.md`, `docs/RLT-003-M1.md`, `docs/RLT-003-M2.md`.

@@ -27,8 +27,73 @@ pub fn read_regular(path: &Path) -> Result<String, String> {
     std::fs::read_to_string(path).map_err(|e| format!("{}: {}", path.display(), e.kind()))
 }
 
+/// A plain YAML scalar that resolves to an integer must be written in decimal:
+/// `0`, or a nonzero digit followed by digits, optionally preceded by `-`.
+/// Hexadecimal (`0x07`), octal (`0o7`), a leading `+` and leading zeros
+/// (`07`) are refused, so every record numeral reads as written.
+pub fn decimal_integer_spelling(v: &str) -> bool {
+    let d = v.strip_prefix('-').unwrap_or(v);
+    !d.is_empty()
+        && d.bytes().all(|b| b.is_ascii_digit())
+        && (d == "0" || !d.starts_with('0'))
+        && v != "-0"
+}
+
+/// Input-shape checks run before a record is built: every record is a plain
+/// tree. Anchors and aliases are refused (an alias can expand a short file
+/// exponentially), explicit tags are refused (a tag can retype a scalar), and
+/// integer scalars must use decimal spelling.
+fn check_yaml_events(src: &str, ctx: &str) -> Result<(), String> {
+    use yaml_rust2::parser::{Event, MarkedEventReceiver, Parser};
+    use yaml_rust2::scanner::{Marker, TScalarStyle};
+    struct Scan {
+        err: Option<String>,
+    }
+    impl MarkedEventReceiver for Scan {
+        fn on_event(&mut self, ev: Event, m: Marker) {
+            if self.err.is_some() {
+                return;
+            }
+            let at = format!("line {}", m.line());
+            self.err = match ev {
+                Event::Alias(_) => Some(format!(
+                    "{at}: YAML aliases are refused; records are written out in full"
+                )),
+                Event::Scalar(_, _, a, _) | Event::SequenceStart(a, _) | Event::MappingStart(a, _)
+                    if a != 0 =>
+                {
+                    Some(format!("{at}: YAML anchors are refused; records are written out in full"))
+                }
+                Event::Scalar(_, _, _, Some(_))
+                | Event::SequenceStart(_, Some(_))
+                | Event::MappingStart(_, Some(_)) => {
+                    Some(format!("{at}: YAML tags are refused; a value's type follows from how it is written"))
+                }
+                Event::Scalar(v, TScalarStyle::Plain, _, None)
+                    if matches!(Yaml::from_str(&v), Yaml::Integer(_))
+                        && !decimal_integer_spelling(&v) =>
+                {
+                    Some(format!(
+                        "{at}: numeral `{v}` is not decimal; write numerals as 0 or digits without a leading zero, sign `+`, or 0x/0o prefix"
+                    ))
+                }
+                _ => None,
+            };
+        }
+    }
+    let mut scan = Scan { err: None };
+    Parser::new_from_str(src)
+        .load(&mut scan, true)
+        .map_err(|e| format!("{ctx}: {e}"))?;
+    match scan.err {
+        Some(e) => Err(format!("{ctx}: {e}")),
+        None => Ok(()),
+    }
+}
+
 pub fn load_yaml(path: &Path) -> Result<Yaml, String> {
     let src = read_regular(path)?;
+    check_yaml_events(&src, &path.display().to_string())?;
     let mut docs =
         YamlLoader::load_from_str(&src).map_err(|e| format!("{}: {e}", path.display()))?;
     if docs.len() != 1 {
@@ -329,6 +394,24 @@ impl SpeciesEntry {
     }
 }
 
+/// The executable part of a `residue-table` convention (RLT-003 M2): a
+/// modulus with its factorization theorem, its primes, the registered
+/// representative set (with the exact source quotation it comes from), and
+/// the one classification rule RLT applies. An interpretation input; it
+/// proves nothing.
+#[derive(Clone, Debug)]
+pub struct ResidueTable {
+    pub modulus: u64,
+    pub factorization: String,
+    pub primes: Vec<u64>,
+    pub representatives: Vec<u64>,
+    pub quote: Meaning,
+    pub rule: String,
+}
+
+/// The only classification rule M2 registers.
+pub const RESIDUE_RULE: &str = "nonzero-remainders";
+
 #[derive(Clone, Debug)]
 pub struct ConventionRecord {
     pub convention: Convention,
@@ -339,6 +422,7 @@ pub struct ConventionRecord {
     /// Element symbol → element identifier (species-table conventions).
     pub elements: Vec<(String, String)>,
     pub species: Vec<SpeciesEntry>,
+    pub residue: Option<ResidueTable>,
     /// Canonical text of the fields that decide interpretation: `id`,
     /// `authority`, `sources`, `origin` and the `executable` block.
     pub interpretation_canon: String,
@@ -405,7 +489,23 @@ pub fn canonical(y: &Yaml) -> Result<String, String> {
     Ok(out)
 }
 
-pub const ELABORATORS: [&str; 4] = ["nat-dec", "symbol", "none", "species-table"];
+pub const ELABORATORS: [&str; 5] = [
+    "nat-dec",
+    "symbol",
+    "none",
+    "species-table",
+    "residue-table",
+];
+
+fn naturals(y: &Yaml, key: &str, ctx: &str) -> Result<Vec<u64>, String> {
+    list(y, key, ctx)?
+        .iter()
+        .map(|v| match v.as_i64() {
+            Some(n) if (0..=1000).contains(&n) => Ok(n as u64),
+            _ => Err(format!("{ctx}: `{key}` lists numerals 0..1000")),
+        })
+        .collect()
+}
 
 fn string_map(y: &Yaml, key: &str, ctx: &str) -> Result<Vec<(String, String)>, String> {
     match &y[key] {
@@ -449,7 +549,19 @@ pub fn load_convention(path: &Path) -> Result<ConventionRecord, String> {
     let exe = &y["executable"];
     only_keys(
         exe,
-        &["elaborator", "symbols", "operators", "elements", "species"],
+        &[
+            "elaborator",
+            "symbols",
+            "operators",
+            "elements",
+            "species",
+            "modulus",
+            "factorization",
+            "primes",
+            "representatives",
+            "representatives_quote",
+            "rule",
+        ],
         &ctx,
     )?;
     let expl = &y["explanation"];
@@ -551,6 +663,49 @@ pub fn load_convention(path: &Path) -> Result<ConventionRecord, String> {
             }
         }
     }
+    // Residue tables (M2): every field required, and only for residue-table.
+    let residue_keys = [
+        "modulus",
+        "factorization",
+        "primes",
+        "representatives",
+        "representatives_quote",
+        "rule",
+    ];
+    let has_residue_key = residue_keys
+        .iter()
+        .any(|k| !matches!(exe[*k], Yaml::BadValue));
+    let residue = if elaborator == "residue-table" {
+        let modulus = match exe["modulus"].as_i64() {
+            Some(n) if (2..=1000).contains(&n) => n as u64,
+            _ => return Err(format!("{ctx}: `modulus` must be a numeral 2..1000")),
+        };
+        let q = &exe["representatives_quote"];
+        only_keys(q, &["text", "source"], &ctx)?;
+        let rule = req(exe, "rule", &ctx)?;
+        if rule != RESIDUE_RULE {
+            return Err(format!(
+                "{ctx}: rule `{rule}` is outside the registered rule {RESIDUE_RULE}"
+            ));
+        }
+        Some(ResidueTable {
+            modulus,
+            factorization: req(exe, "factorization", &ctx)?,
+            primes: naturals(exe, "primes", &ctx)?,
+            representatives: naturals(exe, "representatives", &ctx)?,
+            quote: Meaning {
+                text: req(q, "text", &ctx)?,
+                source: req(q, "source", &ctx)?,
+            },
+            rule,
+        })
+    } else if has_residue_key {
+        return Err(format!(
+            "{ctx}: residue fields belong to the residue-table elaborator"
+        ));
+    } else {
+        None
+    };
     // Digests: interpretation fields and explanation, as canonical text.
     let mut interp = Yaml::Hash(Default::default());
     if let (Yaml::Hash(src), Yaml::Hash(dst)) = (&y, &mut interp) {
@@ -575,6 +730,7 @@ pub fn load_convention(path: &Path) -> Result<ConventionRecord, String> {
         origin: opt(&y, "origin", &ctx)?,
         elements,
         species,
+        residue,
         interpretation_canon,
         explanation_canon,
     })
@@ -1081,6 +1237,179 @@ pub fn load_points(path: &Path) -> Result<PointsFile, String> {
         counts,
         compositions,
         relations,
+        id,
+    })
+}
+
+// ---- RLT-003 M2: residue witness records (residues/*.yaml) ----
+
+/// One closed quotient–remainder witness: `written` (n = d × q + s) proved by
+/// `proof`, and `bound` (s + (k + 1) = d) proved by `bound_proof`.
+#[derive(Clone, Debug)]
+pub struct Witness {
+    pub divisor: u64,
+    pub written: String,
+    pub proof: String,
+    pub bound: String,
+    pub bound_proof: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct ResidueEntry {
+    pub r: u64,
+    pub witnesses: Vec<Witness>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ClassEntry {
+    pub n: u64,
+    pub witness: Witness,
+}
+
+/// A single bound equation (`written` proved by `proof`).
+#[derive(Clone, Debug)]
+pub struct Checked {
+    pub written: String,
+    pub proof: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct ResiduesFile {
+    pub id: String,
+    pub convention: String,
+    pub basis: Meaning,
+    pub references: Vec<String>,
+    /// Exact quotations, each a whole unit of a registered excerpt, reported
+    /// as quotations; they never replace their source's definitions.
+    pub quotes: Vec<Meaning>,
+    pub residues: Vec<ResidueEntry>,
+    pub classes: Vec<ClassEntry>,
+    pub example: Option<Checked>,
+    pub tally: Option<(Checked, Vec<u64>)>,
+}
+
+fn numeral_field(y: &Yaml, key: &str, ctx: &str) -> Result<u64, String> {
+    match y[key].as_i64() {
+        Some(n) if (0..=1000).contains(&n) => Ok(n as u64),
+        _ => Err(format!("{ctx}: `{key}` must be a numeral 0..1000")),
+    }
+}
+
+fn meaning(y: &Yaml, ctx: &str) -> Result<Meaning, String> {
+    only_keys(y, &["text", "source"], ctx)?;
+    Ok(Meaning {
+        text: req(y, "text", ctx)?,
+        source: req(y, "source", ctx)?,
+    })
+}
+
+fn witness(y: &Yaml, divisor_key: &str, ctx: &str) -> Result<Witness, String> {
+    let keys: Vec<&str> = vec![divisor_key, "written", "proof", "bound", "bound_proof"];
+    only_keys(y, &keys, ctx)?;
+    Ok(Witness {
+        divisor: if divisor_key.is_empty() {
+            0
+        } else {
+            numeral_field(y, divisor_key, ctx)?
+        },
+        written: req(y, "written", ctx)?,
+        proof: req(y, "proof", ctx)?,
+        bound: req(y, "bound", ctx)?,
+        bound_proof: req(y, "bound_proof", ctx)?,
+    })
+}
+
+pub fn load_residues(path: &Path) -> Result<ResiduesFile, String> {
+    let y = load_yaml(path)?;
+    let ctx = path.display().to_string();
+    only_keys(
+        &y,
+        &[
+            "id",
+            "convention",
+            "basis",
+            "references",
+            "quotes",
+            "residues",
+            "classes",
+            "example",
+            "tally",
+        ],
+        &ctx,
+    )?;
+    let id = plain_id(&req(&y, "id", &ctx)?, "record id", &ctx)?;
+    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+    if id != stem {
+        return Err(format!(
+            "{ctx}: id `{id}` differs from the file name `{stem}`"
+        ));
+    }
+    let basis = match &y["basis"] {
+        Yaml::BadValue | Yaml::Null => {
+            return Err(format!(
+                "{ctx}: missing `basis` (a verbatim unit of a registered source)"
+            ))
+        }
+        b => meaning(b, &ctx)?,
+    };
+    let mut residues = Vec::new();
+    for e in list(&y, "residues", &ctx)? {
+        only_keys(e, &["r", "witnesses"], &ctx)?;
+        let r = numeral_field(e, "r", &ctx)?;
+        let rc = format!("{ctx}: residue {r}");
+        let witnesses = list(e, "witnesses", &rc)?
+            .iter()
+            .map(|w| witness(w, "p", &rc))
+            .collect::<Result<_, _>>()?;
+        residues.push(ResidueEntry { r, witnesses });
+    }
+    let mut classes = Vec::new();
+    for e in list(&y, "classes", &ctx)? {
+        let n = numeral_field(e, "n", &ctx)?;
+        let cc = format!("{ctx}: class witness {n}");
+        let mut w = witness(e, "n", &cc)?;
+        w.divisor = 0; // the divisor of a class witness is the convention's modulus
+        classes.push(ClassEntry { n, witness: w });
+    }
+    let checked = |y: &Yaml, extra: &[&str]| -> Result<Checked, String> {
+        let mut keys = vec!["written", "proof"];
+        keys.extend_from_slice(extra);
+        only_keys(y, &keys, &ctx)?;
+        Ok(Checked {
+            written: req(y, "written", &ctx)?,
+            proof: req(y, "proof", &ctx)?,
+        })
+    };
+    let example = match &y["example"] {
+        Yaml::BadValue | Yaml::Null => None,
+        e => Some(checked(e, &[])?),
+    };
+    let tally = match &y["tally"] {
+        Yaml::BadValue | Yaml::Null => None,
+        e => {
+            let c = checked(e, &["binds"])?;
+            let binds = list(e, "binds", &ctx)?
+                .iter()
+                .map(|v| match v.as_i64() {
+                    Some(n) if (0..=1000).contains(&n) => Ok(n as u64),
+                    _ => Err(format!("{ctx}: tally `binds` lists residues")),
+                })
+                .collect::<Result<_, String>>()?;
+            Some((c, binds))
+        }
+    };
+    Ok(ResiduesFile {
+        convention: req(&y, "convention", &ctx)?,
+        basis,
+        references: ids(&y, "references", &ctx)?,
+        quotes: list(&y, "quotes", &ctx)?
+            .iter()
+            .map(|q| meaning(q, &ctx))
+            .collect::<Result<_, _>>()?,
+        residues,
+        classes,
+        example,
+        tally,
         id,
     })
 }

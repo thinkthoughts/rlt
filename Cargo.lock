@@ -125,6 +125,7 @@ dependencies = [
  "rlt-kernel",
  "rlt-syntax",
  "sha2",
+ "yaml-rust2",
 ]
 
 [[package]]

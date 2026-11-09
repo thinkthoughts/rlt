@@ -18,3 +18,6 @@ path = "src/lib.rs"
 rlt-kernel = { path = "../kernel" }
 rlt-syntax = { path = "../syntax" }
 sha2 = "0.10"
+
+[dev-dependencies]
+yaml-rust2 = "0.10"

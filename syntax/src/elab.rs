@@ -50,6 +50,10 @@ pub fn elaborate_term(w: &Written, conv: &Convention) -> Result<Term, String> {
                 conv.id
             )),
         },
+        "residue-table" => Err(format!(
+            "convention {} classifies residue witness records (rlt residues); it elaborates zero kernel terms",
+            conv.id
+        )),
         "species-table" => Err(format!(
             "convention {} reads chemical formulas as registered species (rlt chem); it elaborates zero kernel terms",
             conv.id
