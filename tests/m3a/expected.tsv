@@ -1,0 +1,43 @@
+# file	exit	required substring of the verdict (RLT-003 M3a rejected cases)
+tests/m3a/reject/R01_forall_intro_param_in_gamma.rlt	1	forall-intro: parameter `a` occurs in Γ
+tests/m3a/reject/R02_forall_intro_param_via_and.rlt	1	forall-intro: parameter `a` occurs in Γ
+tests/m3a/reject/R03_forall_intro_undeclared.rlt	2	parameter `q` is undeclared
+tests/m3a/reject/R04_exists_elim_escape_conclusion.rlt	1	exists-elim: parameter `a` occurs in the conclusion
+tests/m3a/reject/R05_exists_elim_param_in_body.rlt	1	exists-elim: parameter `a` occurs in the eliminated formula
+tests/m3a/reject/R06_exists_elim_param_in_branch_gamma.rlt	1	exists-elim: parameter `a` occurs in Γ of the branch
+tests/m3a/reject/R07_exists_elim_witness_mismatch.rlt	1	exists-elim: assumption `w` does not match
+tests/m3a/reject/R08_forall_elim_capture_claim.rlt	1	rule `forall-elim` yields `∃y. b = y`
+tests/m3a/reject/R09_subst_motive_mismatch.rlt	1	subst: motive does not match premise
+tests/m3a/reject/R10_exists_intro_witness_mismatch.rlt	1	exists-intro: witness does not match premise
+tests/m3a/reject/R11_false_elim_from_equation.rlt	1	false-elim: premise is not ⊥
+tests/m3a/reject/R12a_symm_on_conjunction.rlt	1	symm: premise is not an equation
+tests/m3a/reject/R12b_trans_on_forall.rlt	1	trans: premise is not an equation
+tests/m3a/reject/R13_local_undischarged_unconditional.rlt	1	local assumption `h` remains in Γ
+tests/m3a/reject/R14_local_undischarged_conditional.rlt	1	local assumption `h` remains in Γ
+tests/m3a/reject/R15_local_reuses_declared_name.rlt	1	clashes with a declared assumption
+tests/m3a/reject/R16_or_cases_cross_discharge.rlt	1	local assumption `c2` remains in Γ
+tests/m3a/reject/R17_imp_intro_antecedent_mismatch.rlt	1	imp-intro: assumption `h` does not match
+tests/m3a/reject/R18_imp_elim_mismatch.rlt	1	imp-elim: antecedent does not match
+tests/m3a/reject/R19_and_left_on_disjunction.rlt	1	and-left: premise is not a conjunction
+tests/m3a/reject/R20_or_cases_different_conclusions.rlt	1	or-cases: cases conclude different formulas
+tests/m3a/reject/R21_goal_free_variable.rlt	2	free variable `x` in the written formula
+tests/m3a/reject/R22a_shadowed_binder.rlt	2	shadowed name `x`
+tests/m3a/reject/R22b_binder_named_like_parameter.rlt	2	shadowed name `a`
+tests/m3a/reject/R23a_parameter_declared_twice.rlt	2	parameter `a` declared twice
+tests/m3a/reject/R23b_parameter_named_like_axiom.rlt	1	parameter name `add_zero` collides
+tests/m3a/reject/R24_robinson_q_unregistered.rlt	2	ROBINSON-Q
+tests/m3a/reject/R25_axiom_variable_in_proof_term.rlt	1	symbol `x` is outside the signature
+tests/m3a/reject/R27_binder_depth.rlt	2	nest
+tests/m3a/reject/R29_invisible_binder_name.rlt	2	binder
+tests/m3a/reject/R30_local_name_two_formulas.rlt	1	local name `h` is bound to two formulas
+tests/m3a/reject/R31_discharge_declared.rlt	1	declared assumptions cannot be discharged
+tests/m3a/reject/R32_qf_branch_uses_eigen_assumption.rlt	1	exists-elim: parameter `a` occurs in Γ of the branch
+tests/m3a/reject/R33_subst_capture_claim.rlt	1	rule `subst` yields `∀v. v + c = v + 0`
+tests/m3a/reject/R34_motive_shadows_parameter.rlt	2	shadowed name `a`
+tests/m3a/reject/R35_vacuous_discharge_binds_other_formula.rlt	1	local name `w` is bound to two formulas
+tests/m3a/reject/R36_local_named_like_rule.rlt	1	local name `refl` collides with a parameter, axiom or rule name
+tests/m3a/reject/R37_local_name_not_identifier.rlt	2	is not an identifier
+tests/m3a/reject/R38_discharge_only_in_dead_step.rlt	1	local assumption `h` remains in Γ
+tests/m3a/reject/R39_discharge_in_other_branch.rlt	1	local assumption `h` remains in Γ
+tests/m3a/reject/R40_exists_elim_keeps_major_premise_assumption.rlt	1	local assumption `w` remains in Γ
+tests/m3a/reject/R41_reintroduced_after_discharge.rlt	1	local assumption `h` remains in Γ

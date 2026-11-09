@@ -1,5 +1,5 @@
 RLT-001 verification
-commit   0f2cc196551fe67405fef7df106dfa33141de96e
+commit   aba88abc41b49ccf943446fd864332329510ea23
 rustc    rustc 1.97.0 (2d8144b78 2026-07-07)
 
 == format and lints
@@ -10,10 +10,11 @@ clippy   ok
 ok
 
 == cargo test (unit + golden)
-test result: ok. 69 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.12s
-test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s
-test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.70s
-test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 69 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.06s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.57s
+test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.12s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.06s
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 == proof files (expect accept → exit 0, reject → exit 1)
@@ -32,7 +33,7 @@ tests/accept/T5c_composition_conditional.rlt         exit 0  ACCEPT — conditio
 tests/accept/T6_one_plus_one.rlt                     exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD
 tests/accept/T7_one_plus_two.rlt                     exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ADD
 tests/reject/T2_math5_broken_trans.rlt               exit 1  REJECT at step s3 — trans requires rhs(first) ≡ lhs(second); here `S(5 + 0)` ≢ `5 + 0`
-tests/reject/T3_math5_calc.rlt                       exit 1  REJECT at step s1 — rule `calc` is unregistered (registered: refl, symm, trans, cong, inst, hyp)
+tests/reject/T3_math5_calc.rlt                       exit 1  REJECT at step s1 — rule `calc` is unregistered (registered: refl, symm, trans, cong, inst, hyp, subst, and-intro, and-left, and-right, or-left, or-right, or-cases, imp-intro, imp-elim, false-elim, forall-intro, forall-elim, exists-intro, exists-elim)
 tests/reject/T5b_math0_fiction_unconditional.rlt     exit 1  REJECT — unconditional goal requested, but the result depends on assumptions ["h"]
 tests/reject/T5d_composition_unconditional.rlt       exit 1  REJECT — unconditional goal requested, but the result depends on assumptions ["h"]
 
@@ -84,6 +85,11 @@ theorems        193 kernel-checked bindings over 112 distinct proof files (close
 verdict         VALID — witness records consistent (40 record(s) valid; readings are registered interpretations, not theorems)
 readingpoints/math29.yaml unchanged (sha256 828ca404210423cc3a2f8f82aa34ee6f193326232182e959432205e7a99cb1d3)
 
+== logical checker, RLT-003 M3a (tests/m3a: accepted controls, rejected cases with reasons)
+scripts/gen-m3a-tests.py reproduces tests/m3a
+tests/m3a/accept: 17 of 17 ACCEPT, unconditional
+tests/m3a/reject: 42 of 42 refused with the required exit code and reason
+
 == chemical notation (rlt chem; 0 interpreted, 1 uninterpreted)
 CO₂    exit 0 (want 0)  INTERPRETED — a registered reading of notation; no kernel 
 O₂     exit 0 (want 0)  INTERPRETED — a registered reading of notation; no kernel 
@@ -109,6 +115,7 @@ Lean (version 4.34.0-rc2, x86_64-unknown-linux-gnu, commit 6a10ac8c22beadecabdbb
 'RLTM2Readings.eight' does not depend on any axioms
 ok
 M2Readings.lean: 6 statements, standard axioms only
+M3aGenerated.lean is current (17 statements; Lean-checked over ℕ, outside the trusted base)
 M2Generated.lean is current (111 statements; tier 1). M2Readings.lean compiled (tier 2; Lean-checked, not RLT theorems)
 Generated.lean is current
 

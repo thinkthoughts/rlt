@@ -224,7 +224,10 @@ pub fn load_axiom_set(root: &Path, id: &str) -> Result<AxiomSet, String> {
 pub struct CheckOutcome {
     pub report: Report,
     pub proof: Option<ProofFile>,
+    /// The checked goal when it is an equation (records bind equations).
     pub goal: Option<Formula>,
+    /// The checked goal as a formula (RLT-003 M3a).
+    pub prop: Option<rlt_kernel::Prop>,
     pub theorem: Option<Theorem>,
 }
 
@@ -234,6 +237,17 @@ pub fn check_file(root: &Path, file: &Path) -> Report {
 }
 
 pub fn check_file_outcome(root: &Path, file: &Path) -> CheckOutcome {
+    check_file_outcome_with(root, file, result_kind)
+}
+
+/// As `check_file_outcome`, with the result-kind label supplied by the caller.
+/// The label is computed only after the kernel accepts; a test swaps it to
+/// confirm that no verdict depends on it (RLT-003 M3a obligation O9).
+pub fn check_file_outcome_with(
+    root: &Path,
+    file: &Path,
+    classify: fn(&rlt_kernel::Prop) -> &'static str,
+) -> CheckOutcome {
     let mut t = String::new();
     let mut out = CheckOutcome {
         report: Report {
@@ -242,6 +256,7 @@ pub fn check_file_outcome(root: &Path, file: &Path) -> CheckOutcome {
         },
         proof: None,
         goal: None,
+        prop: None,
         theorem: None,
     };
     macro_rules! bail {
@@ -350,7 +365,8 @@ pub fn check_file_outcome(root: &Path, file: &Path) -> CheckOutcome {
     }
     let _ = writeln!(t, "  status        assumed: the SHA-256 binds these axioms' exact content to the approved file; their mathematical truth and any physical correspondence remain assumptions");
     let _ = writeln!(t, "steps           {}", po.steps.len());
-    out.goal = Some(po.goal.clone());
+    out.goal = po.goal.as_eq().cloned();
+    out.prop = Some(po.goal.clone());
 
     let (verdict_line, code) = match check(&po, &set.axioms) {
         Verdict::Accepted(th) => {
@@ -365,7 +381,9 @@ pub fn check_file_outcome(root: &Path, file: &Path) -> CheckOutcome {
                     set.id
                 ));
             }
-            let _ = writeln!(t, "proved          {}", th.conclusion());
+            // The goal and the conclusion are equal up to binder names; the
+            // goal's names are the ones the reader wrote.
+            let _ = writeln!(t, "proved          {}", po.goal);
             let _ = writeln!(t, "assumptions     {}", gamma(&th));
             let used: Vec<&str> = th.axioms_used().keys().map(|s| s.as_str()).collect();
             let _ = writeln!(
@@ -403,19 +421,9 @@ pub fn check_file_outcome(root: &Path, file: &Path) -> CheckOutcome {
             rules.sort();
             rules.dedup();
             let _ = writeln!(t, "rules used      {}", rules.join(", "));
-            let mut free: Vec<String> = Vec::new();
-            th.conclusion().lhs.vars(&mut free);
-            th.conclusion().rhs.vars(&mut free);
-            let closed = free.is_empty();
-            let _ = writeln!(
-                t,
-                "result kind     {}",
-                if closed {
-                    "closed (one equation between numeral expressions; it establishes this statement only, not a general theorem)"
-                } else {
-                    "general (contains variables)"
-                }
-            );
+            // result kind describes scope for readers; it is computed only
+            // after acceptance and never affects the verdict (M3a O9).
+            let _ = writeln!(t, "result kind     {}", classify(th.conclusion()));
             let kind = if th.is_unconditional() {
                 "unconditional theorem"
             } else {
@@ -436,7 +444,9 @@ pub fn check_file_outcome(root: &Path, file: &Path) -> CheckOutcome {
         }
     };
     let _ = writeln!(t, "verdict         {verdict_line}");
-    let scope = if code == ACCEPT {
+    let scope = if code == ACCEPT && po.goal.as_eq().is_none() {
+        "the checked formula follows from the listed axioms under Γ by the registered rules; the axioms remain assumptions, and the reading point's meanings and physical claims keep their own separate status"
+    } else if code == ACCEPT {
         "the checked equation follows from the listed axioms under Γ; the axioms remain assumptions, and the reading point's meanings and physical claims keep their own separate status"
     } else {
         "the kernel refused this derivation; the goal's truth stays undetermined by this proof, and the reading point's meanings and physical claims keep their own separate status"
@@ -506,6 +516,7 @@ pub fn bind_proof(
             },
             proof: None,
             goal: None,
+            prop: None,
             theorem: None,
         };
         return (
@@ -534,6 +545,7 @@ pub fn bind_proof(
             },
             proof: None,
             goal: None,
+            prop: None,
             theorem: None,
         };
         return (
@@ -595,7 +607,15 @@ pub fn bind_proof(
                 .iter()
                 .map(|w| elaborate_formula(&Written::new(w), &conv.convention))
                 .collect::<Result<_, _>>()?;
-            let mut actual: Vec<Formula> = th.assumptions().values().cloned().collect();
+            let mut actual: Vec<Formula> = th
+                .assumptions()
+                .values()
+                .map(|p| {
+                    p.as_eq().cloned().ok_or_else(|| {
+                        format!("the theorem rests on `{p}`, which is not an equation")
+                    })
+                })
+                .collect::<Result<_, _>>()?;
             expected.sort();
             actual.sort();
             if expected != actual {
@@ -1002,6 +1022,12 @@ pub const PINNED_CONVENTIONS: &[(&str, &str, &str)] = &[
         "NAT-DEC",
         "c3d2e84b3ef3037b8bc165f643afd968ea5d5f30aa043deee47af61e39d636bf",
         "fbe76eaec888aca56e70cc728fc0abd8047dffc329b852742600a9483e421762",
+    ),
+    // RLT-003 M3a: written first-order formulas; NAT-DEC stays as it was.
+    (
+        "NAT-LOGIC",
+        "4b0c13c7004df97a2a6224a3547dc010df0bc997f06b06b116aa0e8459b4c49b",
+        "d327261c129e3a89e2684cc7b83073059b0114386f912ba6f13a8fad8196b4b7",
     ),
     (
         "PIPIPI",
@@ -1593,29 +1619,44 @@ fn finish(mut t: String, problems: Vec<String>) -> Report {
     }
 }
 
+/// result kind (M3a O9): a reporting label computed from the accepted
+/// conclusion; acceptance never depends on it.
+pub fn result_kind(p: &rlt_kernel::Prop) -> &'static str {
+    if p.is_closed_equation() {
+        "closed (one equation between numeral expressions; it establishes this statement only, not a general theorem)"
+    } else if p.as_eq().is_some() {
+        "general (contains variables)"
+    } else {
+        "general (a formula with connectives or quantifiers; it establishes this statement only)"
+    }
+}
+
 fn lean_term(t: &rlt_kernel::Term) -> String {
+    lean_term_in(t, &[])
+}
+
+fn lean_term_in(t: &rlt_kernel::Term, names: &[String]) -> String {
     use rlt_kernel::Term;
     if let Some(n) = t.as_numeral() {
         return n.to_string();
     }
+    let atom = |x: &Term| {
+        let s = lean_term_in(x, names);
+        if x.as_numeral().is_some() || matches!(x, Term::Bound(_) | Term::Param(_)) {
+            s
+        } else {
+            format!("({s})")
+        }
+    };
     match t {
-        Term::App(f, a) if f == "S" && a.len() == 1 => format!("Nat.succ {}", lean_atom(&a[0])),
-        Term::App(f, a) if f == "+" && a.len() == 2 => {
-            format!("{} + {}", lean_atom(&a[0]), lean_atom(&a[1]))
-        }
-        Term::App(f, a) if f == "*" && a.len() == 2 => {
-            format!("{} * {}", lean_atom(&a[0]), lean_atom(&a[1]))
-        }
+        Term::Bound(i) => match names.len().checked_sub(i + 1).and_then(|k| names.get(k)) {
+            Some(n) => n.clone(),
+            None => format!("sorry /- dangling index {i} -/"),
+        },
+        Term::App(f, a) if f == "S" && a.len() == 1 => format!("Nat.succ {}", atom(&a[0])),
+        Term::App(f, a) if f == "+" && a.len() == 2 => format!("{} + {}", atom(&a[0]), atom(&a[1])),
+        Term::App(f, a) if f == "*" && a.len() == 2 => format!("{} * {}", atom(&a[0]), atom(&a[1])),
         other => format!("sorry /- unsupported term {} -/", other.kernel_form()),
-    }
-}
-
-fn lean_atom(t: &rlt_kernel::Term) -> String {
-    let s = lean_term(t);
-    if t.as_numeral().is_some() {
-        s
-    } else {
-        format!("({s})")
     }
 }
 
@@ -1637,6 +1678,52 @@ fn nat_value(t: &rlt_kernel::Term) -> Option<u128> {
 
 fn lean_formula(f: &Formula) -> String {
     format!("{} = {}", lean_term(&f.lhs), lean_term(&f.rhs))
+}
+
+/// A formula as a Lean proposition over ℕ (RLT-003 M3a). Binder names are
+/// made distinct, as in RLT's own display.
+fn lean_prop(p: &rlt_kernel::Prop, names: &mut Vec<String>) -> String {
+    use rlt_kernel::Prop;
+    let paren = |s: String| format!("({s})");
+    match p {
+        Prop::Eq(f) if names.is_empty() => lean_formula(f),
+        Prop::Eq(f) => format!(
+            "{} = {}",
+            lean_term_in(&f.lhs, names),
+            lean_term_in(&f.rhs, names)
+        ),
+        Prop::False => "False".into(),
+        Prop::And(a, b) => format!(
+            "{} ∧ {}",
+            paren(lean_prop(a, names)),
+            paren(lean_prop(b, names))
+        ),
+        Prop::Or(a, b) => format!(
+            "{} ∨ {}",
+            paren(lean_prop(a, names)),
+            paren(lean_prop(b, names))
+        ),
+        Prop::Imp(a, b) => format!(
+            "{} → {}",
+            paren(lean_prop(a, names)),
+            paren(lean_prop(b, names))
+        ),
+        Prop::Forall(h, b) | Prop::Exists(h, b) => {
+            let q = if matches!(p, Prop::Forall(..)) {
+                "∀"
+            } else {
+                "∃"
+            };
+            let mut h = h.clone();
+            while names.contains(&h) {
+                h.push('\'');
+            }
+            names.push(h.clone());
+            let body = lean_prop(b, names);
+            names.pop();
+            format!("{q} {h} : Nat, {body}")
+        }
+    }
 }
 
 /// `rlt lean FILE…`: a Lean 4 replay generated from the statements the kernel
@@ -1668,18 +1755,45 @@ pub fn lean_export(root: &Path, files: &[PathBuf]) -> Report {
         let hyps: String = th
             .assumptions()
             .iter()
-            .map(|(n, phi)| format!(" ({n} : {})", lean_formula(phi)))
+            .map(|(n, phi)| format!(" ({n} : {})", lean_prop(phi, &mut Vec::new())))
             .collect();
-        let tactic = if th.is_unconditional() {
-            "decide"
+        // M3a formulas: a fixed list of core tactics, tried in order. For a
+        // top-level ∃ proved by exists-intro over a closed witness, Lean is
+        // also offered that witness and checks it itself.
+        let witness = match (th.conclusion(), pf.steps.last()) {
+            (rlt_kernel::Prop::Exists(..), Some(st)) if st.rule == "exists-intro" => {
+                match st.args.first() {
+                    Some(rlt_kernel::Arg::Term(t)) if t.as_numeral().is_some() => {
+                        format!("exact ⟨{}, by decide⟩ | ", lean_term(t))
+                    }
+                    _ => String::new(),
+                }
+            }
+            _ => String::new(),
+        };
+        // Assumptions that are not equations: their truth in ℕ is not
+        // evaluated here (audit at 6ba9f1e, weakness 3), so the replay says so
+        // and Lean is offered the full tactic list.
+        let unclassified: Vec<&str> = th
+            .assumptions()
+            .iter()
+            .filter(|(_, phi)| phi.as_eq().is_none())
+            .map(|(n, _)| n.as_str())
+            .collect();
+        let tactic = if th.conclusion().as_eq().is_none() || !unclassified.is_empty() {
+            format!("first | {witness}decide | omega | (intros; omega) | simp | (intros; simp_all)")
+        } else if th.is_unconditional() {
+            "decide".to_string()
         } else {
-            "omega"
+            "omega".to_string()
         };
         let false_hyps: Vec<&str> = th
             .assumptions()
             .iter()
             .filter(|(_, phi)| {
-                matches!((nat_value(&phi.lhs), nat_value(&phi.rhs)), (Some(a), Some(b)) if a != b)
+                phi.as_eq().is_some_and(|phi| {
+                    matches!((nat_value(&phi.lhs), nat_value(&phi.rhs)), (Some(a), Some(b)) if a != b)
+                })
             })
             .map(|(n, _)| n.as_str())
             .collect();
@@ -1690,12 +1804,22 @@ pub fn lean_export(root: &Path, files: &[PathBuf]) -> Report {
                 false_hyps.join(", ")
             );
         }
+        if !unclassified.is_empty() {
+            let _ = writeln!(
+                t,
+                "-- UNCLASSIFIED HYPOTHESIS: {} is not an equation; whether it is false in ℕ is not checked here,\n-- so this replay may be vacuous. If Lean's tactics do not close it, compilation fails visibly.",
+                unclassified.join(", ")
+            );
+        }
         let _ = writeln!(
             t,
             "-- {}  (axiom set: {})\ntheorem {name}{hyps} : {} := by {tactic}\n",
             shown_path(root, f),
             pf.axiom_set,
-            lean_formula(th.conclusion())
+            lean_prop(
+                &out.prop.clone().unwrap_or_else(|| th.conclusion().clone()),
+                &mut Vec::new()
+            )
         );
     }
     let _ = writeln!(t, "end RLTGenerated");

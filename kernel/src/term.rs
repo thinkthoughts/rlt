@@ -9,10 +9,16 @@
 use std::fmt;
 
 /// A first-order term. `Var` occurs only inside registered axioms.
+/// RLT-003 M3a adds two forms, kept apart from `Var` by construction:
+/// `Param` (an eigenvariable, free in a derivation, never in a goal, a
+/// declared assumption or an axiom) and `Bound` (a de Bruijn index, only
+/// under a binder of the formula that contains it; see `prop`).
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Term {
     Var(String),
     App(String, Vec<Term>),
+    Param(String),
+    Bound(usize),
 }
 
 /// An equation `lhs = rhs`. RLT-001 formulas are equations only.
@@ -84,6 +90,13 @@ impl Term {
                     ))
                 }
             }
+            // A parameter is a term of sort Nat; where it may occur is
+            // decided by the checker (goals, assumptions) and by
+            // `Axiom::new` (never in an axiom).
+            Term::Param(_) => Ok(()),
+            // A standalone term is locally closed: an index is legal only
+            // inside a formula, checked by `Prop::check_wf`.
+            Term::Bound(i) => Err(format!("bound index #{i} outside its binder")),
             Term::App(f, args) => match arity(f) {
                 None => Err(format!(
                     "symbol `{f}` is outside the signature {{0, S, +, *}}"
@@ -105,6 +118,102 @@ impl Term {
                 }
             }
             Term::App(_, args) => args.iter().for_each(|a| a.vars(out)),
+            Term::Param(_) | Term::Bound(_) => {}
+        }
+    }
+
+    /// Node count of this term (each symbol, variable or index counts one).
+    pub fn size(&self) -> u64 {
+        match self {
+            Term::App(_, args) => args.iter().fold(1u64, |a, t| a.saturating_add(t.size())),
+            _ => 1,
+        }
+    }
+
+    /// Occurrences of `Bound(k)` (the index opened at depth k) in this term.
+    pub(crate) fn bound_occurrences(&self, k: usize) -> u64 {
+        match self {
+            Term::Bound(i) if *i == k => 1,
+            Term::App(_, args) => args
+                .iter()
+                .fold(0u64, |a, t| a.saturating_add(t.bound_occurrences(k))),
+            _ => 0,
+        }
+    }
+
+    /// Parameter names occurring in this term.
+    pub fn params(&self, out: &mut std::collections::BTreeSet<String>) {
+        match self {
+            Term::Param(a) => {
+                out.insert(a.clone());
+            }
+            Term::App(_, args) => args.iter().for_each(|x| x.params(out)),
+            Term::Var(_) | Term::Bound(_) => {}
+        }
+    }
+
+    /// Whether any `Var` (axiom variable) occurs in this term.
+    pub fn has_var(&self) -> bool {
+        match self {
+            Term::Var(_) => true,
+            Term::App(_, args) => args.iter().any(|a| a.has_var()),
+            Term::Param(_) | Term::Bound(_) => false,
+        }
+    }
+
+    /// Whether any `Param` or `Bound` occurs in this term.
+    pub fn has_param_or_bound(&self) -> bool {
+        match self {
+            Term::Param(_) | Term::Bound(_) => true,
+            Term::App(_, args) => args.iter().any(|a| a.has_param_or_bound()),
+            Term::Var(_) => false,
+        }
+    }
+
+    /// open at binder depth k: `Bound(k)` becomes `t`; deeper indices shift down.
+    /// `t` is locally closed and holds no binders, so nothing is captured.
+    pub(crate) fn open_at(&self, t: &Term, k: usize) -> Term {
+        match self {
+            Term::Bound(i) if *i == k => t.clone(),
+            Term::Bound(i) if *i > k => Term::Bound(i - 1),
+            Term::App(f, args) => {
+                Term::App(f.clone(), args.iter().map(|a| a.open_at(t, k)).collect())
+            }
+            other => other.clone(),
+        }
+    }
+
+    /// close at binder depth k: `Param(a)` becomes `Bound(k)`.
+    pub(crate) fn close_at(&self, a: &str, k: usize) -> Term {
+        match self {
+            Term::Param(p) if p == a => Term::Bound(k),
+            Term::App(f, args) => {
+                Term::App(f.clone(), args.iter().map(|x| x.close_at(a, k)).collect())
+            }
+            other => other.clone(),
+        }
+    }
+
+    /// Display with binder names in scope (innermost last); `Bound(i)` prints
+    /// the name of the binder it refers to.
+    pub fn display_in(&self, names: &[String]) -> String {
+        struct D<'a>(&'a Term, &'a [String]);
+        impl fmt::Display for D<'_> {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                fmt_term(self.0, true, self.1, f)
+            }
+        }
+        D(self, names).to_string()
+    }
+
+    pub fn kernel_form_in(&self, names: &[String]) -> String {
+        match self {
+            Term::Bound(i) => bound_name(*i, names),
+            Term::App(f, args) if !args.is_empty() => {
+                let inner: Vec<String> = args.iter().map(|a| a.kernel_form_in(names)).collect();
+                format!("{f}({})", inner.join(", "))
+            }
+            other => other.kernel_form(),
         }
     }
 
@@ -112,6 +221,8 @@ impl Term {
     pub fn kernel_form(&self) -> String {
         match self {
             Term::Var(v) => v.clone(),
+            Term::Param(a) => a.clone(),
+            Term::Bound(i) => format!("#{i}"),
             Term::App(f, args) if args.is_empty() => f.clone(),
             Term::App(f, args) => {
                 let inner: Vec<String> = args.iter().map(|a| a.kernel_form()).collect();
@@ -121,41 +232,51 @@ impl Term {
     }
 }
 
+fn bound_name(i: usize, names: &[String]) -> String {
+    match names.len().checked_sub(i + 1).and_then(|k| names.get(k)) {
+        Some(n) => n.clone(),
+        None => format!("#{i}"),
+    }
+}
+
+fn fmt_term(t: &Term, top: bool, names: &[String], f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    if let Some(n) = t.as_numeral() {
+        return write!(f, "{n}");
+    }
+    match t {
+        Term::Var(v) => write!(f, "{v}"),
+        Term::Param(a) => write!(f, "{a}"),
+        Term::Bound(i) => write!(f, "{}", bound_name(*i, names)),
+        Term::App(s, args) if (s == "+" || s == "*") && args.len() == 2 => {
+            if !top {
+                write!(f, "(")?;
+            }
+            fmt_term(&args[0], false, names, f)?;
+            write!(f, " {} ", if s == "+" { "+" } else { "×" })?;
+            fmt_term(&args[1], false, names, f)?;
+            if !top {
+                write!(f, ")")?;
+            }
+            Ok(())
+        }
+        Term::App(s, args) if args.is_empty() => write!(f, "{s}"),
+        Term::App(s, args) => {
+            write!(f, "{s}(")?;
+            for (i, a) in args.iter().enumerate() {
+                if i > 0 {
+                    write!(f, ", ")?;
+                }
+                fmt_term(a, true, names, f)?;
+            }
+            write!(f, ")")
+        }
+    }
+}
+
 /// Display form: numerals S^n(0) shown as n; `+` infix, fully parenthesised below the top level.
 impl fmt::Display for Term {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fn go(t: &Term, top: bool, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            if let Some(n) = t.as_numeral() {
-                return write!(f, "{n}");
-            }
-            match t {
-                Term::Var(v) => write!(f, "{v}"),
-                Term::App(s, args) if (s == "+" || s == "*") && args.len() == 2 => {
-                    if !top {
-                        write!(f, "(")?;
-                    }
-                    go(&args[0], false, f)?;
-                    write!(f, " {} ", if s == "+" { "+" } else { "×" })?;
-                    go(&args[1], false, f)?;
-                    if !top {
-                        write!(f, ")")?;
-                    }
-                    Ok(())
-                }
-                Term::App(s, args) if args.is_empty() => write!(f, "{s}"),
-                Term::App(s, args) => {
-                    write!(f, "{s}(")?;
-                    for (i, a) in args.iter().enumerate() {
-                        if i > 0 {
-                            write!(f, ", ")?;
-                        }
-                        go(a, true, f)?;
-                    }
-                    write!(f, ")")
-                }
-            }
-        }
-        go(self, true, f)
+        fmt_term(self, true, &[], f)
     }
 }
 

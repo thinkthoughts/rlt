@@ -27,7 +27,7 @@ axiom set       PEANO-ADD (spec/peano.rlt, source PEANO)
   axiom         add_succ : ∀ x y. x + S(y) = S(x + y)
   status        assumed: the SHA-256 binds these axioms' exact content to the approved file; their mathematical truth and any physical correspondence remain assumptions
 steps           1
-verdict         REJECT at step s1 — rule `calc` is unregistered (registered: refl, symm, trans, cong, inst, hyp)
+verdict         REJECT at step s1 — rule `calc` is unregistered (registered: refl, symm, trans, cong, inst, hyp, subst, and-intro, and-left, and-right, or-left, or-right, or-cases, imp-intro, imp-elim, false-elim, forall-intro, forall-elim, exists-intro, exists-elim)
   scope         the kernel refused this derivation; the goal's truth stays undetermined by this proof, and the reading point's meanings and physical claims keep their own separate status
 physical        math5.counting [behavior]: unestablished (evidence: 0)
 physical        math5.lungs [referent]: unestablished (evidence: 0)

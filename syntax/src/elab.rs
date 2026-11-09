@@ -12,7 +12,7 @@
 //!   elaborates nothing.
 
 use crate::written::Written;
-use rlt_kernel::{Formula, Term};
+use rlt_kernel::{Formula, Prop, Term};
 use std::collections::BTreeMap;
 
 #[derive(Clone, Debug)]
@@ -22,7 +22,13 @@ pub struct Convention {
     pub symbols: BTreeMap<String, String>,
     /// NAT-DEC operators this convention reads: `+`, and `×` once listed.
     pub operators: Vec<String>,
+    /// NAT-DEC logical symbols this convention reads (RLT-003 M3a), a subset
+    /// of `CONNECTIVES`; empty means equations only, as before.
+    pub connectives: Vec<String>,
 }
+
+/// The logical symbols NAT-DEC can be configured to read (RLT-003 M3a).
+pub const CONNECTIVES: [&str; 7] = ["⊥", "¬", "∧", "∨", "→", "∀", "∃"];
 
 pub fn elaborate_term(w: &Written, conv: &Convention) -> Result<Term, String> {
     match conv.elaborator.as_str() {
@@ -34,6 +40,7 @@ pub fn elaborate_term(w: &Written, conv: &Convention) -> Result<Term, String> {
                 numeral_total: 0,
                 times: conv.operators.iter().any(|o| o == "×"),
                 operators: 0,
+                vars: None,
             };
             let t = p.expr()?;
             p.end()?;
@@ -79,6 +86,7 @@ pub fn elaborate_formula(w: &Written, conv: &Convention) -> Result<Formula, Stri
         numeral_total: 0,
         times: conv.operators.iter().any(|o| o == "×"),
         operators: 0,
+        vars: None,
     };
     let lhs = p.expr()?;
     p.expect("=")?;
@@ -102,6 +110,9 @@ struct Parser<'a> {
     /// Whether `×` is read (multiplication, binding tighter than `+`).
     times: bool,
     operators: usize,
+    /// Bound variables in scope (innermost last) when reading a formula with
+    /// quantifiers; `None` when reading an equation, exactly as before M3a.
+    vars: Option<Vec<String>>,
 }
 
 impl Parser<'_> {
@@ -200,11 +211,178 @@ impl Parser<'_> {
                 self.pos += 1;
                 Ok(Term::numeral(n))
             }
+            Some(tok) if self.vars.is_some() && is_var(tok) => {
+                let vars = self.vars.as_ref().expect("checked");
+                match vars.iter().rposition(|v| v == tok) {
+                    Some(k) => {
+                        let i = vars.len() - 1 - k;
+                        self.pos += 1;
+                        Ok(Term::Bound(i))
+                    }
+                    None => Err(format!(
+                        "NAT-DEC: free variable `{tok}` in the written formula; bind it with ∀ or ∃"
+                    )),
+                }
+            }
             other => Err(format!(
                 "NAT-DEC: expected a numeral or `(`, found {other:?}"
             )),
         }
     }
+
+    fn uses(&self, sym: &str, conns: &[String]) -> Result<(), String> {
+        if conns.iter().any(|c| c == sym) {
+            Ok(())
+        } else {
+            Err(format!(
+                "NAT-DEC: `{sym}` is outside the logical symbols this convention reads"
+            ))
+        }
+    }
+
+    fn enter(&mut self) -> Result<(), String> {
+        if self.depth >= MAX_PAREN_DEPTH {
+            return Err(format!(
+                "NAT-DEC: formula nested deeper than {MAX_PAREN_DEPTH}"
+            ));
+        }
+        self.depth += 1;
+        Ok(())
+    }
+
+    /// imp := or ('→' imp)?   (→ groups to the right)
+    fn imp(&mut self, c: &[String]) -> Result<Prop, String> {
+        self.enter()?;
+        let l = self.or(c)?;
+        let r = if self.peek() == Some("→") {
+            self.uses("→", c)?;
+            self.operator()?;
+            let r = self.imp(c)?;
+            Prop::Imp(Box::new(l), Box::new(r))
+        } else {
+            l
+        };
+        self.depth -= 1;
+        Ok(r)
+    }
+    fn or(&mut self, c: &[String]) -> Result<Prop, String> {
+        let mut l = self.and(c)?;
+        while self.peek() == Some("∨") {
+            self.uses("∨", c)?;
+            self.operator()?;
+            let r = self.and(c)?;
+            l = Prop::Or(Box::new(l), Box::new(r));
+        }
+        Ok(l)
+    }
+    fn and(&mut self, c: &[String]) -> Result<Prop, String> {
+        let mut l = self.unary(c)?;
+        while self.peek() == Some("∧") {
+            self.uses("∧", c)?;
+            self.operator()?;
+            let r = self.unary(c)?;
+            l = Prop::And(Box::new(l), Box::new(r));
+        }
+        Ok(l)
+    }
+    fn unary(&mut self, c: &[String]) -> Result<Prop, String> {
+        match self.peek() {
+            Some("¬") => {
+                self.uses("¬", c)?;
+                self.operator()?;
+                self.enter()?;
+                let p = self.unary(c)?;
+                self.depth -= 1;
+                Ok(Prop::Imp(Box::new(p), Box::new(Prop::False)))
+            }
+            Some(q @ ("∀" | "∃")) => {
+                let q = q.to_string();
+                self.uses(&q, c)?;
+                self.operator()?;
+                let x = match self.peek() {
+                    Some(t) if is_var(t) => t.to_string(),
+                    other => {
+                        return Err(format!(
+                        "NAT-DEC: `{q}` needs a variable (one lower-case letter), found {other:?}"
+                    ))
+                    }
+                };
+                let vars = self.vars.as_mut().expect("formula mode");
+                if vars.contains(&x) {
+                    return Err(format!(
+                        "NAT-DEC: shadowed name `{x}`: rename the inner variable"
+                    ));
+                }
+                vars.push(x.clone());
+                self.pos += 1;
+                self.expect(".")?;
+                let body = self.imp(c)?;
+                self.vars.as_mut().expect("formula mode").pop();
+                Ok(if q == "∀" {
+                    Prop::Forall(x, Box::new(body))
+                } else {
+                    Prop::Exists(x, Box::new(body))
+                })
+            }
+            _ => self.primary(c),
+        }
+    }
+    fn primary(&mut self, c: &[String]) -> Result<Prop, String> {
+        if self.peek() == Some("⊥") {
+            self.uses("⊥", c)?;
+            self.pos += 1;
+            return Ok(Prop::False);
+        }
+        if self.peek() == Some("(") {
+            // A parenthesised formula, or an equation whose left side starts
+            // with a parenthesised term: try the formula, then the equation.
+            // Backtracking restores every piece of parser state, the bound
+            // names included (audit at 6ba9f1e, hygiene).
+            let save = (self.pos, self.depth, self.numeral_total, self.operators);
+            let saved_vars = self.vars.clone();
+            self.pos += 1;
+            if let Ok(p) = self.imp(c) {
+                if self.peek() == Some(")") {
+                    self.pos += 1;
+                    return Ok(p);
+                }
+            }
+            (self.pos, self.depth, self.numeral_total, self.operators) = save;
+            self.vars = saved_vars;
+        }
+        let lhs = self.expr()?;
+        self.expect("=")?;
+        let rhs = self.expr()?;
+        Ok(Prop::eq(lhs, rhs))
+    }
+}
+
+fn is_var(tok: &str) -> bool {
+    tok.len() == 1 && tok.chars().all(|c| c.is_ascii_lowercase())
+}
+
+/// Elaborate a written formula with logical symbols (RLT-003 M3a). Equations
+/// inside read exactly as `elaborate_formula` reads them; variables are single
+/// lower-case letters bound by ∀ or ∃ in the same string.
+pub fn elaborate_prop(w: &Written, conv: &Convention) -> Result<Prop, String> {
+    if conv.elaborator != "nat-dec" {
+        return Err(format!(
+            "convention {} elaborates terms only; formulas use NAT-DEC",
+            conv.id
+        ));
+    }
+    let mut p = Parser {
+        toks: &w.tokens,
+        pos: 0,
+        depth: 0,
+        numeral_total: 0,
+        times: conv.operators.iter().any(|o| o == "×"),
+        operators: 0,
+        vars: Some(Vec::new()),
+    };
+    let f = p.imp(&conv.connectives)?;
+    p.end()?;
+    Ok(f)
 }
 
 #[cfg(test)]
@@ -249,6 +427,7 @@ mod tests {
             elaborator: "nat-dec".into(),
             symbols: BTreeMap::new(),
             operators: vec!["+".into()],
+            connectives: Vec::new(),
         }
     }
     #[test]

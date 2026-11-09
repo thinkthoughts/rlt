@@ -553,6 +553,7 @@ pub fn load_convention(path: &Path) -> Result<ConventionRecord, String> {
             "elaborator",
             "symbols",
             "operators",
+            "connectives",
             "elements",
             "species",
             "modulus",
@@ -590,6 +591,20 @@ pub fn load_convention(path: &Path) -> Result<ConventionRecord, String> {
     for o in &listed_ops {
         if !["+", "×"].contains(&o.as_str()) {
             return Err(format!("{ctx}: operator {o:?} is outside +, ×"));
+        }
+    }
+    let connectives = strings(exe, "connectives", &ctx)?;
+    if !connectives.is_empty() && elaborator != "nat-dec" {
+        return Err(format!(
+            "{ctx}: `connectives` belong to the nat-dec elaborator"
+        ));
+    }
+    for c in &connectives {
+        if !crate::elab::CONNECTIVES.contains(&c.as_str()) {
+            return Err(format!(
+                "{ctx}: connective {c:?} is outside {}",
+                crate::elab::CONNECTIVES.join(", ")
+            ));
         }
     }
     let operators = if listed_ops.is_empty() && elaborator == "nat-dec" {
@@ -723,6 +738,7 @@ pub fn load_convention(path: &Path) -> Result<ConventionRecord, String> {
             elaborator,
             symbols,
             operators,
+            connectives,
         },
         reading: strings(expl, "reading", &ctx)?,
         sources: strings(&y, "sources", &ctx)?,
