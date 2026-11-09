@@ -27,8 +27,73 @@ pub fn read_regular(path: &Path) -> Result<String, String> {
     std::fs::read_to_string(path).map_err(|e| format!("{}: {}", path.display(), e.kind()))
 }
 
+/// A plain YAML scalar that resolves to an integer must be written in decimal:
+/// `0`, or a nonzero digit followed by digits, optionally preceded by `-`.
+/// Hexadecimal (`0x07`), octal (`0o7`), a leading `+` and leading zeros
+/// (`07`) are refused, so every record numeral reads as written.
+pub fn decimal_integer_spelling(v: &str) -> bool {
+    let d = v.strip_prefix('-').unwrap_or(v);
+    !d.is_empty()
+        && d.bytes().all(|b| b.is_ascii_digit())
+        && (d == "0" || !d.starts_with('0'))
+        && v != "-0"
+}
+
+/// Input-shape checks run before a record is built: every record is a plain
+/// tree. Anchors and aliases are refused (an alias can expand a short file
+/// exponentially), explicit tags are refused (a tag can retype a scalar), and
+/// integer scalars must use decimal spelling.
+fn check_yaml_events(src: &str, ctx: &str) -> Result<(), String> {
+    use yaml_rust2::parser::{Event, MarkedEventReceiver, Parser};
+    use yaml_rust2::scanner::{Marker, TScalarStyle};
+    struct Scan {
+        err: Option<String>,
+    }
+    impl MarkedEventReceiver for Scan {
+        fn on_event(&mut self, ev: Event, m: Marker) {
+            if self.err.is_some() {
+                return;
+            }
+            let at = format!("line {}", m.line());
+            self.err = match ev {
+                Event::Alias(_) => Some(format!(
+                    "{at}: YAML aliases are refused; records are written out in full"
+                )),
+                Event::Scalar(_, _, a, _) | Event::SequenceStart(a, _) | Event::MappingStart(a, _)
+                    if a != 0 =>
+                {
+                    Some(format!("{at}: YAML anchors are refused; records are written out in full"))
+                }
+                Event::Scalar(_, _, _, Some(_))
+                | Event::SequenceStart(_, Some(_))
+                | Event::MappingStart(_, Some(_)) => {
+                    Some(format!("{at}: YAML tags are refused; a value's type follows from how it is written"))
+                }
+                Event::Scalar(v, TScalarStyle::Plain, _, None)
+                    if matches!(Yaml::from_str(&v), Yaml::Integer(_))
+                        && !decimal_integer_spelling(&v) =>
+                {
+                    Some(format!(
+                        "{at}: numeral `{v}` is not decimal; write numerals as 0 or digits without a leading zero, sign `+`, or 0x/0o prefix"
+                    ))
+                }
+                _ => None,
+            };
+        }
+    }
+    let mut scan = Scan { err: None };
+    Parser::new_from_str(src)
+        .load(&mut scan, true)
+        .map_err(|e| format!("{ctx}: {e}"))?;
+    match scan.err {
+        Some(e) => Err(format!("{ctx}: {e}")),
+        None => Ok(()),
+    }
+}
+
 pub fn load_yaml(path: &Path) -> Result<Yaml, String> {
     let src = read_regular(path)?;
+    check_yaml_events(&src, &path.display().to_string())?;
     let mut docs =
         YamlLoader::load_from_str(&src).map_err(|e| format!("{}: {e}", path.display()))?;
     if docs.len() != 1 {

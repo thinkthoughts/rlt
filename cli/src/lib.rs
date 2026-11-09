@@ -516,7 +516,17 @@ pub fn bind_proof(
             )),
         );
     }
-    if std::fs::symlink_metadata(&path).is_ok_and(|m| m.file_type().is_symlink()) {
+    // Every component below the root (tests/, its subdirectories, the file) is
+    // a real directory or file: a symbolic link anywhere on the path could
+    // point outside the repository while still canonicalizing under tests/.
+    let linked = {
+        let mut at = root.to_path_buf();
+        Path::new(&r.proof).components().any(|c| {
+            at.push(c);
+            std::fs::symlink_metadata(&at).is_ok_and(|m| m.file_type().is_symlink())
+        })
+    };
+    if linked {
         let out = CheckOutcome {
             report: Report {
                 text: String::new(),
@@ -526,7 +536,13 @@ pub fn bind_proof(
             goal: None,
             theorem: None,
         };
-        return (out, Err(format!("proof `{}` is a symbolic link", r.proof)));
+        return (
+            out,
+            Err(format!(
+                "proof `{}` is a symbolic link or lies under one; proof paths are regular directories and files",
+                r.proof
+            )),
+        );
     }
     let out = check_file_outcome(root, &path);
     let res = (|| {
