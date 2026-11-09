@@ -52,6 +52,11 @@ pub struct ProofObject {
     /// Declared parameters (eigenvariables), `(params …)`; RLT-003 M3a.
     pub params: Vec<String>,
     pub steps: Vec<Step>,
+    /// Cited theorems (RLT-003 M3c): (citation label, theorem). Each is a
+    /// `Theorem` value produced by the kernel when another proof file was
+    /// checked; `check` re-validates it (Γ = ∅, closed conclusion, every
+    /// axiom identical to one registered here) before a `cite` step may use it.
+    pub cited: Vec<(String, Theorem)>,
 }
 
 #[derive(Clone, Debug)]
@@ -153,6 +158,7 @@ fn discharged_formulas(step: &Step, done: &BTreeMap<String, Theorem>) -> Vec<(St
 
 struct Ctx<'a> {
     done: &'a BTreeMap<String, Theorem>,
+    cited: &'a BTreeMap<String, Theorem>,
     axioms: &'a BTreeMap<String, Axiom>,
     declared: &'a BTreeMap<String, Prop>,
     locals: &'a BTreeSet<String>,
@@ -350,6 +356,18 @@ fn apply(step: &Step, ctx: &Ctx) -> Result<Theorem, String> {
             let h = local_arg(ctx, a.get(2))?;
             rules::exists_elim(prem(0)?, p, h, prem(3)?)
         }
+        // RLT-003 M3c: a citation is bookkeeping, not an inference rule. The
+        // step's theorem is the cited kernel theorem itself, unchanged; the
+        // generic claim comparison below requires the step to state exactly
+        // its conclusion.
+        "cite" => match a.as_slice() {
+            [Arg::Name(c)] => ctx
+                .cited
+                .get(c)
+                .cloned()
+                .ok_or_else(|| format!("cite: `{c}` is not a declared citation")),
+            _ => Err("cite takes one citation label".into()),
+        },
         other => Err(format!(
             "rule `{other}` is unregistered (registered: {})",
             RULES.join(", ")
@@ -433,6 +451,38 @@ pub fn check(proof: &ProofObject, axioms: &[Axiom]) -> Verdict {
             format!("local name `{n}` collides with a parameter, axiom or rule name"),
         );
     }
+    // RLT-003 M3c: re-validate every cited theorem against this proof's
+    // registered axioms. The caller supplies kernel-produced theorems; the
+    // kernel still refuses one that is conditional, mentions a parameter, or
+    // rests on an axiom whose content differs from the one registered here.
+    let mut cited: BTreeMap<String, Theorem> = BTreeMap::new();
+    for (c, th) in &proof.cited {
+        if !th.is_unconditional() {
+            return reject(None, format!("cited theorem `{c}` is conditional (Γ ≠ ∅)"));
+        }
+        if let Err(e) = th.conclusion().check_wf(0) {
+            return reject(None, format!("cited theorem `{c}`: {e}"));
+        }
+        let mut ps = BTreeSet::new();
+        th.conclusion().params(&mut ps);
+        if let Some(p) = ps.iter().next() {
+            return reject(
+                None,
+                format!("cited theorem `{c}`: parameter `{p}` occurs in its conclusion"),
+            );
+        }
+        for (name, ax) in th.axioms_used() {
+            if axioms.get(name) != Some(ax) {
+                return reject(
+                    None,
+                    format!("cited theorem `{c}` rests on axiom `{name}`, which differs from or is absent in this proof's axiom set"),
+                );
+            }
+        }
+        if cited.insert(c.clone(), th.clone()).is_some() {
+            return reject(None, format!("citation `{c}` declared twice"));
+        }
+    }
     let mut local_formula: BTreeMap<String, Prop> = BTreeMap::new();
     let mut done: BTreeMap<String, Theorem> = BTreeMap::new();
     let mut last: Option<Theorem> = None;
@@ -468,6 +518,7 @@ pub fn check(proof: &ProofObject, axioms: &[Axiom]) -> Verdict {
         }
         let ctx = Ctx {
             done: &done,
+            cited: &cited,
             axioms: &axioms,
             declared: &declared,
             locals: &locals,
@@ -631,6 +682,7 @@ mod tests {
                 .collect(),
             params: Vec::new(),
             steps,
+            cited: Vec::new(),
         }
     }
     fn goal() -> Formula {

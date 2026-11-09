@@ -383,6 +383,58 @@ pub fn check_file_outcome_with(
     file: &Path,
     classify: fn(&rlt_kernel::Prop) -> &'static str,
 ) -> CheckOutcome {
+    check_inner(root, file, classify, &[], None)
+}
+
+/// Longest chain of citations followed from one proof file (RLT-003 M3c).
+pub const MAX_CITATION_DEPTH: usize = 8;
+
+/// A citation path: repository-relative, `.rlt`, made only of plain
+/// components (no `..`, `.`, root or prefix), with no symlink at any level
+/// and a regular file at the end (RLT-003 M3c).
+pub fn citation_path(root: &Path, p: &str) -> Result<PathBuf, String> {
+    use std::path::Component;
+    if p.is_empty() || p.chars().any(|c| c.is_control() || c == '\\') {
+        return Err("the cited path must be a plain repository-relative path".into());
+    }
+    let rel = Path::new(p);
+    if !p.ends_with(".rlt") || rel.components().any(|c| !matches!(c, Component::Normal(_))) {
+        return Err(format!(
+            "cited path `{p}` must be a repository-relative .rlt path without `..`, `.` or a leading `/`"
+        ));
+    }
+    let mut cur = root.to_path_buf();
+    for c in rel.components() {
+        cur.push(c);
+        let meta = std::fs::symlink_metadata(&cur)
+            .map_err(|e| format!("cited path `{p}`: {}", e.kind()))?;
+        if meta.file_type().is_symlink() {
+            return Err(format!(
+                "cited path `{p}` must be a regular file in the repository (a symlink was found)"
+            ));
+        }
+    }
+    if !std::fs::symlink_metadata(&cur)
+        .map(|m| m.is_file())
+        .unwrap_or(false)
+    {
+        return Err(format!(
+            "cited path `{p}` must be a regular file in the repository"
+        ));
+    }
+    Ok(cur)
+}
+
+/// Check one proof file. `chain` holds the canonical paths of the files
+/// citing it (for cycle refusal); `preread` holds the exact bytes a citing
+/// file hashed, so the theorem cited is the result of checking those bytes.
+fn check_inner(
+    root: &Path,
+    file: &Path,
+    classify: fn(&rlt_kernel::Prop) -> &'static str,
+    chain: &[PathBuf],
+    preread: Option<String>,
+) -> CheckOutcome {
     let mut t = String::new();
     let mut out = CheckOutcome {
         report: Report {
@@ -405,16 +457,20 @@ pub fn check_file_outcome_with(
     if file.to_string_lossy().chars().any(|c| c.is_control()) {
         bail!("the proof file name contains a control character".to_string());
     }
-    let src = match read_regular(file) {
-        Ok(s) => s,
-        Err(e) => bail!(format!(
-            "cannot read the proof file: {}",
-            e.rsplit(": ").next().unwrap_or("unreadable")
-        )),
+    let src = match preread {
+        Some(s) => s,
+        None => match read_regular(file) {
+            Ok(s) => s,
+            Err(e) => bail!(format!(
+                "cannot read the proof file: {}",
+                e.rsplit(": ").next().unwrap_or("unreadable")
+            )),
+        },
     };
-    // RLT-003 M3b: the pinned definitions, loaded only for NAT-DEF files.
-    let defs = src
-        .contains(rlt_syntax::proof::DEFINITIONS_CONVENTION)
+    // RLT-003 M3b: the pinned definitions, loaded for NAT-DEF files. M3c (M3b
+    // audit note 1): the decision rests on the parsed `convention` field,
+    // never on the raw text.
+    let defs = rlt_syntax::proof::reads_definitions(&src)
         .then(|| load_definitions(root).map(std::rc::Rc::new));
     let pf = match rlt_syntax::proof::parse_proof_file_with(&src, defs.clone()) {
         Ok(p) => p,
@@ -482,7 +538,7 @@ pub fn check_file_outcome_with(
             None => bail!("definitions: unavailable".to_string()),
         }
     }
-    let po = match pf.to_proof_object(&convention) {
+    let mut po = match pf.to_proof_object(&convention) {
         Ok(p) => p,
         Err(e) => bail!(e),
     };
@@ -540,6 +596,115 @@ pub fn check_file_outcome_with(
         );
     }
     let _ = writeln!(t, "  status        assumed: the SHA-256 binds these axioms' exact content to the approved file; their mathematical truth and any physical correspondence remain assumptions");
+    // RLT-003 M3c: citations. Each cited file is read once, its bytes hashed
+    // and compared with the citation, then checked from scratch on exactly
+    // those bytes; the kernel theorem that check produces is the one cited.
+    if !pf.cites.is_empty() {
+        let me = match file.canonicalize() {
+            Ok(p) => p,
+            Err(e) => bail!(format!("cannot resolve the proof file: {}", e.kind())),
+        };
+        let mut here: Vec<PathBuf> = chain.to_vec();
+        here.push(me);
+        if here.len() > MAX_CITATION_DEPTH {
+            bail!(format!(
+                "citations nest deeper than {MAX_CITATION_DEPTH} files"
+            ));
+        }
+        for c in &pf.cites {
+            let l = &c.label;
+            let path = match citation_path(root, &c.path) {
+                Ok(p) => p,
+                Err(e) => bail!(format!("citation `{l}`: {e}")),
+            };
+            let canon = match path.canonicalize() {
+                Ok(p) => p,
+                Err(e) => bail!(format!("citation `{l}`: {}", e.kind())),
+            };
+            if here.contains(&canon) {
+                bail!(format!(
+                    "citation `{l}`: citation cycle through {}",
+                    c.path.escape_debug()
+                ));
+            }
+            let bytes = match std::fs::read(&path) {
+                Ok(b) => b,
+                Err(e) => bail!(format!("citation `{l}`: {}", e.kind())),
+            };
+            let actual = sha256_hex(&bytes);
+            if actual != c.sha256 {
+                bail!(format!(
+                    "citation `{l}`: {} has SHA-256 {actual}; the citation records {}",
+                    c.path.escape_debug(),
+                    c.sha256
+                ));
+            }
+            let Ok(text) = String::from_utf8(bytes) else {
+                bail!(format!("citation `{l}`: the cited file is not UTF-8"));
+            };
+            let sub = check_inner(root, &path, classify, &here, Some(text));
+            let sub_verdict = sub
+                .report
+                .text
+                .lines()
+                .rev()
+                .find(|x| x.starts_with("verdict"))
+                .unwrap_or("verdict")
+                .trim_start_matches("verdict")
+                .trim()
+                .to_string();
+            let (Some(th), Some(spf)) = (sub.theorem, sub.proof) else {
+                bail!(format!(
+                    "citation `{l}`: {} is not an accepted theorem ({sub_verdict})",
+                    c.path.escape_debug()
+                ));
+            };
+            if sub.report.code != ACCEPT {
+                bail!(format!(
+                    "citation `{l}`: {} is not an accepted theorem ({sub_verdict})",
+                    c.path.escape_debug()
+                ));
+            }
+            if spf.axiom_set != pf.axiom_set {
+                bail!(format!(
+                    "citation `{l}`: the cited theorem's axiom set {} differs from this file's {}",
+                    spf.axiom_set, pf.axiom_set
+                ));
+            }
+            if spf.convention != pf.convention {
+                bail!(format!(
+                    "citation `{l}`: the cited theorem's convention {} differs from this file's {}",
+                    spf.convention, pf.convention
+                ));
+            }
+            if !th.is_unconditional() {
+                bail!(format!(
+                    "citation `{l}`: the cited theorem is conditional (Γ ≠ ∅)"
+                ));
+            }
+            let used: Vec<&str> = th.axioms_used().keys().map(|s| s.as_str()).collect();
+            let _ = writeln!(
+                t,
+                "cites           {l} = {} ({})",
+                c.path.escape_debug(),
+                spf.id
+            );
+            let _ = writeln!(t, "  sha256        {}", c.sha256);
+            let _ = writeln!(t, "  proved        {}", th.conclusion());
+            let _ = writeln!(t, "  assumptions   {}", gamma(&th));
+            let _ = writeln!(t, "  axiom set     {}", spf.axiom_set);
+            let _ = writeln!(
+                t,
+                "  axioms used   {}",
+                if used.is_empty() {
+                    "none".to_string()
+                } else {
+                    used.join(", ")
+                }
+            );
+            po.cited.push((l.clone(), th));
+        }
+    }
     let _ = writeln!(t, "steps           {}", po.steps.len());
     out.goal = po.goal.as_eq().cloned();
     out.prop = Some(po.goal.clone());

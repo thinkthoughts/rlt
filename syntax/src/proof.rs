@@ -24,6 +24,19 @@ pub struct ProofFile {
     /// Id of a registered axiom set (spec/axioms.yaml); never a path.
     pub axiom_set: String,
     pub steps: Vec<Step>,
+    /// Citations of other checked proof files, `(cites (LABEL "path" "sha256") …)`;
+    /// RLT-003 M3c. The reader only records them; the CLI resolves and checks them.
+    pub cites: Vec<Cite>,
+}
+
+/// One declared citation (RLT-003 M3c).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Cite {
+    pub label: String,
+    /// Repository-relative path of the cited proof file, as written.
+    pub path: String,
+    /// The cited file's SHA-256, lower-case hex.
+    pub sha256: String,
 }
 
 /// Largest numeral accepted in proof syntax (kernel numerals are unary).
@@ -223,7 +236,7 @@ fn step(e: &Sexp, sc: &Scope) -> Result<Step, String> {
     for (i, a) in args.iter().enumerate() {
         let arg = match (rule_name, i, a) {
             ("refl", _, a) => Arg::Term(scoped_term(a, sc)?),
-            ("inst" | "cong" | "hyp", 0, Sexp::Sym(s)) => Arg::Name(s.clone()),
+            ("inst" | "cong" | "hyp" | "cite", 0, Sexp::Sym(s)) => Arg::Name(s.clone()),
             ("inst", _, Sexp::List(b)) => match b.as_slice() {
                 [Sexp::Sym(v), t] => Arg::Bind(v.clone(), scoped_term(t, sc)?),
                 _ => return Err(format!("step {label}: inst binding must be (var term)")),
@@ -357,14 +370,13 @@ pub fn parse_proof_file_with(
         params: Vec::new(),
         axiom_set: String::new(),
         steps: Vec::new(),
+        cites: Vec::new(),
     };
     // Parameters and assumption names are read first: steps resolve names against them.
     let mut scope = Scope::default();
     // A convention may be written as a symbol or a quoted string; both
     // name the same convention and both bring the definitions into scope.
-    let reads_definitions = fields.iter().any(|f| {
-        matches!(f.head(), Some(("convention", [Sexp::Sym(c) | Sexp::Str(c)])) if c == DEFINITIONS_CONVENTION)
-    });
+    let reads_definitions = fields_read_definitions(fields);
     if reads_definitions {
         match defs {
             Some(Ok(d)) => scope.defs = Some(d),
@@ -449,6 +461,40 @@ pub fn parse_proof_file_with(
                 _ => return Err("(assume NAME \"written formula\")".into()),
             },
             "params" => pf.params = scope.params.clone(),
+            "cites" => {
+                if rest.is_empty() {
+                    return Err("(cites (LABEL \"path\" \"sha256\") …): name at least one citation".into());
+                }
+                for c in rest {
+                    match c.list() {
+                        Some([Sexp::Sym(l), Sexp::Str(p), Sexp::Str(h)]) => {
+                            if !is_ident(l) {
+                                return Err(format!("citation label {l:?} is not an identifier"));
+                            }
+                            if pf.cites.iter().any(|x| &x.label == l) {
+                                return Err(format!("citation `{l}` declared twice"));
+                            }
+                            if h.len() != 64
+                                || !h.chars().all(|c| c.is_ascii_digit() || ('a'..='f').contains(&c))
+                            {
+                                return Err(format!(
+                                    "citation `{l}`: the SHA-256 must be 64 lower-case hex digits"
+                                ));
+                            }
+                            pf.cites.push(Cite {
+                                label: l.clone(),
+                                path: p.clone(),
+                                sha256: h.clone(),
+                            })
+                        }
+                        _ => {
+                            return Err(
+                                "(cites (LABEL \"path\" \"sha256\") …): each citation is a label, a quoted path and a quoted SHA-256".into(),
+                            )
+                        }
+                    }
+                }
+            }
             "steps" => {
                 pf.steps = rest
                     .iter()
@@ -474,6 +520,32 @@ pub fn parse_proof_file_with(
     Ok(pf)
 }
 
+/// Whether the parsed fields name the definitions convention (symbol or
+/// quoted string). One test, shared by the reader and the CLI.
+fn fields_read_definitions(fields: &[Sexp]) -> bool {
+    fields.iter().any(|f| {
+        matches!(f.head(), Some(("convention", [Sexp::Sym(c) | Sexp::Str(c)])) if c == DEFINITIONS_CONVENTION)
+    })
+}
+
+/// Whether a proof file's parsed `convention` field names NAT-DEF (RLT-003
+/// M3c, M3b audit note 1): the CLI loads the pinned definitions exactly when
+/// this holds, so the decision rests on the parsed field, never the raw text.
+/// A source that does not parse reads no definitions; the reader then
+/// reports its own parse error.
+pub fn reads_definitions(src: &str) -> bool {
+    match parse_all(src) {
+        Ok(top) => match top.as_slice() {
+            [root] => match root.head() {
+                Some(("rlt-proof", fields)) => fields_read_definitions(fields),
+                _ => false,
+            },
+            _ => false,
+        },
+        Err(_) => false,
+    }
+}
+
 impl ProofFile {
     /// Elaborate the written goal and assumptions, giving the kernel's proof object.
     pub fn to_proof_object(&self, conv: &Convention) -> Result<ProofObject, String> {
@@ -493,6 +565,7 @@ impl ProofFile {
             assumptions,
             params: self.params.clone(),
             steps: self.steps.clone(),
+            cited: Vec::new(),
         })
     }
 }

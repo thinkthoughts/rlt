@@ -1,0 +1,32 @@
+# file	exit	required substring of the verdict (RLT-003 M3c rejected cases)
+tests/m3c/reject/CR01_false_witness.rlt	1	exists-intro: witness does not match premise
+tests/m3c/reject/CR02_zero_branch_omitted.rlt	1	or-cases takes 5 argument(s), given 3
+tests/m3c/reject/CR03_stale_split_parameter.rlt	1	rule `inst` yields
+tests/m3c/reject/CR04_eigenvariable_reused.rlt	1	exists-elim: parameter `p1` occurs in the eliminated formula
+tests/m3c/reject/CR05_eigenvariable_in_conclusion.rlt	1	exists-elim: parameter `p0` occurs in the conclusion
+tests/m3c/reject/CR06_one_peel_too_few.rlt	1	imp-elim: antecedent does not match
+tests/m3c/reject/CR07_one_peel_too_many.rlt	1	imp-elim
+tests/m3c/reject/CR08_wrong_q2_instance.rlt	1	imp-elim
+tests/m3c/reject/CR09_short_multiplication_lemma.rlt	1	trans
+tests/m3c/reject/CR10_two_not_divides_eight.rlt	1	step claims `¬(0 = 0)`, rule `inst` yields `¬(0 = 1)`
+tests/m3c/reject/CR11_hypothesis_left_open.rlt	1	unconditional goal requested, but the result depends on assumptions
+tests/m3c/reject/CR12_free235_wrong_order.rlt	1	rule `and-intro` yields
+tests/m3c/reject/CR13_unregistered_induction_axiom.rlt	1	axiom `induction` is unregistered
+tests/m3c/reject/CR15a_parameter_named_dvd.rlt	2	parameter `dvd` collides with a definition name
+tests/m3c/reject/CR15b_parameter_named_dvd_quoted.rlt	2	parameter `dvd` collides with a definition name
+tests/m3c/reject/CR16_binder_named_free235_quoted.rlt	2	shadowed name `free235`
+tests/m3c/reject/CR17a_cited_hash_differs.rlt	2	the citation records
+tests/m3c/reject/CR17b_same_goal_other_file.rlt	2	the citation records
+tests/m3c/reject/CR18_cites_rejected_file.rlt	2	is not an accepted theorem (REJECT
+tests/m3c/reject/CR19_cites_other_axiom_set.rlt	2	differs from this file's ROBINSON-Q
+tests/m3c/reject/CR20_cites_conditional_theorem.rlt	2	the cited theorem is conditional
+tests/m3c/reject/CR21a_self_citation.rlt	2	citation cycle
+tests/m3c/reject/CR21c_two_file_cycle_partner.rlt	2	the citation records
+tests/m3c/reject/CR21b_two_file_cycle.rlt	2	citation cycle
+tests/m3c/reject/CR21f_three_file_cycle_end.rlt	2	the citation records
+tests/m3c/reject/CR21e_three_file_cycle_middle.rlt	2	the citation records
+tests/m3c/reject/CR21d_three_file_cycle.rlt	2	citation cycle
+tests/m3c/reject/CR22_stated_formula_differs.rlt	1	rule `cite` yields
+tests/m3c/reject/CR23a_parent_path.rlt	2	without `..`
+tests/m3c/reject/CR23b_absolute_path.rlt	2	a leading `/`
+tests/m3c/reject/CR24_cited_label_swapped.rlt	1	rule `cite` yields
