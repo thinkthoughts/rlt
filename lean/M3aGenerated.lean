@@ -57,4 +57,7 @@ theorem M3a_A14 : ∀ x : Nat, (x = 0) → (∀ y : Nat, y + x = y + 0) := by fi
 -- tests/m3a/accept/A15_subst_vacuous_and_identical.rlt  (axiom set: PEANO-ADD)
 theorem M3a_A15 : (1 = 1) → (2 = 2) := by first | decide | omega | (intros; omega) | simp | (intros; simp_all)
 
+-- tests/m3a/accept/A16_same_local_in_two_discharged_branches.rlt  (axiom set: PEANO-ADD)
+theorem M3a_A16 : ((1 = 1) → (1 = 1)) ∧ ((1 = 1) → (1 = 1)) := by first | decide | omega | (intros; omega) | simp | (intros; simp_all)
+
 end RLTGeneratedM3a

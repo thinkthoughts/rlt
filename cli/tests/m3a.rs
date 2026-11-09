@@ -1,5 +1,5 @@
 //! RLT-003 M3a: the logical checker. Accepted controls A1–A15, rejected
-//! cases R1–R37 (each with its required exit code and reason, from
+//! cases R1–R41 (each with its required exit code and reason, from
 //! tests/m3a/expected.tsv), the cases that need a scratch repository (R26,
 //! R28), and the reporting obligation O9.
 
@@ -35,7 +35,7 @@ fn accepted_controls_are_unconditional_theorems() {
     let mut files = Vec::new();
     rlt_files(&root().join("tests/m3a/accept"), &mut files);
     files.sort();
-    assert_eq!(files.len(), 16, "A1–A15 with A12 in two files");
+    assert_eq!(files.len(), 17, "A1–A16 with A12 in two files");
     for f in &files {
         let r = check_file(&root(), f);
         assert_eq!(r.code, ACCEPT, "{}", r.text);
@@ -70,8 +70,8 @@ fn rejected_cases_fail_for_their_stated_reason() {
         n += 1;
     }
     assert_eq!(
-        n, 38,
-        "R1–R37 with R12, R22 and R23 in two files each, R26 and R28 below"
+        n, 42,
+        "R1–R41 with R12, R22 and R23 in two files each, R26 and R28 below"
     );
 }
 

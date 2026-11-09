@@ -530,7 +530,7 @@ pub fn check(proof: &ProofObject, axioms: &[Axiom]) -> Verdict {
         return reject(
             None,
             format!(
-                "local assumption `{h}` remains in Γ: it is undeclared and was never discharged"
+                "local assumption `{h}` remains in Γ: it is undeclared, and no discharge removed it from this theorem's dependencies"
             ),
         );
     }

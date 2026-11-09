@@ -298,6 +298,36 @@ rej("R37_local_name_not_identifier", 2, "is not an identifier", proof("R37", "0 
     "(s1 (= 0 0) (hyp h\u202e))",
     "(s2 (imp (= 0 0) (= 0 0)) (imp-intro h\u202e s1))"]))
 
+# Deviation 3 scope check (local assumptions are recognised by their
+# discharges): a discharge anywhere else in the file never removes an
+# assumption from a premise it does not name.
+E = "(= 1 1)"
+rej("R38_discharge_only_in_dead_step", 1, "local assumption `h` remains in Γ", proof("R38", "1 = 1", [
+    f"(s1 {E} (hyp h))",
+    f"(s2 (imp {E} {E}) (imp-intro h s1))",
+    f"(s3 {E} (hyp h))"]))
+rej("R39_discharge_in_other_branch", 1, "local assumption `h` remains in Γ", proof("R39", "1 = 1 ∧ (1 = 1 → 1 = 1)", [
+    f"(s1 {E} (hyp h))",
+    f"(s2 {E} (hyp h))",
+    f"(s3 (imp {E} {E}) (imp-intro h s2))",
+    f"(s4 (and {E} (imp {E} {E})) (and-intro s1 s3))"]))
+rej("R40_exists_elim_keeps_major_premise_assumption", 1, "local assumption `w` remains in Γ", proof("R40", G, [
+    "(s1 (= a 1) (hyp w))",
+    "(s2 (exists x (= x 1)) (exists-intro a s1))",
+    "(s3 (= 0 0) (refl 0))",
+    "(s4 (= 0 0) (exists-elim s2 a w s3))"], params="a"))
+rej("R41_reintroduced_after_discharge", 1, "local assumption `h` remains in Γ", proof("R41", "(1 = 1 → 1 = 1) ∧ 1 = 1", [
+    f"(s1 {E} (hyp h))",
+    f"(s2 (imp {E} {E}) (imp-intro h s1))",
+    f"(s3 {E} (hyp h))",
+    f"(s4 (and (imp {E} {E}) {E}) (and-intro s2 s3))"]))
+accept["A16_same_local_in_two_discharged_branches"] = proof("A16", "(1 = 1 → 1 = 1) ∧ (1 = 1 → 1 = 1)", [
+    f"(s1 {E} (hyp h))",
+    f"(s2 (imp {E} {E}) (imp-intro h s1))",
+    f"(s3 {E} (hyp h))",
+    f"(s4 (imp {E} {E}) (imp-intro h s3))",
+    f"(s5 (and (imp {E} {E}) (imp {E} {E})) (and-intro s2 s4))"])
+
 os.makedirs(os.path.join(out, "accept"), exist_ok=True)
 os.makedirs(os.path.join(out, "reject"), exist_ok=True)
 for name, text in accept.items():
