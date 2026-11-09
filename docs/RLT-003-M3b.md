@@ -110,7 +110,7 @@ Registering an axiom or a definition counts as zero proved theorems.
 | Compared | Identical | Differs |
 |---|---|---|
 | Proof-file reports | 273 | 1: `tests/m3a/reject/R24_robinson_q_unregistered.rlt`. It tested `(axioms ROBINSON-Q)` while that set was unregistered; M3b registers it, so under this binary the same file would be checked. The case is retargeted as `R24_unregistered_axiom_set.rlt`, naming PEANO-IND, which stays unregistered, with the same purpose and exit code. |
-| `rlt validate` | — | additive: `axiom sets` adds ROBINSON-Q (7 axioms); `sources` 29 → 30 (available 13 → 15, reference 5 → 4); `conventions` adds NAT-DEF |
+| `rlt validate` | — | additions plus one status change: `axiom sets` adds ROBINSON-Q (7 axioms); `sources` 29 → 30 (available 13 → 15, reference 5 → 4: LEAN-CORE-NAT-DVD is new, and OLP-ROBINSON-Q moves from reference to available with its eight excerpts); `conventions` adds NAT-DEF |
 | `rp math0`, `rp math5`, `rp math29`, both `points` records, `residues`, `chem`, written layer, Lean export of tests/accept | all | none |
 
 Other checks:
@@ -162,7 +162,7 @@ target/release/rlt check tests/m3b/accept/BA06_two_divides_eight.rlt
 
 **Method.** The auditor had no part in writing the implementation. It worked from a clean checkout of c8ea002, built the binary from source, and wrote its own attack files and its own reference expander.
 - It ran the full suite and `verify.sh`, and repeated the 9bfde18 comparison.
-- It fuzzed 1,700 random definition expansions (nesting, capture-prone names, definitions inside quantifiers and inside other definitions) against its independent reference, with no disagreement.
+- In the audit of c8ea002 (the first M3b audit; the confirmation audit of a538cad repeated no fuzzing), the auditor fuzzed 1,700 random definition expansions (nesting, capture-prone names, definitions inside quantifiers and inside other definitions) against its independent reference, with no disagreement.
 - It attacked `inst` with nested quantifiers, capture attempts and bound indices in bindings.
 - It edited pins, hashes, sources and definitions, and checked the Lean gates.
 
@@ -180,4 +180,4 @@ target/release/rlt check tests/m3b/accept/BA06_two_divides_eight.rlt
 **After the follow-ups.**
 - `cargo test`: all pass (69 golden, 9 hardening, 44 M2, 8 M3a, 14 M3b, 29 kernel, 21 syntax).
 - `verify.sh`: `RESULT all checks hold`.
-- `compare-reports.sh` against 9bfde18: unchanged (273 of 274 proof files identical, R24 retargeted; `validate` additive).
+- `compare-reports.sh` against 9bfde18: unchanged (273 of 274 proof files identical, R24 retargeted; `validate` changes only by additions and the OLP-ROBINSON-Q status change).
