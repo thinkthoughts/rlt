@@ -1,5 +1,5 @@
 RLT-001 verification
-commit   75c7861dc8ec15cc29c5b63bcf44e880309c36e4
+commit   14f2c80b34ebf957768e402990a8d134dcfbd3a5
 rustc    rustc 1.97.0 (2d8144b78 2026-07-07)
 
 == format and lints
@@ -10,13 +10,14 @@ clippy   ok
 ok
 
 == cargo test (unit + golden)
-test result: ok. 69 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.98s
-test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.81s
-test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.00s
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.27s
-test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.48s
-test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.44s
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.26s
+test result: ok. 69 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.74s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.34s
+test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.28s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 16.66s
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.54s
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.48s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.30s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.96s
 test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
@@ -107,6 +108,11 @@ tests/m3c/reject: 31 of 31 refused with the required exit code and reason
 scripts/gen-m3d-tests.py reproduces tests/m3d
 tests/m3d/accept: 5 of 5 ACCEPT as unconditional theorems under ROBINSON-Q
 tests/m3d/reject: 16 of 16 refused with the required exit code and reason
+
+== complete modulo-30 classification, RLT-003 M3e (tests/m3e)
+scripts/gen-m3e-tests.py reproduces tests/m3e
+tests/m3e/accept: 54 of 54 ACCEPT as unconditional theorems under ROBINSON-Q
+tests/m3e/reject: 16 of 16 refused with the required exit code and reason
 spec/peano.rlt sha256 1a3f83444a06fdfbd02c9af2a5881b47137ba102a675a4e012c84be477b10a0d
 spec/peano-arith.rlt sha256 00ceffa9a60b53286f350edbf2f1a5f48a14169a9b09a82cbedc6f9956ff01e4
 spec/robinson-q.rlt sha256 4ad55192222576e3901abc4ee7ea5a6760b64ff212e8c55796ab9847e423b00c
@@ -157,16 +163,22 @@ Lean (version 4.34.0-rc2, x86_64-unknown-linux-gnu, commit 6a10ac8c22beadecabdbb
 'RLTM3dReadings.bound_is_sharp' does not depend on any axioms
 'RLTM3dReadings.layer_step' depends on axioms: [propext, Quot.sound]
 'RLTM3dReadings.closing_layer' depends on axioms: [propext, Quot.sound]
+'RLTM3eReadings.classification' depends on axioms: [propext, Quot.sound]
+'RLTM3eReadings.free235_iff_coprime' depends on axioms: [propext]
+'RLTM3eReadings.representatives_count' does not depend on any axioms
 ok
 M2Readings.lean: 6 statements, standard axioms only
 M3bReadings.lean: 10 statements, standard axioms only (tier 2; Lean-checked correspondence, not RLT theorems)
 M3bGenerated.lean: 15 statements, standard axioms only
 M3cReadings.lean: 6 statements, standard axioms only (tier 2; Lean-checked correspondence, not RLT theorems)
 M3dReadings.lean: 6 statements, standard axioms only (tier 2; Lean-checked correspondence, not RLT theorems)
+M3eReadings.lean: 3 statements, standard axioms only (tier 2; Lean-checked correspondence, not RLT theorems)
+M3eGenerated.lean: 54 statements, standard axioms only
 M3dGenerated.lean: 5 statements, standard axioms only
 M3cGenerated.lean: 9 statements, standard axioms only
 M3aGenerated.lean: 17 statements, standard axioms only
 M3dGenerated.lean is current (5 statements; Lean-checked over ℕ, outside the trusted base)
+M3eGenerated.lean is current (54 statements; Lean-checked over ℕ, outside the trusted base)
 M3cGenerated.lean is current (9 statements; Lean-checked over ℕ, outside the trusted base)
 M3bGenerated.lean is current (15 statements; Lean-checked over ℕ, outside the trusted base)
 M3aGenerated.lean is current (17 statements; Lean-checked over ℕ, outside the trusted base)
