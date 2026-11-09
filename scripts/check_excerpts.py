@@ -5,7 +5,7 @@ usage: python3 -I scripts/check_excerpts.py CHECKOUTS_DIR
 
 CHECKOUTS_DIR holds clones named after the GitHub repositories, including
 rlt itself: news, rlt, translatepi, antiviolence, residue-manifold-learning,
-specification-grammar. Each excerpt is read with `git show COMMIT:PATH`, so the
+specification-grammar, and (RLT-003 M3b) OpenLogic and lean4. Each excerpt is read with `git show COMMIT:PATH`, so the
 clones may be at any revision as long as they contain the recorded commits.
 Sources without a GitHub file location (conversation records, foundational
 references, missing sources) are listed as skipped.
@@ -24,7 +24,7 @@ root = Path(__file__).resolve().parent.parent
 checkouts = Path(sys.argv[1])
 reg = yaml.safe_load((root / "sources/registry.yaml").read_text(encoding="utf-8"))
 
-pat = re.compile(r"https://github\.com/thinkthoughts/([^/]+)/blob/([0-9a-f]+)/(.+)$")
+pat = re.compile(r"https://github\.com/[^/]+/([^/]+)/blob/([0-9a-f]+)/(.+)$")
 mention = re.compile(r"(?i)(?<![a-z0-9_])math(0|5|29)(?![0-9])")
 OPEN, CLOSE = (">", '"', "'", "‘", "“"), ("<", '"', "'", "’", "”")
 

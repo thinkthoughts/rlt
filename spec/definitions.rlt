@@ -1,0 +1,13 @@
+; Registered definitions (RLT-003 M3b; trusted inputs). Abbreviations only:
+; each expands, before the kernel, to a formula over {0, S, +, *}.
+; (define NAME (PARAMS…) BODY (notation infix|prefix "SYM") (source ID) | (origin rlt-authored))
+; A definition may use only definitions above it.
+
+; Q8 of Robinson's Q, right-hand side (OLP-ROBINSON-Q, line 114): x < y ↔ ∃z (z′ + x) = y.
+(define lt (x y) (exists z (= (+ (S z) x) y)) (notation infix "<") (source OLP-ROBINSON-Q))
+
+; Lean 4.34.0-rc2 core, Init/Data/Nat/Div/Basic.lean: dvd a b := Exists (fun c => b = a * c).
+(define dvd (d n) (exists k (= n (* d k))) (notation infix "∣") (source LEAN-CORE-NAT-DVD))
+
+; RLT-003 M3 target condition: no prime factor 2, 3 or 5.
+(define free235 (r) (and (and (not (dvd 2 r)) (not (dvd 3 r))) (not (dvd 5 r))) (notation prefix "free235") (origin rlt-authored))

@@ -62,6 +62,10 @@ pub struct Scope {
     pub params: Vec<String>,
     pub assumptions: Vec<String>,
     pub binders: Vec<String>,
+    /// Axiom variables, when reading an axiom body (RLT-003 M3b).
+    pub vars: Vec<String>,
+    /// Pinned definitions, when the file's convention reads them (NAT-DEF).
+    pub defs: Option<std::rc::Rc<crate::defs::Definitions>>,
 }
 
 impl Scope {
@@ -80,6 +84,14 @@ impl Scope {
                 "shadowed name `{x}`: a binder may not reuse a binder, parameter or assumption name"
             ));
         }
+        // RLT-003 M3b: nor an axiom variable, nor a definition name.
+        if self.vars.iter().any(|v| v == x)
+            || self.defs.as_ref().is_some_and(|d| d.get(x).is_some())
+        {
+            return Err(format!(
+                "shadowed name `{x}`: a binder may not reuse an axiom variable or a definition name"
+            ));
+        }
         let mut s = self.clone();
         s.binders.push(x.to_string());
         Ok(s)
@@ -95,6 +107,8 @@ pub fn scoped_term(e: &Sexp, sc: &Scope) -> Result<Term, String> {
                 Ok(Term::Bound(sc.binders.len() - 1 - k))
             } else if sc.params.contains(s) {
                 Ok(Term::Param(s.clone()))
+            } else if sc.vars.contains(s) {
+                Ok(Term::Var(s.clone()))
             } else {
                 term(e, &[])
             }
@@ -134,6 +148,17 @@ pub fn prop(e: &Sexp, sc: &Scope) -> Result<Prop, String> {
             } else {
                 Prop::Exists(x.clone(), b)
             })
+        }
+        // RLT-003 M3b: a use of a pinned definition, expanded here (E1, E2).
+        (_, Some((name, args))) if sc.defs.as_ref().is_some_and(|d| d.get(name).is_some()) => {
+            let d = sc.defs.as_ref().expect("checked");
+            let def = d.get(name).expect("checked");
+            d.mark(name);
+            let ts = args
+                .iter()
+                .map(|a| scoped_term(a, sc))
+                .collect::<Result<Vec<_>, _>>()?;
+            def.expand(&ts)
         }
         _ => Err(format!("formula: expected (= lhs rhs), found {e:?}")),
     }
@@ -293,6 +318,18 @@ fn node_budget(e: &Sexp) -> u64 {
 }
 
 pub fn parse_proof_file(src: &str) -> Result<ProofFile, String> {
+    parse_proof_file_with(src, None)
+}
+
+/// The convention whose proof files read definitions (RLT-003 M3b).
+pub const DEFINITIONS_CONVENTION: &str = "NAT-DEF";
+
+/// Parse a proof file; `defs` supplies the pinned definitions, read only when
+/// the file's convention is NAT-DEF. Every other file parses exactly as before.
+pub fn parse_proof_file_with(
+    src: &str,
+    defs: Option<Result<std::rc::Rc<crate::defs::Definitions>, String>>,
+) -> Result<ProofFile, String> {
     let top = parse_all(src)?;
     let budget = top
         .iter()
@@ -323,6 +360,16 @@ pub fn parse_proof_file(src: &str) -> Result<ProofFile, String> {
     };
     // Parameters and assumption names are read first: steps resolve names against them.
     let mut scope = Scope::default();
+    let reads_definitions = fields.iter().any(
+        |f| matches!(f.head(), Some(("convention", [Sexp::Sym(c)])) if c == DEFINITIONS_CONVENTION),
+    );
+    if reads_definitions {
+        match defs {
+            Some(Ok(d)) => scope.defs = Some(d),
+            Some(Err(e)) => return Err(format!("definitions: {e}")),
+            None => return Err("definitions: unavailable to this reader".into()),
+        }
+    }
     for f in fields {
         match f.head() {
             Some(("params", names)) => {
@@ -332,6 +379,9 @@ pub fn parse_proof_file(src: &str) -> Result<ProofFile, String> {
                             if is_ident(s)
                                 && s.chars().next().is_some_and(|c| c.is_ascii_lowercase()) =>
                         {
+                            if scope.defs.as_ref().is_some_and(|d| d.get(s).is_some()) {
+                                return Err(format!("parameter `{s}` collides with a definition name"));
+                            }
                             if scope.params.contains(s) {
                                 return Err(format!("parameter `{s}` declared twice"));
                             }
@@ -455,6 +505,7 @@ pub fn elaborate_goal(w: &Written, conv: &Convention) -> Result<Prop, String> {
             let logical = w.tokens.iter().any(|t| {
                 crate::elab::CONNECTIVES.contains(&t.as_str())
                     || t.chars().all(|c| c.is_ascii_lowercase())
+                    || conv.definitions.contains(t)
             });
             if logical && !conv.connectives.is_empty() {
                 elaborate_prop(w, conv)
@@ -465,7 +516,8 @@ pub fn elaborate_goal(w: &Written, conv: &Convention) -> Result<Prop, String> {
     }
 }
 
-/// `(axiom NAME (vars…) (= lhs rhs) (source ID))`
+/// `(axiom NAME (vars…) BODY (source ID))`: BODY is `(= lhs rhs)`, or from
+/// RLT-003 M3b any formula in proof syntax over the declared variables.
 pub fn parse_axiom_file(src: &str) -> Result<Vec<Axiom>, String> {
     parse_all(src)?
         .iter()
@@ -487,7 +539,20 @@ pub fn parse_axiom_file(src: &str) -> Result<Vec<Axiom>, String> {
                 Some(("source", [Sexp::Sym(s)])) => s.clone(),
                 _ => return Err(format!("axiom {name}: expected (source ID)")),
             };
-            Axiom::new(name, vars.clone(), formula(eq, &vars)?, &source)
+            // An equation reads exactly as before M3b; any other body is a
+            // formula axiom (RLT-003 M3b), its own binders read as indices and
+            // its free names as the declared axiom variables.
+            match eq.head() {
+                Some(("=", _)) => Axiom::new(name, vars.clone(), formula(eq, &vars)?, &source),
+                _ => {
+                    let sc = Scope {
+                        vars: vars.clone(),
+                        ..Scope::default()
+                    };
+                    let body = prop(eq, &sc).map_err(|e| format!("axiom {name}: {e}"))?;
+                    Axiom::formula(name, vars.clone(), body, &source)
+                }
+            }
         })
         .collect()
 }

@@ -1,11 +1,11 @@
-axiom sets      PEANO-ADD (2 axioms), PEANO-ARITH (4 axioms)
-sources         29 registered
+axiom sets      PEANO-ADD (2 axioms), PEANO-ARITH (4 axioms), ROBINSON-Q (7 axioms)
+sources         30 registered
   ambiguous     1
-  available     13
+  available     15
   conversation  6
   missing       4
-  reference     5
-conventions     CHEM-MOLFORMULA, NAT-DEC, NAT-LOGIC, PIPIPI, PRIME-COUNT, REAL-PI, RESIDUE-30
+  reference     4
+conventions     CHEM-MOLFORMULA, NAT-DEC, NAT-DEF, NAT-LOGIC, PIPIPI, PRIME-COUNT, REAL-PI, RESIDUE-30
 PiπΠ            6 source conventions traced, 2 unresolved items recorded without definition
 reading point   math0: 13 meanings, 2 relationships, 4 correspondence records, 1 lifts
 reading point   math29: 15 meanings, 1 relationships, 1 correspondence records, 0 lifts

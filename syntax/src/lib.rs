@@ -6,6 +6,7 @@
 //! supplies inputs to the kernel or describes context; the kernel alone
 //! decides acceptance.
 
+pub mod defs;
 pub mod elab;
 pub mod proof;
 pub mod records;

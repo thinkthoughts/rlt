@@ -18,17 +18,20 @@ use crate::prop::Prop;
 use crate::term::{arity, Formula, Term};
 use std::collections::{BTreeMap, BTreeSet};
 
-/// A registered axiom: a universally quantified equation with a source reference.
-/// Axioms are trusted inputs; the checker prints every axiom a result depends on.
+/// A registered axiom: a formula whose free axiom variables are read as
+/// universally quantified, with a source reference. Axioms are trusted inputs;
+/// the checker prints every axiom a result depends on. RLT-001 to M3a axioms
+/// are equations; RLT-003 M3b admits any formula body (Q1–Q3 of Robinson's Q).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Axiom {
     name: String,
     vars: Vec<String>,
-    eq: Formula,
+    body: Prop,
     source: String,
 }
 
 impl Axiom {
+    /// An equational axiom, exactly as before M3b.
     pub fn new(name: &str, vars: Vec<String>, eq: Formula, source: &str) -> Result<Axiom, String> {
         eq.check_sort(true)
             .map_err(|e| format!("axiom `{name}`: {e}"))?;
@@ -37,9 +40,26 @@ impl Axiom {
                 "axiom `{name}`: parameters and bound indices are outside axioms"
             ));
         }
+        Axiom::build(name, vars, Prop::Eq(eq), source)
+    }
+
+    /// A formula axiom (RLT-003 M3b): the body may use connectives and
+    /// quantifiers; its own binders are bound indices, its free variables are
+    /// the declared axiom variables, and it holds no parameter.
+    pub fn formula(
+        name: &str,
+        vars: Vec<String>,
+        body: Prop,
+        source: &str,
+    ) -> Result<Axiom, String> {
+        body.check_axiom_body()
+            .map_err(|e| format!("axiom `{name}`: {e}"))?;
+        Axiom::build(name, vars, body, source)
+    }
+
+    fn build(name: &str, vars: Vec<String>, body: Prop, source: &str) -> Result<Axiom, String> {
         let mut used = Vec::new();
-        eq.lhs.vars(&mut used);
-        eq.rhs.vars(&mut used);
+        body.vars(&mut used);
         for v in &used {
             if !vars.contains(v) {
                 return Err(format!("axiom `{name}`: variable `{v}` is undeclared"));
@@ -54,7 +74,7 @@ impl Axiom {
         Ok(Axiom {
             name: name.to_string(),
             vars,
-            eq,
+            body,
             source: source.to_string(),
         })
     }
@@ -64,8 +84,13 @@ impl Axiom {
     pub fn vars(&self) -> &[String] {
         &self.vars
     }
-    pub fn equation(&self) -> &Formula {
-        &self.eq
+    /// The axiom's equation, when it is an equational axiom.
+    pub fn equation(&self) -> Option<&Formula> {
+        self.body.as_eq()
+    }
+    /// The axiom's body, with its axiom variables free.
+    pub fn body(&self) -> &Prop {
+        &self.body
     }
     pub fn source(&self) -> &str {
         &self.source
@@ -244,17 +269,6 @@ pub fn cong(symbol: &str, ths: &[&Theorem]) -> Result<Theorem, String> {
     })
 }
 
-fn substitute(t: &Term, sigma: &BTreeMap<String, Term>) -> Term {
-    match t {
-        Term::Var(v) => sigma[v].clone(),
-        Term::App(f, args) => Term::App(
-            f.clone(),
-            args.iter().map(|a| substitute(a, sigma)).collect(),
-        ),
-        other => other.clone(),
-    }
-}
-
 /// inst: ⊢ σ(lhs) = σ(rhs) for a registered axiom, where σ binds every
 /// axiom variable exactly once to a well-sorted, locally closed term
 /// (parameters allowed since M3a; axiom variables never).
@@ -282,10 +296,10 @@ pub fn inst(ax: &Axiom, bindings: &[(String, Term)]) -> Result<Theorem, String> 
     axioms.insert(ax.name.clone(), ax.clone());
     Ok(Theorem {
         hyps: BTreeMap::new(),
-        concl: Prop::eq(
-            substitute(&ax.eq.lhs, &sigma),
-            substitute(&ax.eq.rhs, &sigma),
-        ),
+        // RLT-003 M3b: one substitution for every axiom form. On an equation it
+        // computes exactly the pre-M3b result; under the body's own binders the
+        // bound terms need no shift, being locally closed.
+        concl: ax.body.subst_vars(&sigma),
         axioms,
     })
 }

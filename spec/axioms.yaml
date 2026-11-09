@@ -17,3 +17,14 @@ sets:
     sha256: 00ceffa9a60b53286f350edbf2f1a5f48a14169a9b09a82cbedc6f9956ff01e4
     source: OLP-ROBINSON-Q
     axioms: [add_zero, add_succ, mul_zero, mul_succ]
+  - id: ROBINSON-Q
+    file: spec/robinson-q.rlt
+    sha256: 4ad55192222576e3901abc4ee7ea5a6760b64ff212e8c55796ab9847e423b00c
+    source: OLP-ROBINSON-Q
+    axioms: [q1_succ_inj, q2_zero_ne_succ, q3_zero_or_succ, add_zero, add_succ, mul_zero, mul_succ]
+
+# Registered definitions (RLT-003 M3b): abbreviations expanded before the
+# kernel, read only by proof files whose convention is NAT-DEF.
+definitions:
+  file: spec/definitions.rlt
+  sha256: 122e37fc627b136023a1a5ffac0344162ed77ae95312248a9f6a76c2b639ecda
