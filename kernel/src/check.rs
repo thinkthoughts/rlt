@@ -529,12 +529,16 @@ pub fn check(proof: &ProofObject, axioms: &[Axiom]) -> Verdict {
             Err(e) => return reject(label, e),
         };
         if th.conclusion() != &step.claim {
+            // A citation is a theorem dependency, not a rule (RLT-003 M3c).
+            let source = match (step.rule.as_str(), step.args.as_slice()) {
+                ("cite", [Arg::Name(c)]) => format!("the cited theorem `{c}` proves"),
+                _ => format!("rule `{}` yields", step.rule),
+            };
             return reject(
                 label,
                 format!(
-                    "step claims `{}`, rule `{}` yields `{}`",
+                    "step claims `{}`, {source} `{}`",
                     step.claim,
-                    step.rule,
                     th.conclusion()
                 ),
             );

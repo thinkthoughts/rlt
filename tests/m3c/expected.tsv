@@ -26,7 +26,7 @@ tests/m3c/reject/CR21b_two_file_cycle.rlt	2	citation cycle
 tests/m3c/reject/CR21f_three_file_cycle_end.rlt	2	the citation records
 tests/m3c/reject/CR21e_three_file_cycle_middle.rlt	2	the citation records
 tests/m3c/reject/CR21d_three_file_cycle.rlt	2	citation cycle
-tests/m3c/reject/CR22_stated_formula_differs.rlt	1	rule `cite` yields
+tests/m3c/reject/CR22_stated_formula_differs.rlt	1	the cited theorem `T2` proves
 tests/m3c/reject/CR23a_parent_path.rlt	2	no `..`
 tests/m3c/reject/CR23b_absolute_path.rlt	2	leading `/`
-tests/m3c/reject/CR24_cited_label_swapped.rlt	1	rule `cite` yields
+tests/m3c/reject/CR24_cited_label_swapped.rlt	1	the cited theorem `T3` proves

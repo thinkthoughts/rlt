@@ -130,9 +130,9 @@ Rejected cases (exit code · refusing step and reason; exact substrings in `test
 | CR21a | self-citation | 2 · citation cycle |
 | CR21b/c | two-file cycle (from each end) | 2 · citation cycle / recorded hash differs |
 | CR21d/e/f | three-file cycle (from each file) | 2 · citation cycle / recorded hash differs |
-| CR22 | states ¬(2 ∣ 9), cites CA02 | 1 · `cite` yields ¬(∃k. 7 = 2 × k) |
+| CR22 | states ¬(2 ∣ 9), cites CA02 | 1 · the cited theorem `T2` proves ¬(∃k. 7 = 2 × k) |
 | CR23a/b | `..` path; absolute path | 2 · plain repository-relative path required |
-| CR24 | label T3 used for ¬(2 ∣ 7) | 1 · `cite` yields ¬(∃k. 7 = 3 × k) |
+| CR24 | label T3 used for ¬(2 ∣ 7) | 1 · the cited theorem `T3` proves ¬(∃k. 7 = 3 × k) |
 
 **The negative control (CR10).** The same scheme on 8 descends 8, 6, 4, 2, 0. At p₄ = 0 it reaches 0 = 0, and the closing step must claim ¬(0 = 0). The only Q2 instance on offer is ¬(0 = S(0)), so the kernel refuses the step. No proof of ¬(2 ∣ 8) can be accepted, because every accepted theorem holds in ℕ.
 
@@ -180,7 +180,7 @@ scripts/compare-reports.sh OLD_RLT OLD_ROOT target/release/rlt .   # OLD = main 
 **Method.** An auditor with no part in the implementation worked from a clean clone of 9dc3bd9 and built it from source. It reran the full suite and the comparison against a built 93e85a5. Its own work:
 - an s-expression counter, independent of CT1;
 - an independent scheme generator;
-- attack files: 70 derivation-attack files (56 + 14) in item 2, among 239 `.rlt` files the auditor wrote in all, including its citation, cycle, depth and fan-out cases (the auditor's counts, from its confirmation report);
+- attack files: 79 derivation-attack files in item 2 (56 divisible-pair, 12 off-by-one, 11 branch or eigenvariable mutations; one off-by-one file was a no-op identical to the correct proof), plus 16 accepted control proofs from its own generator, among 239 `.rlt` paths it created in all (237 regular files, one symlink, one directory). These are the auditor's recounted figures, which correct the "56 + 14" of its first report;
 - a scratch kernel-API test.
 
 **Verdict.** Merge recommended. There are no substantive findings, and all six required checks pass:
@@ -205,10 +205,10 @@ scripts/compare-reports.sh OLD_RLT OLD_ROOT target/release/rlt .   # OLD = main 
 
 **Final reporting corrections (approved 2026-11-09).**
 - **Audit counts:** the counts above are the auditor's exact figures.
-- **Citations reported apart:** citations are reported as theorem dependencies, apart from the 20 inference rules (§6 item 2). Two regression tests cover this.
+- **Citations reported apart:** citations are reported as theorem dependencies, apart from the 20 inference rules (§6 item 2). Two regression tests cover this. A citing step whose claim differs is now refused with "the cited theorem `T` proves …", not "rule `cite` yields …" (CR22, CR24).
 
 **After the follow-ups.**
-- `cargo test`: 209 of 209 pass.
+- `cargo test`: 211 of 211 pass.
 - clippy clean.
 - `verify.sh`: `RESULT all checks hold`.
 - compare-reports against 93e85a5: 312 compared, 0 differ.
