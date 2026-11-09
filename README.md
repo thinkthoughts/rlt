@@ -42,7 +42,8 @@ scripts/verify.sh SOURCE_CLONES_DIR                           # fmt, clippy, tes
 
 ### Trusted computing base
 
-- `kernel/`: terms, sort checking, the six rules `refl symm trans cong inst hyp`, assumption bookkeeping, step replay and goal comparison. Every theorem records Γ and the full content of every axiom it uses.
+- `kernel/`: terms and formulas, sort checking, the 20 inference rules (`RULES` in `kernel/src/check.rs`: refl, symm, trans, cong, inst, hyp, subst and the 13 logical rules), assumption bookkeeping, step replay and goal comparison. Every theorem records Γ and the full content of every axiom it uses. RLT-003 M3c: the kernel re-validates every cited theorem (Γ = ∅, closed conclusion, axioms identical to the registered set); a `cite` step returns it unchanged and is not an inference rule.
+- Theorem citation (RLT-003 M3c), in `cli/src/lib.rs`: `citation_path` and the citation loop in `check_inner`, which hash a cited proof file, refuse cycles and long chains, check the file from scratch on the hashed bytes, and pass the resulting kernel theorem on.
 - The approved axiom sets, pinned in the binary (`PINNED_AXIOM_SETS` in `cli/src/lib.rs`: id, file, SHA-256), their mirror `spec/axioms.yaml`, the files they lock (`spec/peano.rlt`), and their loader `load_axiom_set`. A proof file names a set by id; paths, symbolic links, duplicate entries and any hash other than the pinned one are refused; the verdict names the set.
 - The Rust toolchain (pinned in `rust-toolchain.toml`).
 

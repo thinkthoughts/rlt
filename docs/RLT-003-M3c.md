@@ -10,7 +10,7 @@ Architecture review: <https://claude.ai/artifact/3LDhtmXQ9tBdK5sWbrLAgq>; its §
 - **General statements:** RLT proves ∀k. ¬(7 = d × k) and ¬(d ∣ 7) for d = 2, 3 and 5 under ROBINSON-Q. Each multiplication witness is eliminated as an eigenvariable, and a finite case tree built from Q3 closes every case with Q1 and Q2. No induction axiom is used.
 - **free235(7):** proved by citing the three independently checked non-divisibility theorems. Its report carries each dependency's file hash, proved formula, Γ, axiom set and axioms used.
 - **Kernel:** the 20 inference rules are unchanged. The only trusted addition is the approved citation mechanism (§2).
-- **Tests:** 9 accepted proofs and 31 rejected files behave as specified, and 12 further checks run as Rust tests.
+- **Tests:** 9 accepted proofs and 31 rejected files behave as specified, and 15 further checks run as Rust tests.
 - **Earlier results:** all 312 earlier proof-file reports are byte-identical to main 93e85a5, and so are the outputs of `rlt validate` and every record command.
 
 ## 1. What changed
@@ -19,10 +19,10 @@ Architecture review: <https://claude.ai/artifact/3LDhtmXQ9tBdK5sWbrLAgq>; its §
 |---|---|
 | `kernel/src/check.rs` | `ProofObject.cited`: (label, `Theorem`) pairs. `check` re-validates each cited theorem: Γ = ∅, a well-formed closed conclusion, and every axiom identical in content to one registered for this proof. A `cite` step returns the cited theorem unchanged; the generic claim comparison then requires the step to state exactly its conclusion. `cite` is bookkeeping and is absent from `RULES`, which still lists the 20 rules. |
 | `syntax/src/proof.rs` | `(cites (LABEL "path" "sha256") …)` field (identifier labels, 64-digit lower-case hex); `(cite LABEL)` step argument; `reads_definitions(src)`: the NAT-DEF decision on the parsed `convention` field. |
-| `cli/src/lib.rs` | `citation_path` (repository-relative `.rlt` path, plain components only, no symlink at any level, a regular file at the end); `check_inner` with the citing chain (cycle refusal, depth ≤ `MAX_CITATION_DEPTH` = 8) and the exact bytes that were hashed; `cites` report lines; definitions loaded from the parsed convention field (M3b audit note 1). |
+| `cli/src/lib.rs` | `citation_path` (repository-relative `.rlt` path of plain components, checked on the raw spelling as well, no symlink at any level, a regular file at the end); `check_inner` with the citing chain (cycle refusal, at most `MAX_CITATION_DEPTH` = 8 citing files in a chain), a budget of `MAX_CITED_CHECKS` = 64 cited-file checks per top-level check, and the exact bytes that were hashed; `cites` report lines; definitions loaded from the parsed convention field (M3b audit note 1). |
 | `scripts/gen-m3c-tests.py` | Deterministic, untrusted generator for tests/m3c (D4). |
 | `tests/m3c/` | `accept/` CA01–CA09; `reject/` 31 files; `expected.tsv`. |
-| `cli/tests/m3c.rs` | 12 tests: accept and reject suites, CT1–CT3, CR14, CR23c, citation depth, file swap, and three kernel-API refusals of forged or altered cited theorems. |
+| `cli/tests/m3c.rs` | 15 tests: accept and reject suites, CT1–CT3, CR14, CR23c, citation depth and work bounds, path spellings, convention mismatch, file swap, and three kernel-API refusals of forged or altered cited theorems. |
 | `lean/M3cGenerated.lean`, `scripts/gen-m3c-lean.sh` | Tier 1: the nine checked goals over ℕ. |
 | `lean/M3cReadings.lean` | Tier 2: six correspondence lemmas. |
 | `scripts/verify.sh` | M3c stage; Lean compile and per-theorem axiom gates for M3cGenerated, M3cReadings and M3aGenerated (M3b audit note 4); M3cGenerated regeneration check. |
@@ -39,8 +39,8 @@ Unchanged, checked by hash or byte comparison:
 **Form.** A proof file declares `(cites (T2 "tests/m3c/accept/CA02_two_not_divides_seven.rlt" "bafaef…94e1b"))`, and a step `(t2 (not (dvd 2 7)) (cite T2))` uses it.
 
 **What the CLI does, per citation, in order:**
-1. **Path.** The path must be repository-relative, end in `.rlt`, consist of plain components only (no `..`, `.`, leading `/` or backslash), contain no symlink at any level, and end at a regular file.
-2. **Cycles and depth.** The citation is refused if the cited file is already in the chain of citing files (self-citation and longer cycles alike), and when the chain would exceed 8 files.
+1. **Path.** The path must be repository-relative, end in `.rlt`, and consist of plain components. The raw spelling has no `..`, `.`, empty component, leading `/` or backslash. It must contain no symlink at any level and end at a regular file.
+2. **Cycles and bounds.** The citation is refused if the cited file is already in the chain of citing files (self-citation and longer cycles alike). It is also refused if the chain would hold more than 8 citing files, or if the whole citation tree would need more than 64 cited-file checks.
 3. **Hash.** The file is read once, and those bytes' SHA-256 must equal the recorded hash.
 4. **Check.** The cited file is checked from scratch on exactly those bytes, by the same function, with the citing chain extended.
 5. **Requirements on the result:** verdict ACCEPT, a kernel theorem, the same axiom set id as the citing file, the same convention, and Γ = ∅.
@@ -59,11 +59,11 @@ A `cite` step's theorem is the cited `Theorem` value itself. The citing step's c
 - **C2. The cited theorem is valid under the citing axiom set.** It is unconditional and rests only on axioms identical to the citing proof's registered axioms; the kernel checks this itself and does not rely on the CLI. Using it as a premise is therefore ordinary composition of derivations under one axiom set, and no new inference rule is needed. The kernel-API tests confirm the refusals: an axiom with the same name but different content, a conditional theorem, and a parameter in the conclusion.
 - **C3. The meaning is preserved.** The cited file must use the same convention. Its conclusion is the kernel formula, and the citing step must restate exactly that formula.
 - **C4. Dependency information is preserved.** Each `cites` block prints the hash, goal, Γ, axiom set and axioms used, and the citing theorem's `axioms used` is the union that `and-intro` computes. CT3 checks both against independent recomputation.
-- **C5. Termination.** Cycles are refused before any cited file is read, and depth is bounded by 8.
+- **C5. Termination and bounded work.** Cycles are refused before any cited file is read. Depth is bounded by 8 citing files and total work by 64 cited-file checks.
 
 **Trusted additions, exactly.** Citation adds the following trusted code; nothing else enters the trusted base.
 - in the kernel: the re-validation block and the `cite` case in `check.rs`;
-- in the CLI: `citation_path`, the citation loop (chain, hash, exact-bytes check, requirement checks, hand-off), and the `preread` parameter.
+- in the CLI: `citation_path`, the citation loop (chain, budget, hash, exact-bytes check, requirement checks, hand-off), and the `preread` parameter.
 
 ## 3. The non-divisibility derivations
 
@@ -97,10 +97,10 @@ Every one of these files uses exactly the seven ROBINSON-Q axioms. Their step la
 
 | Suite | Result |
 |---|---|
-| `cargo test` | all pass: 69 golden, 9 hardening, 44 M2, 8 M3a, 14 M3b, 12 M3c, 29 kernel, 21 syntax (206) |
+| `cargo test` | all pass: 69 golden, 9 hardening, 44 M2, 8 M3a, 14 M3b, 15 M3c, 29 kernel, 21 syntax (209) |
 | tests/m3c/accept | 9 of 9 ACCEPT as unconditional theorems under ROBINSON-Q |
 | tests/m3c/reject | 31 of 31 refused with the required exit code and reason (`expected.tsv`) |
-| Rust-run checks | CT1, CT2, CT3, CR14, CR23c (symlinked file and symlinked directory), citation depth (8 accepted, 9 refused), cited file swapped for another proof of the same goal, kernel refusal of a foreign-axiom, a conditional and a parametric cited theorem, `cite` outside `RULES` with an undeclared label refused |
+| Rust-run checks | CT1, CT2, CT3, CR14, CR23c (symlinked file and symlinked directory), citation depth (exactly 8 citing files accepted, 9 refused), citation work (62 checks accepted, 126 refused), `.` and empty path components refused, a cited theorem under another convention refused, cited file swapped for another proof of the same goal, kernel refusal of a foreign-axiom, a conditional and a parametric cited theorem, `cite` outside `RULES` with an undeclared label refused |
 | `verify.sh` | `RESULT all checks hold`. Generators reproduce tests/m3c byte for byte. M3cGenerated (9), M3cReadings (6), M3aGenerated (17) and every earlier Lean file compile under the standard-axiom gates. Source excerpts: 0 problems. |
 
 Rejected cases (exit code · refusing step and reason; exact substrings in `tests/m3c/expected.tsv`):
@@ -162,6 +162,8 @@ The reading points, RESIDUE-30, the axiom sets, the definitions and every conven
 - **Lean's role.** Lean checks the statements and the tier-2 correspondence. It establishes no RLT derivation.
 - **Citation scope.** A citation is accepted only for unconditional theorems under the same axiom set and convention (review §10). Cross-set or conditional citation would need its own review.
 - **Proof size.** Proofs grow linearly in L · d. The largest M3c file is 7.9 KB, far inside the 1,000,000-node limit.
+- **Hardlinks.** A cited path may be a hardlink to a file outside the repository (audit note 2). The SHA-256 binds the bytes, so the cited theorem is the check of exactly the recorded content.
+- **No caching.** Each citation re-checks its file from scratch. That keeps every cited theorem a fresh kernel result, at the cost of repeated work, which the budget of 64 cited-file checks bounds.
 
 ## 8. Reproduce
 
@@ -175,4 +177,34 @@ scripts/compare-reports.sh OLD_RLT OLD_ROOT target/release/rlt .   # OLD = main 
 
 ## 9. Independent adversarial audit
 
-The audit's findings and follow-ups are added here once the audit completes.
+**Method.** An auditor with no part in the implementation worked from a clean clone of 9dc3bd9 and built it from source. It reran the full suite and the comparison against a built 93e85a5. Its own work:
+- an s-expression counter, independent of CT1;
+- an independent scheme generator;
+- 70 attack files;
+- a scratch kernel-API test.
+
+**Verdict.** Merge recommended. There are no substantive findings, and all six required checks pass:
+1. **Reproduction:** 206 tests, fmt and clippy clean, `verify.sh` prints `RESULT all checks hold`, and compare-reports shows 312 of 312 identical.
+2. **Obligations:** the independent counts match §3. Q3 is never applied at p_L, and the last case closes by Q2 at x = 2 × p₄, S(3 × p₃) and S²(5 × p₂). The auditor's own generator proves ¬(d ∣ n) for eight further pairs. Every attempt on divisible pairs, every off-by-one, every branch mutation and every false statement (2 ∣ 7, ¬(2 ∣ 8), ¬(2 ∣ 9), free235(9), free235(25)) is refused.
+3. **Citation:** the code reads each cited file once and checks those bytes. Every substitution, cycle (2, 3 and 4 files, from every entry), depth, path (`..`, absolute, `./`, backslash, Unicode look-alikes, symlinked file and directories), axiom-set and convention attack is refused. In the kernel API, forged theorems are refused: a fake axiom with a registered name, an unregistered `induction`, a q2 copy with a different source, and a q2 copy with a renamed variable.
+4. **Preservation:** `git diff 93e85a5 9dc3bd9` is empty for `kernel/src/rules.rs`, `spec`, `conventions`, `readingpoints`, `residues`, `points`, `sources`, `correspondence` and `lifts`. `RULES` still has 20 entries.
+5. **Lean:** M3cGenerated (9), M3cReadings (6) and M3aGenerated (17) use standard axioms only, and the generated files reproduce.
+6. **Doc claims:** confirmed, with the wording notes below.
+
+**Non-substantive findings and follow-ups.**
+
+| # | Finding | Follow-up |
+|---|---|---|
+| 1 | `tests/./m3c/…` and `tests//m3c/…` were accepted: `Path::components` drops interior `.` and empty components, while the doc said "no `.`" | Fixed: the raw spelling is checked too. A Rust test covers `./`, interior `.` and `//`. |
+| 2 | A hardlink to a file outside the repository is accepted | Documented (§7). The hash binds the content, so the cited theorem is still the check of exactly those bytes. |
+| 3 | The depth test checked 7 and 9 citing files, not the exact boundary | Fixed: exactly 8 citing files are accepted and 9 refused, with the wording made precise. |
+| 4 | Re-checking each citation from scratch grows exponentially with fan-out × depth (15 s at depth 4 with 6 citations per file) | Fixed: a budget of 64 cited-file checks per top-level check. A Rust test accepts 62 and refuses 126. |
+| 5 | No test isolated a convention mismatch | Added: a Rust test where a ROBINSON-Q NAT-LOGIC theorem cited from a NAT-DEF file is refused. |
+| 6 | README trusted-base section still said "the six rules" | Fixed: it now names the 20 rules and the citation mechanism. |
+| 7 | `verification/RLT-001-results.txt` records the commit before itself | Expected for a self-recording file. |
+
+**After the follow-ups.**
+- `cargo test`: 209 of 209 pass.
+- clippy clean.
+- `verify.sh`: `RESULT all checks hold`.
+- compare-reports against 93e85a5: 312 compared, 0 differ.

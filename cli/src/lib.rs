@@ -383,8 +383,14 @@ pub fn check_file_outcome_with(
     file: &Path,
     classify: fn(&rlt_kernel::Prop) -> &'static str,
 ) -> CheckOutcome {
-    check_inner(root, file, classify, &[], None)
+    let budget = std::cell::Cell::new(MAX_CITED_CHECKS);
+    check_inner(root, file, classify, &[], None, &budget)
 }
+
+/// Most cited-file checks one top-level check may run, counted over the
+/// whole citation tree (RLT-003 M3c audit note 4): each citation re-checks
+/// its file from scratch, so this bounds the work as well as the depth.
+pub const MAX_CITED_CHECKS: usize = 64;
 
 /// Longest chain of citations followed from one proof file (RLT-003 M3c).
 pub const MAX_CITATION_DEPTH: usize = 8;
@@ -398,9 +404,15 @@ pub fn citation_path(root: &Path, p: &str) -> Result<PathBuf, String> {
         return Err("the cited path must be a plain repository-relative path".into());
     }
     let rel = Path::new(p);
-    if !p.ends_with(".rlt") || rel.components().any(|c| !matches!(c, Component::Normal(_))) {
+    // The raw spelling is checked too (M3c audit note 1): `Path::components`
+    // would silently drop interior `.` and empty components.
+    let plain = p.split('/').all(|c| !c.is_empty() && c != "." && c != "..");
+    if !p.ends_with(".rlt")
+        || !plain
+        || rel.components().any(|c| !matches!(c, Component::Normal(_)))
+    {
         return Err(format!(
-            "cited path `{p}` must be a repository-relative .rlt path without `..`, `.` or a leading `/`"
+            "cited path `{p}` must be a repository-relative .rlt path of plain components: no `..`, `.`, empty component or leading `/`"
         ));
     }
     let mut cur = root.to_path_buf();
@@ -434,6 +446,7 @@ fn check_inner(
     classify: fn(&rlt_kernel::Prop) -> &'static str,
     chain: &[PathBuf],
     preread: Option<String>,
+    budget: &std::cell::Cell<usize>,
 ) -> CheckOutcome {
     let mut t = String::new();
     let mut out = CheckOutcome {
@@ -642,7 +655,13 @@ fn check_inner(
             let Ok(text) = String::from_utf8(bytes) else {
                 bail!(format!("citation `{l}`: the cited file is not UTF-8"));
             };
-            let sub = check_inner(root, &path, classify, &here, Some(text));
+            if budget.get() == 0 {
+                bail!(format!(
+                    "citation `{l}`: the citations would check more than {MAX_CITED_CHECKS} files"
+                ));
+            }
+            budget.set(budget.get() - 1);
+            let sub = check_inner(root, &path, classify, &here, Some(text), budget);
             let sub_verdict = sub
                 .report
                 .text

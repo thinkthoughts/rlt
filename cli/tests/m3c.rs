@@ -4,7 +4,8 @@
 //! (tests/m3c/expected.tsv), plus the checks that need a scratch repository,
 //! the kernel API or a report inspection: CT1 (exact derivation obligations),
 //! CT2 (folded/unfolded identity of free235(7)), CT3 (citation reporting),
-//! CR14 (edited definitions), CR23c (symlinked citation paths), citation depth,
+//! CR14 (edited definitions), CR23c (symlinked citation paths), citation depth
+//! and work bounds, path spellings, convention mismatch,
 //! and kernel-level refusal of forged or altered cited theorems.
 
 use rlt_cli::{check_file, check_file_outcome, ACCEPT, MALFORMED, MAX_CITATION_DEPTH};
@@ -275,8 +276,9 @@ fn cr23c_symlinked_citation_paths_are_refused() {
 
 #[test]
 fn citation_chains_are_bounded() {
-    // A chain of MAX_CITATION_DEPTH + 1 citing files ending at CA02: refused;
-    // a chain of MAX_CITATION_DEPTH files: accepted.
+    // depth_i cites depth_{i-1}; depth_0 cites the uncited leaf CA02. A chain
+    // of exactly MAX_CITATION_DEPTH citing files is accepted; one more is
+    // refused.
     let s = scratch("depth");
     let mut prev = (CA02.to_string(), sha(&std::fs::read(s.join(CA02)).unwrap()));
     let mut chain = Vec::new();
@@ -294,15 +296,102 @@ fn citation_chains_are_bounded() {
         prev = (f.clone(), sha(text.as_bytes()));
         chain.push(f);
     }
-    let ok = check_file(&s, &s.join(&chain[MAX_CITATION_DEPTH - 2]));
-    let deep = check_file(&s, &s.join(chain.last().unwrap()));
+    // chain[MAX - 1]: exactly MAX citing files; chain[MAX]: MAX + 1.
+    let at_limit = check_file(&s, &s.join(&chain[MAX_CITATION_DEPTH - 1]));
+    let over = check_file(&s, &s.join(&chain[MAX_CITATION_DEPTH]));
+    assert_eq!(at_limit.code, ACCEPT, "{}", at_limit.text);
+    assert_eq!(over.code, MALFORMED, "{}", over.text);
+    assert!(
+        verdict(&over.text).contains("nest deeper than"),
+        "{}",
+        over.text
+    );
+    let _ = std::fs::remove_dir_all(&s);
+}
+
+#[test]
+fn citation_work_is_bounded() {
+    // Two citations per file, five levels: 2 + 4 + … + 32 = 62 checks, within
+    // MAX_CITED_CHECKS = 64; six levels need 126 and are refused.
+    let s = scratch("budget");
+    let mut prev = (CA02.to_string(), sha(&std::fs::read(s.join(CA02)).unwrap()));
+    let mut files = Vec::new();
+    for i in 0..6 {
+        let f = format!("tests/m3c/fan_{i}.rlt");
+        let text = format!(
+            "(rlt-proof\n  (id M3c.F{i})\n  (convention NAT-DEF)\n  (goal \"¬(2 ∣ 7)\")\n  (mode unconditional)\n  (axioms ROBINSON-Q)\n  (cites (A \"{p}\" \"{h}\") (B \"{p}\" \"{h}\"))\n  (steps\n    (t (not (dvd 2 7)) (cite A))))\n",
+            p = prev.0,
+            h = prev.1
+        );
+        std::fs::write(s.join(&f), &text).unwrap();
+        prev = (f.clone(), sha(text.as_bytes()));
+        files.push(f);
+    }
+    let ok = check_file(&s, &s.join(&files[4]));
+    let over = check_file(&s, &s.join(&files[5]));
     let _ = std::fs::remove_dir_all(&s);
     assert_eq!(ok.code, ACCEPT, "{}", ok.text);
-    assert_eq!(deep.code, MALFORMED, "{}", deep.text);
+    assert_eq!(over.code, MALFORMED, "{}", over.text);
     assert!(
-        verdict(&deep.text).contains("nest deeper than"),
+        verdict(&over.text).contains("more than 64 files"),
         "{}",
-        deep.text
+        over.text
+    );
+}
+
+#[test]
+fn citation_paths_with_dot_or_empty_components_are_refused() {
+    let h = sha(&std::fs::read(root().join(CA02)).unwrap());
+    let s = scratch("dots");
+    let mut out = Vec::new();
+    for (n, p) in [
+        ("a", "tests/./m3c/accept/CA02_two_not_divides_seven.rlt"),
+        ("b", "tests//m3c/accept/CA02_two_not_divides_seven.rlt"),
+        ("c", "./tests/m3c/accept/CA02_two_not_divides_seven.rlt"),
+    ] {
+        let f = format!("tests/m3c/dots_{n}.rlt");
+        std::fs::write(
+            s.join(&f),
+            citing("M3c.Dots", "T", p, &h, "(not (dvd 2 7))", "¬(2 ∣ 7)"),
+        )
+        .unwrap();
+        out.push(check_file(&s, &s.join(&f)));
+    }
+    let _ = std::fs::remove_dir_all(&s);
+    for r in out {
+        assert_eq!(r.code, MALFORMED, "{}", r.text);
+        assert!(verdict(&r.text).contains("plain components"), "{}", r.text);
+    }
+}
+
+#[test]
+fn a_cited_theorem_under_another_convention_is_refused() {
+    // Same axiom set (ROBINSON-Q), different convention (NAT-LOGIC): refused.
+    let s = scratch("conv");
+    let logic = "(rlt-proof\n  (id M3c.Logic)\n  (convention NAT-LOGIC)\n  (goal \"¬(0 = 7)\")\n  (mode unconditional)\n  (axioms ROBINSON-Q)\n  (steps\n    (s1 (not (= 0 7)) (inst q2_zero_ne_succ (x 6)))))\n";
+    std::fs::write(s.join("tests/m3c/logic.rlt"), logic).unwrap();
+    let direct = check_file(&s, &s.join("tests/m3c/logic.rlt"));
+    let f = "tests/m3c/conv.rlt";
+    std::fs::write(
+        s.join(f),
+        citing(
+            "M3c.Conv",
+            "T",
+            "tests/m3c/logic.rlt",
+            &sha(logic.as_bytes()),
+            "(not (= 0 7))",
+            "¬(0 = 7)",
+        ),
+    )
+    .unwrap();
+    let r = check_file(&s, &s.join(f));
+    let _ = std::fs::remove_dir_all(&s);
+    assert_eq!(direct.code, ACCEPT, "{}", direct.text);
+    assert_eq!(r.code, MALFORMED, "{}", r.text);
+    assert!(
+        verdict(&r.text).contains("convention NAT-LOGIC differs from this file's NAT-DEF"),
+        "{}",
+        r.text
     );
 }
 

@@ -328,10 +328,10 @@ rej("CR21d_three_file_cycle", 2, "citation cycle",
           cites=[("T", f"{REJ}/CR21e_three_file_cycle_middle.rlt", sha(cyc_e))]))
 rej("CR22_stated_formula_differs", 1, "rule `cite` yields",
     proof("CR22", "¬(2 ∣ 9)", ["(t (not (dvd 2 9)) (cite T2))"], cites=[("T2",) + c2]))
-rej("CR23a_parent_path", 2, "without `..`",
+rej("CR23a_parent_path", 2, "no `..`",
     proof("CR23a", "¬(2 ∣ 7)", ["(t (not (dvd 2 7)) (cite T))"],
           cites=[("T", f"tests/m3c/../m3c/accept/CA02_two_not_divides_seven.rlt", c2[1])]))
-rej("CR23b_absolute_path", 2, "a leading `/`",
+rej("CR23b_absolute_path", 2, "leading `/`",
     proof("CR23b", "¬(2 ∣ 7)", ["(t (not (dvd 2 7)) (cite T))"],
           cites=[("T", "/etc/CA02.rlt", c2[1])]))
 rej("CR24_cited_label_swapped", 1, "rule `cite` yields",
