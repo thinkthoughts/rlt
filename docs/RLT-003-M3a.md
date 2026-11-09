@@ -9,9 +9,9 @@ M3a adds formulas, parameters and 14 logical rules to RLT's kernel. It proves no
 **Success criterion (approved).** "M3a accepts correctly derived first-order statements, rejects invalid applications of inference rules, and preserves every earlier proof judgment and reading-point interpretation."
 
 **Result.**
-- All 16 accepted files (A1–A15, with A12 in two files) are unconditional theorems.
-- All 37 rejected and malformed cases (R1–R34, some split across files) are refused with the required exit code and reason.
-- Every earlier proof judgment is unchanged. Of 215 earlier proof files, 213 give byte-identical reports. In the other two, one message now lists 20 registered rules instead of 6. Every reading-point, points, residues, chemistry, written-layer and Lean report is byte-identical.
+- All 17 accepted files (A1–A16, with A12 in two files) are unconditional theorems.
+- All 42 rejected and malformed files (R1–R41, some split across files) are refused with the required exit code and reason; R26, R28 and the O8 size limit run as Rust tests.
+- Every earlier proof judgment is unchanged. Of 215 earlier proof files, 213 give byte-identical reports. In the other two, one message now lists 20 registered rules instead of 6. Every reading-point, points, residues, chemistry, written-layer and Lean report is byte-identical; `rlt validate` adds the NAT-LOGIC convention (§6 lists all three exceptions).
 
 ## 1. What changed
 
@@ -184,7 +184,7 @@ An auditor who did not write the code worked on a fresh clone at 6ba9f1e.
 |---|---|---|
 | 1 | Names in discharge positions were not checked as identifiers (bidi or zero-width characters accepted) | Refused at parse time (R37, MALFORMED) |
 | 2 | "One formula per local name" was checked at `hyp` steps only; a vacuous discharge could name the same local for another formula | Every discharge binds its name to the formula it requires; a conflict is refused (R35) |
-| 3 | `rlt lean`: a conditional theorem with a non-equation hypothesis was neither marked nor offered the full tactic list | Marked UNCLASSIFIED HYPOTHESIS, given the full tactic list; a replay Lean cannot close fails compilation visibly. Committed Lean files hold only unconditional theorems and are unchanged |
+| 3 | `rlt lean`: a conditional theorem with a non-equation hypothesis was neither marked nor offered the full tactic list | Marked UNCLASSIFIED HYPOTHESIS, given the full tactic list; a replay Lean cannot close fails compilation visibly. Committed Lean files hold only unconditional theorems (M3aGenerated.lean later gained A16, also unconditional) |
 | 4 | O8's `open` size limit had no test | `o8_open_refuses_an_instantiation_over_the_node_limit` (fixture from the audit) |
 | 5 | One regression test asserted nothing for accepted earlier files | Expected exit codes now come from the directory (accept/, m2/) and from tests/m1/expected.tsv |
 | 6 | Documentation: test counts; compare-reports ignored written-layer exit codes; elaborator backtracking did not restore bound names (no reachable effect) | Counts corrected; exit codes compared; state restored |
