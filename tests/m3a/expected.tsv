@@ -25,7 +25,7 @@ tests/m3a/reject/R22a_shadowed_binder.rlt	2	shadowed name `x`
 tests/m3a/reject/R22b_binder_named_like_parameter.rlt	2	shadowed name `a`
 tests/m3a/reject/R23a_parameter_declared_twice.rlt	2	parameter `a` declared twice
 tests/m3a/reject/R23b_parameter_named_like_axiom.rlt	1	parameter name `add_zero` collides
-tests/m3a/reject/R24_robinson_q_unregistered.rlt	2	ROBINSON-Q
+tests/m3a/reject/R24_unregistered_axiom_set.rlt	2	PEANO-IND
 tests/m3a/reject/R25_axiom_variable_in_proof_term.rlt	1	symbol `x` is outside the signature
 tests/m3a/reject/R27_binder_depth.rlt	2	nest
 tests/m3a/reject/R29_invisible_binder_name.rlt	2	binder

@@ -25,6 +25,12 @@ pub struct Convention {
     /// NAT-DEC logical symbols this convention reads (RLT-003 M3a), a subset
     /// of `CONNECTIVES`; empty means equations only, as before.
     pub connectives: Vec<String>,
+    /// Definition notations this convention reads (RLT-003 M3b, NAT-DEF):
+    /// `<`, `∣`, `free235`. Empty for every earlier convention.
+    pub definitions: Vec<String>,
+    /// The pinned definitions, attached by the caller when `definitions` is
+    /// non-empty; never read from the convention file.
+    pub defs: Option<std::rc::Rc<crate::defs::Definitions>>,
 }
 
 /// The logical symbols NAT-DEC can be configured to read (RLT-003 M3a).
@@ -41,6 +47,8 @@ pub fn elaborate_term(w: &Written, conv: &Convention) -> Result<Term, String> {
                 times: conv.operators.iter().any(|o| o == "×"),
                 operators: 0,
                 vars: None,
+                notations: Vec::new(),
+                defs: None,
             };
             let t = p.expr()?;
             p.end()?;
@@ -87,6 +95,8 @@ pub fn elaborate_formula(w: &Written, conv: &Convention) -> Result<Formula, Stri
         times: conv.operators.iter().any(|o| o == "×"),
         operators: 0,
         vars: None,
+        notations: Vec::new(),
+        defs: None,
     };
     let lhs = p.expr()?;
     p.expect("=")?;
@@ -113,6 +123,10 @@ struct Parser<'a> {
     /// Bound variables in scope (innermost last) when reading a formula with
     /// quantifiers; `None` when reading an equation, exactly as before M3a.
     vars: Option<Vec<String>>,
+    /// RLT-003 M3b: definition notations read (NAT-DEF) and the pinned
+    /// definitions they expand to; empty and `None` for every other convention.
+    notations: Vec<String>,
+    defs: Option<std::rc::Rc<crate::defs::Definitions>>,
 }
 
 impl Parser<'_> {
@@ -350,10 +364,64 @@ impl Parser<'_> {
             (self.pos, self.depth, self.numeral_total, self.operators) = save;
             self.vars = saved_vars;
         }
+        if let Some(p) = self.prefix_use()? {
+            return Ok(p);
+        }
         let lhs = self.expr()?;
+        // RLT-003 M3b: an infix definition (`<`, `∣`) at the level of `=`.
+        if let Some(sym) = self.peek().map(str::to_string) {
+            if sym != "=" && self.notations.contains(&sym) {
+                self.operator()?;
+                let rhs = self.expr()?;
+                return self.expand(&crate::defs::Notation::Infix(sym), &[lhs, rhs]);
+            }
+        }
         self.expect("=")?;
         let rhs = self.expr()?;
         Ok(Prop::eq(lhs, rhs))
+    }
+
+    /// A prefix definition `NAME(t, …)`; NAME is written as letters with an
+    /// optional digit suffix (`free235` reads as tokens `free`, `235`).
+    fn prefix_use(&mut self) -> Result<Option<Prop>, String> {
+        let (name, len) = match (self.toks.get(self.pos), self.toks.get(self.pos + 1)) {
+            (Some(a), Some(b))
+                if a.chars().all(|c| c.is_ascii_alphabetic())
+                    && b.chars().all(|c| c.is_ascii_digit()) =>
+            {
+                (format!("{a}{b}"), 2)
+            }
+            (Some(a), _) if a.len() > 1 && a.chars().all(|c| c.is_ascii_alphabetic()) => {
+                (a.clone(), 1)
+            }
+            _ => return Ok(None),
+        };
+        if !self.notations.contains(&name)
+            || self.toks.get(self.pos + len).map(String::as_str) != Some("(")
+        {
+            return Ok(None);
+        }
+        self.pos += len + 1;
+        let mut args = vec![self.expr()?];
+        while self.peek() == Some(",") {
+            self.pos += 1;
+            args.push(self.expr()?);
+        }
+        self.expect(")")?;
+        self.expand(&crate::defs::Notation::Prefix(name), &args)
+            .map(Some)
+    }
+
+    fn expand(&self, n: &crate::defs::Notation, args: &[Term]) -> Result<Prop, String> {
+        let defs = self
+            .defs
+            .as_ref()
+            .ok_or("NAT-DEF: definitions are unavailable")?;
+        let def = defs
+            .by_notation(n)
+            .ok_or(format!("NAT-DEF: notation {n:?} is unregistered"))?;
+        defs.mark(&def.name);
+        def.expand(args).map_err(|e| format!("NAT-DEF: {e}"))
     }
 }
 
@@ -379,7 +447,19 @@ pub fn elaborate_prop(w: &Written, conv: &Convention) -> Result<Prop, String> {
         times: conv.operators.iter().any(|o| o == "×"),
         operators: 0,
         vars: Some(Vec::new()),
+        notations: conv.definitions.clone(),
+        defs: if conv.definitions.is_empty() {
+            None
+        } else {
+            conv.defs.clone()
+        },
     };
+    if !conv.definitions.is_empty() && p.defs.is_none() {
+        return Err(format!(
+            "convention {} reads definitions, and the pinned definitions are unavailable",
+            conv.id
+        ));
+    }
     let f = p.imp(&conv.connectives)?;
     p.end()?;
     Ok(f)
@@ -423,6 +503,8 @@ mod tests {
 
     fn nat() -> Convention {
         Convention {
+            definitions: vec![],
+            defs: None,
             id: "NAT-DEC".into(),
             elaborator: "nat-dec".into(),
             symbols: BTreeMap::new(),

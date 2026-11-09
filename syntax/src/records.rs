@@ -554,6 +554,7 @@ pub fn load_convention(path: &Path) -> Result<ConventionRecord, String> {
             "symbols",
             "operators",
             "connectives",
+            "definitions",
             "elements",
             "species",
             "modulus",
@@ -606,6 +607,13 @@ pub fn load_convention(path: &Path) -> Result<ConventionRecord, String> {
                 crate::elab::CONNECTIVES.join(", ")
             ));
         }
+    }
+    // RLT-003 M3b: definition notations, read only with connectives.
+    let definitions = strings(exe, "definitions", &ctx)?;
+    if !definitions.is_empty() && (elaborator != "nat-dec" || connectives.is_empty()) {
+        return Err(format!(
+            "{ctx}: `definitions` belong to a nat-dec elaborator that reads connectives"
+        ));
     }
     let operators = if listed_ops.is_empty() && elaborator == "nat-dec" {
         vec!["+".to_string()]
@@ -739,6 +747,8 @@ pub fn load_convention(path: &Path) -> Result<ConventionRecord, String> {
             symbols,
             operators,
             connectives,
+            definitions,
+            defs: None,
         },
         reading: strings(expl, "reading", &ctx)?,
         sources: strings(&y, "sources", &ctx)?,

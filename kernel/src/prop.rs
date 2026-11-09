@@ -17,7 +17,7 @@
 //! captures.
 
 use crate::term::{arity, Formula, Term};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 #[derive(Clone, Debug)]
@@ -115,6 +115,72 @@ impl Prop {
             }
             Prop::Forall(_, b) | Prop::Exists(_, b) => b.wf(depth + 1, nest + 1),
         }
+    }
+
+    /// Well-formedness of an axiom body (RLT-003 M3b): every term well-sorted,
+    /// axiom variables allowed, no parameter, every index bound by a binder of
+    /// the body itself, nesting within the limit.
+    pub fn check_axiom_body(&self) -> Result<(), String> {
+        fn term(t: &Term, depth: usize) -> Result<(), String> {
+            match t {
+                Term::Var(_) => Ok(()),
+                Term::Param(a) => Err(format!("parameter `{a}` in an axiom")),
+                Term::Bound(i) if *i < depth => Ok(()),
+                Term::Bound(i) => Err(format!("bound index #{i} outside its binder")),
+                Term::App(f, args) => match arity(f) {
+                    None => Err(format!(
+                        "symbol `{f}` is outside the signature {{0, S, +, *}}"
+                    )),
+                    Some(n) if n != args.len() => Err(format!(
+                        "symbol `{f}` has arity {n}, applied to {} argument(s)",
+                        args.len()
+                    )),
+                    Some(_) => args.iter().try_for_each(|a| term(a, depth)),
+                },
+            }
+        }
+        fn go(p: &Prop, depth: usize, nest: usize) -> Result<(), String> {
+            if nest > MAX_PROP_DEPTH {
+                return Err(format!(
+                    "formula nested deeper than {MAX_PROP_DEPTH} connectives and binders"
+                ));
+            }
+            match p {
+                Prop::Eq(f) => {
+                    term(&f.lhs, depth)?;
+                    term(&f.rhs, depth)
+                }
+                Prop::False => Ok(()),
+                Prop::And(a, b) | Prop::Or(a, b) | Prop::Imp(a, b) => {
+                    go(a, depth, nest + 1)?;
+                    go(b, depth, nest + 1)
+                }
+                Prop::Forall(_, b) | Prop::Exists(_, b) => go(b, depth + 1, nest + 1),
+            }
+        }
+        go(self, 0, 0)
+    }
+
+    /// Axiom variable names occurring in this formula, in first-occurrence order.
+    pub fn vars(&self, out: &mut Vec<String>) {
+        match self {
+            Prop::Eq(f) => {
+                f.lhs.vars(out);
+                f.rhs.vars(out);
+            }
+            Prop::False => {}
+            Prop::And(a, b) | Prop::Or(a, b) | Prop::Imp(a, b) => {
+                a.vars(out);
+                b.vars(out);
+            }
+            Prop::Forall(_, b) | Prop::Exists(_, b) => b.vars(out),
+        }
+    }
+
+    /// Replace axiom variables throughout, under binders too (`inst`). The
+    /// replacement terms are locally closed, so they need no index shift.
+    pub fn subst_vars(&self, sigma: &BTreeMap<String, Term>) -> Prop {
+        self.map_terms(0, &|t, _| t.subst_vars(sigma))
     }
 
     /// Parameter names occurring in this formula.

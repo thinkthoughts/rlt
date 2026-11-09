@@ -1,0 +1,17 @@
+; Registered axioms ROBINSON-Q (RLT-003 M3b; trusted inputs, printed with every result).
+; (axiom NAME (VARS…) BODY (source SOURCE-ID)); free variables read as universally quantified.
+; Robinson's Q, axioms Q1–Q7, as stated in the Open Logic Project (OLP-ROBINSON-Q),
+; content/incompleteness/introduction/definitions.tex at 1e960be, lines 107–113, with the
+; source's numbering and orientation:
+;   Q1 ∀x ∀y (x′ = y′ → x = y)   Q2 ∀x ¬ 0 = x′   Q3 ∀x (x = 0 ∨ ∃y x = y′)
+;   Q4 ∀x (x + 0) = x   Q5 ∀x ∀y (x + y′) = (x + y)′   Q6 ∀x (x × 0) = 0   Q7 ∀x ∀y (x × y′) = ((x × y) + x)
+; Q4–Q7 are identical to PEANO-ARITH's axioms of the same names (checked by rlt).
+; Q8 (x < y ↔ ∃z (z′ + x) = y) is the definition `lt` in spec/definitions.rlt.
+
+(axiom q1_succ_inj     (x y) (imp (= (S x) (S y)) (= x y))       (source OLP-ROBINSON-Q))
+(axiom q2_zero_ne_succ (x)   (not (= 0 (S x)))                   (source OLP-ROBINSON-Q))
+(axiom q3_zero_or_succ (x)   (or (= x 0) (exists y (= x (S y)))) (source OLP-ROBINSON-Q))
+(axiom add_zero        (x)   (= (+ x 0) x)                       (source OLP-ROBINSON-Q))
+(axiom add_succ        (x y) (= (+ x (S y)) (S (+ x y)))         (source OLP-ROBINSON-Q))
+(axiom mul_zero        (x)   (= (* x 0) 0)                       (source OLP-ROBINSON-Q))
+(axiom mul_succ        (x y) (= (* x (S y)) (+ (* x y) x))       (source OLP-ROBINSON-Q))

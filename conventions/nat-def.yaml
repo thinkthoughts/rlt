@@ -1,0 +1,26 @@
+id: NAT-DEF
+authority: interpretation   # selects a reading of notation; proofs come only from the kernel
+sources: []
+origin: rlt-authored        # RLT-003 M3b: NAT-LOGIC plus the pinned definitions <, ∣, free235
+
+# Executable fields: they decide what a written expression elaborates to.
+# Pinned in the binary (PINNED_CONVENTIONS, interpretation digest). The
+# meanings of the definitions come from spec/definitions.rlt, pinned there.
+executable:
+  elaborator: nat-dec
+  operators: ["+", "×"]
+  connectives: ["⊥", "¬", "∧", "∨", "→", "∀", "∃"]
+  definitions: ["<", "∣", "free235"]
+
+# Explanation: prose no check uses to elaborate. Pinned separately
+# (PINNED_CONVENTIONS, explanation digest), so a prose edit needs review too.
+explanation:
+  title: Written first-order formulas with the registered definitions of order and divisibility
+  reading:
+    - "Everything NAT-LOGIC reads is read identically: every NAT-LOGIC formula elaborates to the same kernel term under NAT-DEF."
+    - "a < b abbreviates ∃z. S(z) + a = b (Robinson's Q, Q8); a ∣ b abbreviates ∃k. b = a × k (Lean core's Nat divisibility); free235(r) abbreviates (¬(2 ∣ r) ∧ ¬(3 ∣ r)) ∧ ¬(5 ∣ r)."
+    - "< and ∣ bind at the level of =; free235(t) is an atomic formula. Abbreviations are expanded before the kernel, which checks only the expanded formula."
+  limits:
+    - "Definitions add no axiom and no rule: a statement written with them means exactly its expansion."
+    - "≤, ≠, mod, gcd and coprime are outside NAT-DEF."
+    - "NAT-DEC and NAT-LOGIC are unchanged: proof files that name them read exactly as before RLT-003 M3b."

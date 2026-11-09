@@ -4,6 +4,6 @@
   (convention NAT-LOGIC)
   (goal "0 = 0")
   (mode unconditional)
-  (axioms ROBINSON-Q)
+  (axioms PEANO-IND)
   (steps
     (s1 (= 0 0) (refl 0))))

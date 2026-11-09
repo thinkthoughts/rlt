@@ -249,8 +249,10 @@ rej("R23a_parameter_declared_twice", 2, "parameter `a` declared twice", proof("R
     "(s1 (= 0 0) (refl 0))"], params="a a"))
 rej("R23b_parameter_named_like_axiom", 1, "parameter name `add_zero` collides", proof("R23b", G, [
     "(s1 (= 0 0) (refl 0))"], params="add_zero"))
-rej("R24_robinson_q_unregistered", 2, "ROBINSON-Q", proof("R24", G, [
-    "(s1 (= 0 0) (refl 0))"], axioms="ROBINSON-Q"))
+# R24 named ROBINSON-Q while it was unregistered (M3a). RLT-003 M3b registers
+# ROBINSON-Q, so the case now names a set that stays unregistered: PEANO-IND.
+rej("R24_unregistered_axiom_set", 2, "PEANO-IND", proof("R24", G, [
+    "(s1 (= 0 0) (refl 0))"], axioms="PEANO-IND"))
 rej("R25_axiom_variable_in_proof_term", 1, "symbol `x` is outside the signature", proof("R25", G, [
     "(s1 (= x x) (refl x))"]))
 nested = "(= 0 0)"

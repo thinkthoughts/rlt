@@ -9,7 +9,7 @@ old() { "$old_bin" --root "$old_root" "$@"; }
 new() { "$new_bin" --root "$new_root" "$@"; }
 cd "$old_root"
 n=0; d=0
-for f in $(find tests -name '*.rlt' -not -path 'tests/m3a/*' | sort); do
+for f in $(find tests -name '*.rlt' | sort); do
   n=$((n+1))
   a=$(old check "$f"; echo "exit $?"); b=$(new check "$f"; echo "exit $?")
   [ "$a" = "$b" ] || { d=$((d+1)); echo "DIFF $f"; diff <(echo "$a") <(echo "$b") | head -6; }

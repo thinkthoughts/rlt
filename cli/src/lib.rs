@@ -6,7 +6,7 @@ pub mod gen;
 pub mod residues;
 use rlt_kernel::{check, Axiom, Formula, Mode, Theorem, Verdict};
 use rlt_syntax::elab::{elaborate_formula, elaborate_term, Convention};
-use rlt_syntax::proof::{parse_axiom_file, parse_proof_file, ProofFile};
+use rlt_syntax::proof::{parse_axiom_file, ProofFile};
 use rlt_syntax::records::{
     load_conventions, load_readingpoint, load_registry, load_status, load_yaml, read_regular,
     ConventionRecord, EvidenceItem, ReadingPoint, Relationship, Source, StatusVocabulary,
@@ -103,7 +103,133 @@ pub const PINNED_AXIOM_SETS: &[(&str, &str, &str)] = &[
         "spec/peano-arith.rlt",
         "00ceffa9a60b53286f350edbf2f1a5f48a14169a9b09a82cbedc6f9956ff01e4",
     ),
+    // RLT-003 M3b: Robinson's Q, axioms Q1–Q7, self-contained; Q4–Q7 are
+    // checked identical to PEANO-ARITH (source OLP-ROBINSON-Q).
+    (
+        "ROBINSON-Q",
+        "spec/robinson-q.rlt",
+        "4ad55192222576e3901abc4ee7ea5a6760b64ff212e8c55796ab9847e423b00c",
+    ),
 ];
+
+/// RLT-003 M3b: axiom sets whose equations must equal another set's axioms
+/// of the same name, in variables and formula: (set, reference set, names).
+pub const SHARED_AXIOMS: &[(&str, &str, &[&str])] = &[(
+    "ROBINSON-Q",
+    "PEANO-ARITH",
+    &["add_zero", "add_succ", "mul_zero", "mul_succ"],
+)];
+
+/// RLT-003 M3b: each named axiom of `id` must equal the reference set's
+/// axiom of the same name, in variables and body.
+pub fn shared_axiom_problem(
+    id: &str,
+    axioms: &[rlt_kernel::Axiom],
+    reference: &str,
+    reference_axioms: &[rlt_kernel::Axiom],
+    names: &[&str],
+) -> Result<(), String> {
+    for n in names {
+        let mine = axioms.iter().find(|a| a.name() == *n);
+        let theirs = reference_axioms.iter().find(|a| a.name() == *n);
+        match (mine, theirs) {
+            (Some(a), Some(b)) if a.vars() == b.vars() && a.body() == b.body() => {}
+            _ => {
+                return Err(format!(
+                    "axiom set {id}: {n} differs from {reference}'s {n}; shared axioms keep one meaning"
+                ))
+            }
+        }
+    }
+    Ok(())
+}
+
+/// RLT-003 M3b: every definition cites a registered reference or available
+/// source, or declares origin rlt-authored.
+pub fn definition_source_problem(
+    defs: &rlt_syntax::defs::Definitions,
+    reg: &BTreeMap<String, rlt_syntax::records::Source>,
+) -> Result<(), String> {
+    for def in &defs.list {
+        if let Some(src) = &def.source {
+            match reg.get(src) {
+                Some(s) if AXIOM_SOURCE_STATUS.contains(&s.status.as_str()) => {}
+                _ => {
+                    return Err(format!(
+                        "definition `{}` cites `{src}`, which is not a registered reference or available source",
+                        def.name
+                    ))
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// A GitHub file location at a commit: `https://github.com/OWNER/REPO/blob/HEX/PATH`
+/// (RLT-003 M3b: any owner, so the Open Logic Project and Lean core can be
+/// checked by excerpt like the thinkthoughts repositories).
+fn github_file_at_commit(loc: &str) -> bool {
+    let Some(rest) = loc.strip_prefix("https://github.com/") else {
+        return false;
+    };
+    let parts: Vec<&str> = rest.splitn(5, '/').collect();
+    matches!(parts.as_slice(), [owner, repo, "blob", commit, path]
+        if !owner.is_empty() && !repo.is_empty() && !path.is_empty()
+            && commit.len() >= 7 && commit.chars().all(|c| c.is_ascii_hexdigit()))
+}
+
+/// RLT-003 M3b: the pinned definitions file (file, SHA-256).
+pub const PINNED_DEFINITIONS: (&str, &str) = (
+    "spec/definitions.rlt",
+    "122e37fc627b136023a1a5ffac0344162ed77ae95312248a9f6a76c2b639ecda",
+);
+
+/// Load the pinned definitions. `spec/axioms.yaml` must name the pinned file
+/// and hash under `definitions`; the file must be regular and hash to the pin;
+/// every definition must cite a registered source or declare origin
+/// rlt-authored; no name may collide with a rule or a registered axiom.
+pub fn load_definitions(root: &Path) -> Result<rlt_syntax::defs::Definitions, String> {
+    let (pin_file, pin_sha) = PINNED_DEFINITIONS;
+    let y = load_yaml(&root.join("spec/axioms.yaml"))?;
+    let d = &y["definitions"];
+    let (file, sha) = match (d["file"].as_str(), d["sha256"].as_str()) {
+        (Some(f), Some(h)) => (f.to_string(), h.to_string()),
+        _ => return Err("spec/axioms.yaml: `definitions` must give `file` and `sha256`".into()),
+    };
+    if file != pin_file || sha != pin_sha {
+        return Err(format!(
+            "definitions: registered {file} {sha} differ from the pinned {pin_file} {pin_sha}"
+        ));
+    }
+    for p in [root.join("spec"), root.join(&file)] {
+        let meta = std::fs::symlink_metadata(&p)
+            .map_err(|e| format!("definitions: {file}: {}", e.kind()))?;
+        if meta.file_type().is_symlink() {
+            return Err(format!("definitions: {file} must be a regular file"));
+        }
+    }
+    let bytes = std::fs::read(root.join(&file))
+        .map_err(|e| format!("definitions: {file}: {}", e.kind()))?;
+    let actual = sha256_hex(&bytes);
+    if actual != pin_sha {
+        return Err(format!(
+            "definitions: {file} has SHA-256 {actual}, pinned {pin_sha}; the definitions changed without review"
+        ));
+    }
+    let text = String::from_utf8(bytes).map_err(|_| format!("definitions: {file} is not UTF-8"))?;
+    let mut forbidden: Vec<String> = rlt_kernel::RULES.iter().map(|r| r.to_string()).collect();
+    for (id, _, _) in PINNED_AXIOM_SETS {
+        if let Ok(set) = load_axiom_set(root, id) {
+            forbidden.extend(set.axioms.iter().map(|a| a.name().to_string()));
+        }
+    }
+    let f: Vec<&str> = forbidden.iter().map(String::as_str).collect();
+    let defs = rlt_syntax::defs::parse_definitions(&text, &f)?;
+    let reg = pinned_registry(root)?;
+    definition_source_problem(&defs, &reg)?;
+    Ok(defs)
+}
 
 /// Source statuses an axiom set may cite.
 const AXIOM_SOURCE_STATUS: [&str; 2] = ["available", "reference"];
@@ -211,6 +337,15 @@ pub fn load_axiom_set(root: &Path, id: &str) -> Result<AxiomSet, String> {
             ));
         }
     }
+    // RLT-003 M3b: shared axioms must be identical to the reference set's.
+    for (set, reference, names) in SHARED_AXIOMS {
+        if *set != id {
+            continue;
+        }
+        let other = load_axiom_set(root, reference)
+            .map_err(|e| format!("axiom set {id}: reference set {reference}: {e}"))?;
+        shared_axiom_problem(id, &axioms, reference, &other.axioms, names)?;
+    }
     Ok(AxiomSet {
         id: id.to_string(),
         file,
@@ -277,7 +412,11 @@ pub fn check_file_outcome_with(
             e.rsplit(": ").next().unwrap_or("unreadable")
         )),
     };
-    let pf = match parse_proof_file(&src) {
+    // RLT-003 M3b: the pinned definitions, loaded only for NAT-DEF files.
+    let defs = src
+        .contains(rlt_syntax::proof::DEFINITIONS_CONVENTION)
+        .then(|| load_definitions(root).map(std::rc::Rc::new));
+    let pf = match rlt_syntax::proof::parse_proof_file_with(&src, defs.clone()) {
         Ok(p) => p,
         Err(e) => bail!(e),
     };
@@ -324,7 +463,26 @@ pub fn check_file_outcome_with(
         "convention      {} (authority: {})",
         conv.convention.id, conv.authority
     );
-    let po = match pf.to_proof_object(&conv.convention) {
+    let mut convention = conv.convention.clone();
+    if !convention.definitions.is_empty() {
+        match &defs {
+            Some(Ok(d)) => {
+                for n in &convention.definitions {
+                    let known = d.list.iter().any(|x| x.shown() == *n);
+                    if !known {
+                        bail!(format!(
+                            "convention {}: notation {n:?} has no registered definition",
+                            convention.id
+                        ));
+                    }
+                }
+                convention.defs = Some(d.clone());
+            }
+            Some(Err(e)) => bail!(e.clone()),
+            None => bail!("definitions: unavailable".to_string()),
+        }
+    }
+    let po = match pf.to_proof_object(&convention) {
         Ok(p) => p,
         Err(e) => bail!(e),
     };
@@ -332,6 +490,21 @@ pub fn check_file_outcome_with(
     // Layer 3: the exact statement the kernel checks.
     let _ = writeln!(t, "checked goal    {}", po.goal);
     let _ = writeln!(t, "  kernel form   {}", po.goal.kernel_form());
+    // RLT-003 M3b: the definitions expanded anywhere in this file, and the
+    // folded goal as written; the kernel checks only the unfolded formula.
+    if let Some(Ok(d)) = &defs {
+        let used: Vec<String> = d.used.borrow().iter().cloned().collect();
+        if !used.is_empty() {
+            let _ = writeln!(t, "  folded        {}", pf.goal.text.escape_debug());
+            let _ = writeln!(
+                t,
+                "definitions     {} — abbreviations expanded before the kernel ({} sha256 {})",
+                used.join(", "),
+                PINNED_DEFINITIONS.0,
+                PINNED_DEFINITIONS.1
+            );
+        }
+    }
     for (n, f) in &po.assumptions {
         let _ = writeln!(t, "declared        {n} : {f}");
         let _ = writeln!(t, "  kernel form   {}", f.kernel_form());
@@ -360,7 +533,10 @@ pub fn check_file_outcome_with(
             "  axiom         {} : ∀ {}. {}",
             a.name(),
             a.vars().join(" "),
+            // Equational axioms print exactly as before M3b.
             a.equation()
+                .map(|e| e.to_string())
+                .unwrap_or_else(|| a.body().to_string())
         );
     }
     let _ = writeln!(t, "  status        assumed: the SHA-256 binds these axioms' exact content to the approved file; their mathematical truth and any physical correspondence remain assumptions");
@@ -929,7 +1105,7 @@ pub fn chem_report(root: &Path, written: &str, conv_id: &str) -> Report {
 /// untagged, retagged to another reading point, or newly cited only through a
 /// reviewed code change. Update it with the digest `rlt validate` prints.
 pub const PINNED_REGISTRY_SHA: &str =
-    "d3b3584565115efb2f499c2c9f9f628361c3758ecc0189fd3ce67e2945ae041c";
+    "db602ae9c03fe1fc9b6c3aea0fcc69c2cda406b65192956027b2a35429a81b1d";
 
 /// Canonical digest of the registry: for every source (in id order) its id,
 /// status and location, then each excerpt's text, `defines` and `split`, one
@@ -1024,6 +1200,12 @@ pub const PINNED_CONVENTIONS: &[(&str, &str, &str)] = &[
         "fbe76eaec888aca56e70cc728fc0abd8047dffc329b852742600a9483e421762",
     ),
     // RLT-003 M3a: written first-order formulas; NAT-DEC stays as it was.
+    // RLT-003 M3b: NAT-LOGIC plus the pinned definitions <, ∣, free235.
+    (
+        "NAT-DEF",
+        "935f9635e563cab1d60cd4b5d7ffbed121933eb59e790edd9fb7c21d088bd208",
+        "a6a720b2d61f91e92bfaaf86f2947ec7bcab5a267d83a68c1766898c213b0524",
+    ),
     (
         "NAT-LOGIC",
         "4b0c13c7004df97a2a6224a3547dc010df0bc997f06b06b116aa0e8459b4c49b",
@@ -1281,9 +1463,7 @@ pub fn validate(root: &Path) -> Report {
     for src in reg.values() {
         if src.status == "available"
             && !src.excerpts.is_empty()
-            && !src
-                .location
-                .starts_with("https://github.com/thinkthoughts/")
+            && !github_file_at_commit(&src.location)
         {
             problems.push(format!(
                 "{}: status available with excerpts requires a GitHub file location",
@@ -1760,15 +1940,20 @@ pub fn lean_export(root: &Path, files: &[PathBuf]) -> Report {
         // M3a formulas: a fixed list of core tactics, tried in order. For a
         // top-level ∃ proved by exists-intro over a closed witness, Lean is
         // also offered that witness and checks it itself.
-        let witness = match (th.conclusion(), pf.steps.last()) {
-            (rlt_kernel::Prop::Exists(..), Some(st)) if st.rule == "exists-intro" => {
-                match st.args.first() {
+        // RLT-003 M3b: any exists-intro step whose claim is the conclusion
+        // (not only the last step) offers its closed witness.
+        let witness = match th.conclusion() {
+            rlt_kernel::Prop::Exists(..) => pf
+                .steps
+                .iter()
+                .filter(|st| st.rule == "exists-intro" && &st.claim == th.conclusion())
+                .find_map(|st| match st.args.first() {
                     Some(rlt_kernel::Arg::Term(t)) if t.as_numeral().is_some() => {
-                        format!("exact ⟨{}, by decide⟩ | ", lean_term(t))
+                        Some(format!("exact ⟨{}, by decide⟩ | ", lean_term(t)))
                     }
-                    _ => String::new(),
-                }
-            }
+                    _ => None,
+                })
+                .unwrap_or_default(),
             _ => String::new(),
         };
         // Assumptions that are not equations: their truth in ℕ is not
@@ -1781,7 +1966,7 @@ pub fn lean_export(root: &Path, files: &[PathBuf]) -> Report {
             .map(|(n, _)| n.as_str())
             .collect();
         let tactic = if th.conclusion().as_eq().is_none() || !unclassified.is_empty() {
-            format!("first | {witness}decide | omega | (intros; omega) | simp | (intros; simp_all)")
+            format!("first | {witness}decide | omega | (intros; omega) | (simp; done) | (intros; simp_all; done) | grind | (intro x; cases x <;> simp)")
         } else if th.is_unconditional() {
             "decide".to_string()
         } else {

@@ -122,6 +122,20 @@ impl Term {
         }
     }
 
+    /// Replace every axiom variable `Var(v)` by `sigma[v]` (RLT-003 M3b, `inst`).
+    /// Callers guarantee every variable is bound and every bound term is
+    /// locally closed with no `Var`, so no index can be captured.
+    pub fn subst_vars(&self, sigma: &std::collections::BTreeMap<String, Term>) -> Term {
+        match self {
+            Term::Var(v) => sigma[v].clone(),
+            Term::App(f, args) => Term::App(
+                f.clone(),
+                args.iter().map(|a| a.subst_vars(sigma)).collect(),
+            ),
+            other => other.clone(),
+        }
+    }
+
     /// Node count of this term (each symbol, variable or index counts one).
     pub fn size(&self) -> u64 {
         match self {

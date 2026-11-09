@@ -25,6 +25,9 @@ jobs:
           for r in news rlt translatepi antiviolence residue-manifold-learning specification-grammar general-divisor-theorem; do
             git clone -q "https://github.com/thinkthoughts/$r" "/tmp/src/$r"
           done
+          # RLT-003 M3b sources: partial clones, read with git show COMMIT:PATH.
+          git clone -q --filter=tree:0 --no-checkout https://github.com/OpenLogicProject/OpenLogic /tmp/src/OpenLogic
+          git clone -q --filter=tree:0 --no-checkout https://github.com/leanprover/lean4 /tmp/src/lean4
       - run: scripts/verify.sh /tmp/src
       - uses: actions/upload-artifact@v4
         if: always()

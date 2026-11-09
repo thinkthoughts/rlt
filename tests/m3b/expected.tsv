@@ -1,0 +1,24 @@
+# file	exit	required substring of the verdict (RLT-003 M3b rejected cases)
+tests/m3b/reject/BR04_axiom_declared_in_proof.rlt	2	axiom
+tests/m3b/reject/BR05_unregistered_set.rlt	2	ROBINSON-Q2
+tests/m3b/reject/BR06_q2_outside_peano_arith.rlt	1	axiom `q2_zero_ne_succ` is unregistered
+tests/m3b/reject/BR07a_q3_unbound.rlt	1	variable `x` is unbound
+tests/m3b/reject/BR07b_q3_bound_name_bound.rlt	1	`y` is not a variable of this axiom
+tests/m3b/reject/BR08_q2_orientation_swapped.rlt	1	rule `inst` yields `¬(0 = 7)`
+tests/m3b/reject/BR10_dvd_other_orientation.rlt	1	exists-intro: witness does not match premise
+tests/m3b/reject/BR13_lt_capture_claim.rlt	1	rule `forall-intro` yields
+tests/m3b/reject/BR14_dvd_scoping_claim.rlt	1	rule `forall-intro` yields
+tests/m3b/reject/BR15a_arity_proof_syntax.rlt	2	`dvd` takes 2 argument(s), given 1
+tests/m3b/reject/BR15b_arity_written.rlt	2	NAT-DEC
+tests/m3b/reject/BR15c_arity_prefix.rlt	2	`free235` takes 1 argument(s), given 2
+tests/m3b/reject/BR16a_binder_named_like_definition.rlt	2	shadowed name `lt`
+tests/m3b/reject/BR16b_parameter_named_like_definition.rlt	2	parameter `dvd` collides with a definition
+tests/m3b/reject/BR19_conditional_reported_unconditional.rlt	1	depends on assumptions
+tests/m3b/reject/BR20_q1_orientation.rlt	1	rule `inst` yields `2 = 3 → 1 = 2`
+tests/m3b/reject/BR21_q3_misused_as_conjunction.rlt	1	and-left: premise is not a conjunction
+tests/m3b/reject/BR22_oversized_nesting.rlt	2	nest
+tests/m3b/reject/BR24_unknown_notation.rlt	2	NAT-DEC
+tests/m3b/reject/BR25_inst_capture_claim.rlt	1	rule `inst` yields
+tests/m3b/reject/BR28_wrong_unfolding_claim.rlt	1	rule `imp-intro` yields
+tests/m3b/reject/BR29_dvd_capture_under_forall.rlt	1	rule `forall-intro` yields
+tests/m3b/reject/BR31_definitions_outside_nat_def.rlt	2	formula: expected
