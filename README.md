@@ -37,6 +37,7 @@ target/release/rlt check tests/m3a/accept/A09_forall_elim_intro.rlt  # RLT-003 M
 target/release/rlt check tests/m3b/accept/BA06_two_divides_eight.rlt  # RLT-003 M3b: 2 ∣ 8 under ROBINSON-Q, with the pinned definition of ∣
 target/release/rlt check tests/m3c/accept/CA02_two_not_divides_seven.rlt  # RLT-003 M3c: ¬(2 ∣ 7), every multiplication witness eliminated by finite case analysis
 target/release/rlt check tests/m3c/accept/CA05_free235_seven.rlt  # RLT-003 M3c: free235(7), citing three independently checked theorems
+target/release/rlt check tests/m3d/accept/DA01_below_thirty.rlt  # RLT-003 M3d: every x < 30 is one of 0 … 29, by 31 Q3 splits
 scripts/verify.sh SOURCE_CLONES_DIR                           # fmt, clippy, tests, proofs, records, Lean, excerpts; exit 0 only if all hold
 ```
 
@@ -51,4 +52,4 @@ Parsers, conventions, sources, reading-point and correspondence records, and the
 
 Limits: numerals up to 1000 (unary in the kernel; no leading zeros), nesting depth 256, 1,000,000 term nodes per proof file; control characters are refused in proof files and records.
 
-Status: RLT-001 merged; RLT-002 merged; RLT-003 M1 merged; RLT-003 M2 merged; RLT-003 M3a merged; RLT-003 M3b merged; RLT-003 M3c (divisibility and non-divisibility proofs, theorem citation) under review. Reports: `docs/RLT-000.md`, `docs/RLT-001.md`, `docs/RLT-001-AUDIT.md`, `docs/RLT-002.md`, `docs/RLT-002-AUDIT.md`, `docs/RLT-002-T7.md`, `docs/RLT-003-M1.md`, `docs/RLT-003-M2.md`, `docs/RLT-003-M3a.md`, `docs/RLT-003-M3b.md`, `docs/RLT-003-M3c.md`.
+Status: RLT-001 merged; RLT-002 merged; RLT-003 M1 merged; RLT-003 M2 merged; RLT-003 M3a merged; RLT-003 M3b merged; RLT-003 M3c merged; RLT-003 M3d (finite enumeration below 30) under review. Reports: `docs/RLT-000.md`, `docs/RLT-001.md`, `docs/RLT-001-AUDIT.md`, `docs/RLT-002.md`, `docs/RLT-002-AUDIT.md`, `docs/RLT-002-T7.md`, `docs/RLT-003-M1.md`, `docs/RLT-003-M2.md`, `docs/RLT-003-M3a.md`, `docs/RLT-003-M3b.md`, `docs/RLT-003-M3c.md`, `docs/RLT-003-M3d.md`.

@@ -1,0 +1,17 @@
+# file	exit	required substring of the verdict (RLT-003 M3d rejected cases)
+tests/m3d/reject/DR01_value_29_missing.rlt	1	or-cases: cases conclude different formulas
+tests/m3d/reject/DR02_bound_31.rlt	1	or-cases: cases conclude different formulas
+tests/m3d/reject/DR03_last_layer_unsplit.rlt	1	rule `inst` yields
+tests/m3d/reject/DR04_eigenvariable_reused.rlt	1	exists-elim: parameter `a3` occurs in the eliminated formula
+tests/m3d/reject/DR05_witness_in_conclusion.rlt	1	exists-elim: parameter `w` occurs in the conclusion
+tests/m3d/reject/DR06_skipped_peel.rlt	1	imp-elim: antecedent does not match
+tests/m3d/reject/DR07_wrong_subst_motive.rlt	1	subst: motive does not match premise
+tests/m3d/reject/DR08_right_nested_injection.rlt	1	rule `or-right` yields
+tests/m3d/reject/DR09_seven_twice_eight_missing.rlt	1	or-cases: cases conclude different formulas
+tests/m3d/reject/DR10_lt_unfolded_backwards.rlt	1	trans requires rhs(first) ≡ lhs(second); here `S(w) + a` ≢ `a + S(w)`
+tests/m3d/reject/DR11_unregistered_induction_axiom.rlt	1	axiom `induction` is unregistered
+tests/m3d/reject/DR12_declared_hypothesis_unconditional.rlt	1	unconditional goal requested, but the result depends on assumptions
+tests/m3d/reject/DR13_parameter_named_lt_quoted.rlt	2	parameter `lt` collides with a definition name
+tests/m3d/reject/DR14_cited_hash_edited.rlt	2	the citation records
+tests/m3d/reject/DR15_cites_the_bound_three_theorem.rlt	1	the cited theorem `D1` proves
+tests/m3d/reject/DR16_false_claim_not_fifteen.rlt	1	step claims `¬(0 = 0)`, rule `inst` yields `¬(0 = 1)`
