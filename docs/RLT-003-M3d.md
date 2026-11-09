@@ -149,8 +149,8 @@ The reading points, RESIDUE-30, every axiom set, every definition, every convent
 ## 7. Limitations
 
 - **Scope.** D-T1 is one direction for one bound. The converse, that each k ≤ 29 satisfies k < 30, is deferred to M3e (D6); Lean tier 2 checks that the bound is sharp. Other bounds appear only in the companions.
-- **Lean's role.** Lean checks the statements and the correspondence: `lt` is `<`, the 30 disjuncts are `List.range 30` with no duplicates, and the layer arithmetic holds. It establishes no RLT derivation.
-- **Size.** Because of the left-nested goal (D2), the step count grows quadratically in the bound and the node budget roughly with its cube. Scaling DA01's 215,390 nodes suggests the 1,000,000-node limit is reached near a bound of 50 (an estimate). M3e should cite DA01 rather than enumerate larger bounds.
+- **Lean's role.** Tier 1 states DA01's checked goal over ℕ. Tier 2 proves that `lt` is `<`, that x < 30 ↔ x ∈ List.range 30, that List.range 30 has no duplicates, and that the layer arithmetic holds. That RLT's 30 disjuncts are exactly 0 … 29 in order is checked by CT2 (Rust) and the tier-1 statement, not by a tier-2 lemma. Lean establishes no RLT derivation.
+- **Size.** Because of the left-nested goal (D2), the step count grows quadratically in the bound and the node budget roughly with its cube. The auditor measured the limit with the same layout: bound 47 is accepted, and bound 48 is refused at 1,073,912 nodes. M3e should cite DA01 rather than enumerate larger bounds.
 
 ## 8. Reproduce
 
@@ -163,4 +163,29 @@ scripts/compare-reports.sh OLD_RLT OLD_ROOT target/release/rlt .   # OLD = main 
 
 ## 9. Independent adversarial audit
 
-The audit's findings and follow-ups are added here once the audit completes.
+**Method.** An auditor with no part in the implementation worked from a clean clone of 9d1d2f5 and built it from source. It also rebuilt main 73198e6 itself. Its own tools:
+- an s-expression counter, independent of CT1;
+- a kernel-form parser for CT2;
+- an independent proof generator;
+- 58 attack and probe files.
+
+It created 68 files in all.
+
+**Verdict.** Merge recommended. There are no substantive findings, and all eight required items pass:
+1. **Reproduction:** 219 tests, fmt and clippy clean, `verify.sh` prints `RESULT all checks hold`, and compare-reports shows 352 of 352 identical.
+2. **Trusted base:** the diff of every trusted directory against 73198e6 is empty. The 9d1d2f5 release binary is byte-identical to the 73198e6 binary.
+3. **Mathematics:** the independent counts match §2 exactly. The independent CT2 parser finds the antecedent ∃z. S(z) + x = 30 and exactly 30 distinct equalities 0 … 29, in order, left-nested. The eigenvariables are distinct.
+4. **Attacks:** every false enumeration is refused, including dropped, duplicated or replaced values, bound 31 or 29 with the wrong layer count, ∀x. x < 30 → x < 29, ¬(29 < 30), eigenvariable reuse, swapped motives, a skipped last split, `lt` reversed, capture through the citation, and a reordered goal on DA01's proof. A correctly generated proof of a reordered goal is accepted: a different, true formula.
+5. **Citation:** DA05's `cites` block equals DA01's own check, and its `rules used` is `forall-elim` with `theorems cited D1`. Hash, substitution and path attacks are refused.
+6. **Lean:** M3dGenerated (5) and M3dReadings (6) use standard axioms only. The generated file reproduces, and earlier Lean files are unchanged.
+7. **Size:** DA01 is 215,390 nodes (21.5%), and its check takes 123–183 ms.
+8. **Doc claims:** confirmed, with the wording notes below.
+
+**Non-substantive findings and follow-ups.**
+
+| # | Finding | Follow-up |
+|---|---|---|
+| 1 | §7 estimated the node limit "near a bound of 50"; measured, bound 47 is accepted and 48 refused | §7 now states the measured figures |
+| 2 | §7 said Lean checks that "the 30 disjuncts are `List.range 30`", which overstates tier 2 | §7 now says what each tier and CT2 check |
+| 3 | DR06's file name says "skipped peel", but the fault is a peel at the wrong bound | Already explained in §6 item 2; the name is kept, so the audited test files stay unchanged |
+| 4 | The verification record names the commit before itself | Expected for a self-recording file |
