@@ -1,0 +1,161 @@
+# RLT-003 · M3d — Finite enumeration below 30: implementation report
+
+**Scope.** This report covers M3d as approved on 2026-11-09: D1–D7 as recommended, with one added requirement. CT2 must confirm that the checked goal contains exactly the 30 distinct equalities x = 0 through x = 29, in their written order, as the left-nested disjunction the architecture specifies. Architecture review: <https://claude.ai/artifact/1LtxZwryZNsPMYemWpQfKu>.
+
+**Result.**
+- **The theorem.** RLT proves, under ROBINSON-Q with Γ = ∅:
+
+  ∀x. x < 30 → x = 0 ∨ x = 1 ∨ … ∨ x = 29
+
+  This is one quantified theorem covering every natural number below 30. It is derived by a single chain of 31 Q3 splits, with no induction axiom and no rule beyond the 20.
+- **The proof.** DA01 has 971 steps and uses five Robinson axioms: add_succ, add_zero, q1_succ_inj, q2_zero_ne_succ and q3_zero_or_succ.
+- **Reuse.** DA05 cites DA01 by hash and instantiates it at 7.
+- **Tests.** 5 accepted proofs and 16 rejected files behave as specified, and 8 checks run as Rust tests.
+- **Unchanged.** The trusted code (20 rules, citation mechanism), axiom sets, definitions, conventions, source registry and reading-point records are exactly as merged at 73198e6. All 352 earlier proof-file reports, including every M3c report, are byte-identical.
+
+## 1. What changed
+
+| File | Change |
+|---|---|
+| `scripts/gen-m3d-tests.py` | Deterministic, untrusted generator for tests/m3d (D4). |
+| `tests/m3d/` | `accept/` DA01–DA05; `reject/` DR01–DR16; `expected.tsv`. |
+| `cli/tests/m3d.rs` | 8 tests: the accept and reject suites, CT1 (exact counts), CT2 (the checked goal against an independently built formula; 30 distinct disjuncts in order; the companions' bounds), CT3 (DA05's citation), CR-lt (an edited `lt` breaks the pin), and size. |
+| `lean/M3dGenerated.lean`, `scripts/gen-m3d-lean.sh` | Tier 1: the five checked goals over ℕ. |
+| `lean/M3dReadings.lean` | Tier 2: six correspondence lemmas. |
+| `scripts/verify.sh` | M3d stage; Lean compile, per-theorem axiom gates and a regeneration check for the M3d files. |
+| `README.md` | M3d example and status. |
+
+There are no changes to `kernel/`, `syntax/` or `cli/src/`, and no change to `spec/`, `conventions/`, `readingpoints/`, `residues/`, `points/` or `sources/`. `rlt lean` needed no new tactic (D7): the existing untrusted list closes all five goals.
+
+## 2. The derivation (review §4)
+
+**Outer frame.** Fix `a`. Assume h : ∃z. S(z) + a = 30, which is `a < 30` unfolded through the registered Q8 definition. Open h at a fresh `w` (`exists-elim h w h₀`). The case tree proves E₂₉, then `imp-intro h` and `forall-intro a` give the target.
+
+**Layer invariants.** Layer i carries L\_i : S(w) + a\_i = 30 − i and P\_i : a = S\^i(a\_i), where a₀ is `a` and a₁ … a₃₁ are fresh eigenvariables.
+
+**Layer i, for 0 ≤ i ≤ 29.** `inst q3_zero_or_succ (x a_i)` splits a\_i.
+- **Zero case.** `subst` with motive (at u (= a S\^i(u))) turns P\_i into a = i. One `or-right` (for i ≥ 1) and 29 − i `or-left` steps inject it into E₂₉.
+- **Successor case.** a\_i = S(a\_{i+1}).
+  1. `cong +` and one `add_succ` give S(w) + a\_i = S(S(w) + a\_{i+1}).
+  2. `trans` with L\_i and one `q1_succ_inj` peel give L\_{i+1}.
+  3. One `subst` gives P\_{i+1}.
+
+**Layer 30.** The fact is S(w) + a₃₀ = 0. Q3 splits a₃₀, and both cases contradict Q2. The zero case reaches 0 = S(w), refuted by `q2 (x w)`. The successor case reaches 0 = S(S(w) + a₃₁), refuted by `q2 (x S(w) + a₃₁)`. Both Q2 instances are at arbitrary terms, so the tree ends here. `or-cases` gives ⊥, and one `false-elim` states E₂₉.
+
+**CT1 counts the obligations in DA01,** and they agree exactly with the review's table:
+
+| Kind | Count | | Kind | Count |
+|---|---|---|---|---|
+| `inst q3_zero_or_succ` | 31 (at a, a1 … a30; never a31) | | `subst` | 60 |
+| `inst q1_succ_inj` | 30 | | `or-right` | 29 |
+| `inst add_succ` | 31 | | `or-left` | 435 |
+| `inst add_zero` | 1 | | `exists-elim` | 32 |
+| `inst q2_zero_ne_succ` | 2 (at w and S(w) + a31) | | `or-cases` | 31 |
+| multiplication axioms | 0 | | `false-elim`, `imp-intro`, `forall-intro` | 1 each |
+
+**Accepted files:**
+
+| File | Goal | Steps | Bytes | Axioms used |
+|---|---|---|---|---|
+| DA01 | ∀x. x < 30 → x = 0 ∨ … ∨ x = 29 | 971 | 202,029 | add_succ, add_zero, q1, q2, q3 |
+| DA02 | ∀x. x < 3 → x = 0 ∨ x = 1 ∨ x = 2 | 80 | 5,036 | the same five |
+| DA03 | ∀x. x < 1 → x = 0 | 43 | 2,556 | the same five |
+| DA04 | ∀x. ¬(x < 0) | 26 | 1,568 | add_succ, add_zero, q2, q3 (no peel) |
+| DA05 | 7 < 30 → 7 = 0 ∨ … ∨ 7 = 29 | 2 | 1,532 | DA01's five, through the citation |
+
+**Size.** DA01's parser node budget is 215,390, which is 21.5% of the 1,000,000-node limit. Its file is 202,029 bytes, and a release check takes about 0.15 s in the test harness and 0.5 s from the command line. The review estimated "under 15%" (§6, deviation 1).
+
+## 3. Assumptions and eigenvariables (review §5)
+
+- **Hypotheses.** Every hypothesis is local and discharged:
+  - h, by `imp-intro`;
+  - h₀, by the outer `exists-elim`;
+  - z\_i and s\_i, by `or-cases` at layer i;
+  - w\_i, by the `exists-elim` of layer i.
+
+  The report prints `assumptions Γ = ∅` for all five accepted files.
+- **Eigenvariable conditions.** The kernel checks every condition at the step. DR04 and DR05 show the checks refusing a reused parameter and a parameter left in the conclusion.
+  - w must be absent from the opened formula, E₂₉ and the open hypotheses.
+  - a\_{i+1} must be absent from ∃y. a\_i = S(y), from E₂₉, and from h₀, w₀ … w\_{i−1}.
+  - a must be absent from Γ at `forall-intro`.
+- **Names.** Parameters `a`, `w`, `a1` … `a31` are declared once each. None is a definition or axiom-variable name; DR13 shows the gate refusing `lt` under the quoted convention.
+
+## 4. Test results
+
+| Suite | Result |
+|---|---|
+| `cargo test` | all pass: 69 golden, 9 hardening, 44 M2, 8 M3a, 14 M3b, 17 M3c, 8 M3d, 29 kernel, 21 syntax (219) |
+| tests/m3d/accept | 5 of 5 ACCEPT as unconditional theorems under ROBINSON-Q |
+| tests/m3d/reject | 16 of 16 refused with the required exit code and reason (`expected.tsv`) |
+| `verify.sh` | `RESULT all checks hold`. The generator reproduces tests/m3d byte for byte. M3dGenerated (5) and M3dReadings (6) compile, alongside every earlier Lean file, with standard axioms only. Source excerpts: 0 problems. |
+| compare-reports vs 73198e6 | 352 proof files compared, 0 differ. `validate` and every record command are identical. |
+
+**CT2, the approved requirement.** DA01's checked goal is compared with ∀x. (∃z. S(z) + x = 30) → E₂₉, built in the test from kernel terms; it is equal, and so is the accepted theorem's conclusion. The test then walks the disjunction tree:
+- every left child is a disjunction or E₀, and every right child is an equality;
+- the equalities read x = 0, x = 1, …, x = 29, exactly 30 of them, with none repeated;
+- the written goal lists the same values in the same order.
+
+DA02, DA03 and DA04 are compared with their bounds in the same way.
+
+**Rejected cases** (exit code · refusing step and reason):
+
+| ID | Planted fault | Result |
+|---|---|---|
+| DR01 | values 0 … 28 only | 1 · at Y29_or: or-cases cases conclude different formulas (a = 29 has no disjunct) |
+| DR02 | bound 31 with values 0 … 29 | 1 · at Y30_or: or-cases cases conclude different formulas (a = 30 has no disjunct) |
+| DR03 | layer 30 unsplit; Q2 applied directly | 1 · at Y30_q2: the step claims ¬(0 = S(w) + a30), `inst` yields ¬(0 = S(w + a30)) |
+| DR04 | layer 3 reopens at a3 | 1 · exists-elim: `a3` occurs in the eliminated formula |
+| DR05 | w left in the conclusion | 1 · exists-elim: `w` occurs in the conclusion |
+| DR06 | Q1 peel at the wrong bound (layer 2) | 1 · imp-elim: antecedent does not match (27 against 28) |
+| DR07 | subst motive S\^(i+1) for S\^i (layer 2) | 1 · subst: motive does not match premise |
+| DR08 | injection into a right-nested disjunction (layer 5) | 1 · `or-right` yields a different formula |
+| DR09 | value 7 twice, 8 missing | 1 · at Y8_or: or-cases cases conclude different formulas |
+| DR10 | `lt` unfolded backwards (a + S(z)) | 1 · trans: `S(w) + a` ≢ `a + S(w)` |
+| DR11 | an `induction` axiom | 1 · axiom `induction` is unregistered |
+| DR12 | h declared, unconditional mode | 1 · unconditional goal depends on assumptions ["h"] |
+| DR13 | parameter `lt`, quoted convention | 2 · collides with a definition name |
+| DR14 | DA05 citing DA01 with DA02's hash | 2 · the citation records a different SHA-256 |
+| DR15 | DA05 citing DA02 (bound 3) as D1 | 1 · the cited theorem `D1` proves a different formula |
+| DR16 | false claim ∀x. x < 30 → ¬(x = 15), by the same scheme | 1 · at Y15_nq: the step claims ¬(0 = 0), `inst` yields ¬(0 = 1) |
+
+**The negative controls.** DR01, DR02, DR09 and DR16 fail exactly where the mathematics fails.
+- **DR01, DR02, DR09:** a value is missing, so its zero case has no disjunct.
+- **DR16:** the branches i = 0 … 14, which precede layer 15 in the file, each refute a = 15 by Q1 peels and Q2, and the kernel accepts them step by step. The kernel then refuses the first false step, at layer 15, where a = 15 holds. It stops there, so the branches after layer 15 are not reached.
+
+## 5. Earlier results
+
+`scripts/compare-reports.sh`, run with the 73198e6 binary on its tree against this branch's binary on this tree, finds every report byte-identical:
+- all 352 earlier proof-file reports;
+- `rlt validate`;
+- `rp math0`, `rp math5` and `rp math29`;
+- both `points` records, `residues`, `chem`, and the Lean export of tests/accept.
+
+The reading points, RESIDUE-30, every axiom set, every definition, every convention and the source registry keep their bytes and pins. M3d adds no `backed by` link.
+
+## 6. Deviations, for review
+
+1. **Node budget.** The review estimated DA01 at under 15% of the node limit. The measured figure is 21.5% (215,390 of 1,000,000). The left-nested injections (D2) dominate, as the review said. The size test pins a bound of 300,000 nodes and 20 s.
+2. **DR refusal sites.** The review described where several refusals would fall; implementation pins the exact strings.
+   - DR02 is refused at layer 30's or-cases, because value 30 is missing. The review had pointed at the closing layer instead. Both describe the same mathematical gap: x = 30 satisfies x < 31.
+   - DR06 is a Q1 peel at the wrong bound (27 against 28), a mismatched peel rather than an omitted one.
+   - DR10 is refused at the first `trans` that needs S(w) + a.
+3. **D7 not needed.** The existing untrusted Lean tactic list closes all five goals, so no tactic was added. Every earlier generated Lean file is unchanged.
+
+## 7. Limitations
+
+- **Scope.** D-T1 is one direction for one bound. The converse, that each k ≤ 29 satisfies k < 30, is deferred to M3e (D6); Lean tier 2 checks that the bound is sharp. Other bounds appear only in the companions.
+- **Lean's role.** Lean checks the statements and the correspondence: `lt` is `<`, the 30 disjuncts are `List.range 30` with no duplicates, and the layer arithmetic holds. It establishes no RLT derivation.
+- **Size.** Because of the left-nested goal (D2), the step count grows quadratically in the bound and the node budget roughly with its cube. Scaling DA01's 215,390 nodes suggests the 1,000,000-node limit is reached near a bound of 50 (an estimate). M3e should cite DA01 rather than enumerate larger bounds.
+
+## 8. Reproduce
+
+```sh
+cargo build --release
+scripts/verify.sh SOURCE_CLONES_DIR
+target/release/rlt check tests/m3d/accept/DA01_below_thirty.rlt
+scripts/compare-reports.sh OLD_RLT OLD_ROOT target/release/rlt .   # OLD = main 73198e6
+```
+
+## 9. Independent adversarial audit
+
+The audit's findings and follow-ups are added here once the audit completes.

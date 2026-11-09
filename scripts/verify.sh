@@ -185,6 +185,29 @@ while IFS=$'\t' read -r f want reason; do
   { [ "$m3c_code" = "$want" ] && echo "$m3c_log" | grep '^verdict' | grep -qF -- "$reason"; } && m3c_r=$((m3c_r + 1)) || { echo "  UNEXPECTED: $f exit $m3c_code (want $want): $(echo "$m3c_log" | grep '^verdict')"; fail=1; }
 done < tests/m3c/expected.tsv
 echo "tests/m3c/reject: $m3c_r of $m3c_rn refused with the required exit code and reason"
+
+echo; echo "== finite enumeration below 30, RLT-003 M3d (tests/m3d)"
+m3d_tmp=$(mktemp -d)
+if python3 -I scripts/gen-m3d-tests.py "$rlt" "$m3d_tmp" && diff -r tests/m3d "$m3d_tmp" >/dev/null; then
+  echo "scripts/gen-m3d-tests.py reproduces tests/m3d"
+else
+  echo "  UNEXPECTED: tests/m3d differs from scripts/gen-m3d-tests.py output"; fail=1
+fi
+rm -rf "$m3d_tmp"
+m3d_ok=0; m3d_n=0
+for f in tests/m3d/accept/*.rlt; do
+  m3d_n=$((m3d_n + 1))
+  "$rlt" check "$f" | grep -qE '^verdict         ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q' && m3d_ok=$((m3d_ok + 1)) || { echo "  UNEXPECTED: $f"; fail=1; }
+done
+echo "tests/m3d/accept: $m3d_ok of $m3d_n ACCEPT as unconditional theorems under ROBINSON-Q"
+m3d_r=0; m3d_rn=0
+while IFS=$'\t' read -r f want reason; do
+  case "$f" in \#*|"") continue ;; esac
+  m3d_rn=$((m3d_rn + 1))
+  m3d_log=$("$rlt" check "$f"); m3d_code=$?
+  { [ "$m3d_code" = "$want" ] && echo "$m3d_log" | grep '^verdict' | grep -qF -- "$reason"; } && m3d_r=$((m3d_r + 1)) || { echo "  UNEXPECTED: $f exit $m3d_code (want $want): $(echo "$m3d_log" | grep '^verdict')"; fail=1; }
+done < tests/m3d/expected.tsv
+echo "tests/m3d/reject: $m3d_r of $m3d_rn refused with the required exit code and reason"
 for pin in "spec/peano.rlt 1a3f83444a06fdfbd02c9af2a5881b47137ba102a675a4e012c84be477b10a0d" "spec/peano-arith.rlt 00ceffa9a60b53286f350edbf2f1a5f48a14169a9b09a82cbedc6f9956ff01e4" "spec/robinson-q.rlt 4ad55192222576e3901abc4ee7ea5a6760b64ff212e8c55796ab9847e423b00c" "spec/definitions.rlt 122e37fc627b136023a1a5ffac0344162ed77ae95312248a9f6a76c2b639ecda"; do
   read -r f want <<< "$pin"
   [ "$(sha256sum "$f" | cut -d' ' -f1)" = "$want" ] && echo "$f sha256 $want" || { echo "  UNEXPECTED: $f changed"; fail=1; }
@@ -213,7 +236,7 @@ lean_bin=$(command -v lean || { [ -x "$HOME/.elan/bin/lean" ] && echo "$HOME/.el
 if [ -n "$lean_bin" ]; then
   # Run inside lean/ so elan selects lean/lean-toolchain. Any Lean message
   # other than the #print axioms lines (a warning, `sorry`, an error) fails.
-  lean_log=$(cd lean && "$lean_bin" --version && "$lean_bin" RLT001.lean && "$lean_bin" Generated.lean && "$lean_bin" M2Generated.lean && "$lean_bin" M2Readings.lean && "$lean_bin" M3aGenerated.lean && "$lean_bin" M3bGenerated.lean && "$lean_bin" M3bReadings.lean && "$lean_bin" M3cGenerated.lean && "$lean_bin" M3cReadings.lean 2>&1); lean_code=$?
+  lean_log=$(cd lean && "$lean_bin" --version && "$lean_bin" RLT001.lean && "$lean_bin" Generated.lean && "$lean_bin" M2Generated.lean && "$lean_bin" M2Readings.lean && "$lean_bin" M3aGenerated.lean && "$lean_bin" M3bGenerated.lean && "$lean_bin" M3bReadings.lean && "$lean_bin" M3cGenerated.lean && "$lean_bin" M3cReadings.lean && "$lean_bin" M3dGenerated.lean && "$lean_bin" M3dReadings.lean 2>&1); lean_code=$?
   echo "$lean_log"
   if [ $lean_code != 0 ] || echo "$lean_log" | grep -qiE "warning|error|sorry"; then
     echo "FAILED"; fail=1
@@ -240,8 +263,12 @@ if [ -n "$lean_bin" ]; then
   m3c_listed=$(echo "$lean_log" | grep -cE "RLTM3cReadings\..*(depends on axioms|does not depend on any axioms)")
   m3c_bad=$(echo "$lean_log" | grep "RLTM3cReadings\." | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound' | sort -u)
   { [ "$m3c_listed" = "$m3c_n" ] && [ -z "$m3c_bad" ]; } && echo "M3cReadings.lean: $m3c_n statements, standard axioms only (tier 2; Lean-checked correspondence, not RLT theorems)" || { echo "M3cReadings.lean: axiom gate FAILED ($m3c_listed of $m3c_n listed; non-standard: $m3c_bad)"; fail=1; }
+  m3d_n=$(grep -c "^theorem " lean/M3dReadings.lean)
+  m3d_listed=$(echo "$lean_log" | grep -cE "RLTM3dReadings\..*(depends on axioms|does not depend on any axioms)")
+  m3d_bad=$(echo "$lean_log" | grep "RLTM3dReadings\." | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound' | sort -u)
+  { [ "$m3d_listed" = "$m3d_n" ] && [ -z "$m3d_bad" ]; } && echo "M3dReadings.lean: $m3d_n statements, standard axioms only (tier 2; Lean-checked correspondence, not RLT theorems)" || { echo "M3dReadings.lean: axiom gate FAILED ($m3d_listed of $m3d_n listed; non-standard: $m3d_bad)"; fail=1; }
   # Tier 1 axiom gates for M3c and (M3b audit note 4) M3a: every generated theorem.
-  for gen in M3cGenerated:RLTGeneratedM3c M3aGenerated:RLTGeneratedM3a; do
+  for gen in M3dGenerated:RLTGeneratedM3d M3cGenerated:RLTGeneratedM3c M3aGenerated:RLTGeneratedM3a; do
     gfile=${gen%%:*}; gns=${gen##*:}
     ggate=$(mktemp -d)/${gfile}Gate.lean
     { cat "lean/$gfile.lean"; sed -n "s/^theorem \([A-Za-z0-9_]*\).*/#print axioms $gns.\1/p" "lean/$gfile.lean"; } > "$ggate"
@@ -251,6 +278,8 @@ if [ -n "$lean_bin" ]; then
     gbad=$(echo "$glog" | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound' | sort -u)
     { [ "$gl" = "$gn" ] && [ -z "$gbad" ]; } && echo "$gfile.lean: $gn statements, standard axioms only" || { echo "$gfile.lean: axiom gate FAILED ($gl of $gn listed; non-standard: $gbad)"; fail=1; }
   done
+  m3d_regen=$(scripts/gen-m3d-lean.sh "$rlt")
+  [ "$m3d_regen" = "$(cat lean/M3dGenerated.lean)" ] && echo "M3dGenerated.lean is current ($(grep -c '^theorem' lean/M3dGenerated.lean) statements; Lean-checked over ℕ, outside the trusted base)" || { echo "M3dGenerated.lean is STALE (scripts/gen-m3d-lean.sh target/release/rlt > lean/M3dGenerated.lean)"; fail=1; }
   m3c_regen=$(scripts/gen-m3c-lean.sh "$rlt")
   [ "$m3c_regen" = "$(cat lean/M3cGenerated.lean)" ] && echo "M3cGenerated.lean is current ($(grep -c '^theorem' lean/M3cGenerated.lean) statements; Lean-checked over ℕ, outside the trusted base)" || { echo "M3cGenerated.lean is STALE (scripts/gen-m3c-lean.sh target/release/rlt > lean/M3cGenerated.lean)"; fail=1; }
   m3b_regen=$(scripts/gen-m3b-lean.sh "$rlt")
