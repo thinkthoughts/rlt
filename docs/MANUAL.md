@@ -516,7 +516,31 @@ not established uniqueness of remainders · non-divisibility · gcd(r, 30) = 1 �
 verdict         VALID — witness records consistent (40 record(s) valid; readings are registered interpretations, not theorems)
 ```
 
-That line describes those records. E-T1 (chapter 9) is a later, separate theorem; linking it to the records as backing is a reviewed change that has not yet been made. docs/STATEMENT-RECORDS.md specifies how one statement's four outcomes will be reported together.
+That line describes those records. E-T1 (chapter 9) is a later, separate theorem; linking it to the records as backing is a reviewed change that has not yet been made.
+
+**One statement, four answers: `rlt explain`.** A *statement record* in `statements/` connects a written statement to its source, its proof and its assessments. `rlt explain` checks the record's proof with the same function as `rlt check`, compares every pinned hash and the checked statement with the current files, and prints the four outcomes separately:
+
+```console
+$ rlt explain statements/MOD30-CLASSIFICATION.yaml; echo "exit $?"
+RLT explain     statements/MOD30-CLASSIFICATION.yaml
+statement       MOD30-CLASSIFICATION
+…
+record          valid · current
+
+1 KERNEL ACCEPTANCE: ACCEPT
+…
+2 SOURCE FIDELITY: registry verified · pinned
+…
+3 SEMANTIC CORRESPONDENCE: partial · assessment current
+  assessed by   RLT-003 M3e review and report · 2026-11-09
+…
+4 PHYSICAL CORRESPONDENCE: not applicable
+  reason        a mathematical statement about the numbers below 30
+…
+exit 0
+```
+
+Exit 0 means: the record is valid, its pins are current, and the checker accepts the proof. It asserts nothing about semantic or physical correspondence; those are reported, attributed, in their own sections. Exit 1 means the checker rejects the proof, 2 that the record is invalid or the proof malformed, 3 that a pin is stale. `--format json` gives the same report as JSON for scripts.
 
 | | |
 |---|---|
@@ -525,7 +549,7 @@ That line describes those records. E-T1 (chapter 9) is a later, separate theorem
 | **The kernel checks** | the attached relationships (29 + 1 = 30 here) |
 | **Axioms and assumptions** | as each attached proof reports |
 | **Result** | VALID records; ACCEPT for attached theorems; physical: unestablished |
-| **Still open** | semantic correspondence of each meaning; physical evidence |
+| **Still open** | semantic correspondence of each meaning; physical evidence; statement records exist for four statements so far |
 
 ## 11. Lean 4 and RLT
 

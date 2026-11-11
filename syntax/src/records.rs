@@ -962,6 +962,396 @@ pub fn load_readingpoint(path: &Path) -> Result<ReadingPoint, String> {
     })
 }
 
+// ---------------------------------------------------------------------------
+// RLT-004b: statement records (`statements/<ID>.yaml`). A statement record
+// pins a proof, its specification and its checked statement, and carries
+// attributed correspondence assessments. It is data: loading one never
+// produces or changes a verdict.
+
+/// The format tag every statement record carries.
+pub const STATEMENT_FORMAT: &str = "rlt-statement/1";
+
+/// Semantic-correspondence statuses a record may state.
+pub const SEMANTIC_STATUSES: [&str; 4] = ["unassessed", "matches", "partial", "differs"];
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StatementSource {
+    pub registry: String,
+    pub commit: Option<String>,
+    pub excerpts: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KernelPins {
+    pub proof: String,
+    pub sha256: String,
+    pub convention: String,
+    pub definitions_sha256: Option<String>,
+    pub axiom_set: String,
+    pub axiom_set_sha256: String,
+    pub checked_goal: String,
+    /// `(name, formula)` pairs, in the order the report prints Γ.
+    pub assumptions: Vec<(String, String)>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LeanRef {
+    pub file: String,
+    pub theorem: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SemanticAssessment {
+    pub status: String,
+    pub assessed_by: Option<String>,
+    pub date: Option<String>,
+    /// `(path, sha256)` of the document the assessment rests on.
+    pub basis: Option<(String, String)>,
+    pub assessed_goal: Option<String>,
+    pub matches: Vec<String>,
+    pub differs: Vec<String>,
+    pub lean: Vec<LeanRef>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PhysicalScope {
+    /// `not-applicable` or `relevant`.
+    pub applicability: String,
+    pub reason: Option<String>,
+    pub reading_point: Option<String>,
+    pub correspondence: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StatementRecord {
+    pub id: String,
+    pub subject: String,
+    /// `(reading point, role)` pairs.
+    pub identifiers: Vec<(String, String)>,
+    pub source: StatementSource,
+    pub kernel: KernelPins,
+    pub semantic: SemanticAssessment,
+    pub physical: PhysicalScope,
+    pub open_questions: Vec<String>,
+}
+
+/// Statement identifiers: upper-case ASCII letters, digits, `.`, `_` and `-`,
+/// starting and ending with a letter or digit.
+pub fn statement_id(id: &str, ctx: &str) -> Result<String, String> {
+    let ok = |c: char| c.is_ascii_uppercase() || c.is_ascii_digit() || ".-_".contains(c);
+    let edge = |c: Option<char>| c.is_some_and(|c| c.is_ascii_uppercase() || c.is_ascii_digit());
+    if id.chars().all(ok) && edge(id.chars().next()) && edge(id.chars().last()) {
+        Ok(id.to_string())
+    } else {
+        Err(format!(
+            "{ctx}: statement id `{}` must use upper-case letters, digits, `.`, `_` or `-`",
+            id.escape_debug()
+        ))
+    }
+}
+
+fn sha_field(y: &Yaml, key: &str, ctx: &str) -> Result<String, String> {
+    let v = req(y, key, ctx)?;
+    if v.len() == 64
+        && v.bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        Ok(v)
+    } else {
+        Err(format!(
+            "{ctx}: `{key}` must be 64 lower-case hexadecimal digits"
+        ))
+    }
+}
+
+fn str_list(y: &Yaml, key: &str, ctx: &str) -> Result<Vec<String>, String> {
+    list(y, key, ctx)?
+        .iter()
+        .map(|e| match e {
+            Yaml::String(v) => clean(v, key, ctx, false),
+            _ => Err(format!("{ctx}: every entry of `{key}` must be a string")),
+        })
+        .collect()
+}
+
+fn mapping<'a>(y: &'a Yaml, key: &str, ctx: &str) -> Result<&'a Yaml, String> {
+    match &y[key] {
+        v @ Yaml::Hash(_) => Ok(v),
+        Yaml::BadValue | Yaml::Null => Err(format!("{ctx}: missing mapping `{key}`")),
+        _ => Err(format!("{ctx}: field `{key}` must be a mapping")),
+    }
+}
+
+fn is_date(d: &str) -> bool {
+    let b = d.as_bytes();
+    b.len() == 10
+        && b[4] == b'-'
+        && b[7] == b'-'
+        && b.iter()
+            .enumerate()
+            .all(|(i, c)| i == 4 || i == 7 || c.is_ascii_digit())
+}
+
+/// Read and schema-check one statement record. References to other files
+/// (proof, registry, reading points, Lean files) are resolved by the caller.
+pub fn load_statement(path: &Path) -> Result<StatementRecord, String> {
+    let y = load_yaml(path)?;
+    let ctx = "statement record";
+    only_keys(
+        &y,
+        &[
+            "format",
+            "id",
+            "subject",
+            "identifiers",
+            "source",
+            "kernel",
+            "semantic",
+            "physical",
+            "open_questions",
+        ],
+        ctx,
+    )?;
+    let format = req(&y, "format", ctx)?;
+    if format != STATEMENT_FORMAT {
+        return Err(format!(
+            "{ctx}: format `{format}` is unknown (expected {STATEMENT_FORMAT})"
+        ));
+    }
+    let id = statement_id(&req(&y, "id", ctx)?, ctx)?;
+    let stem = path
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_default();
+    if id != stem || path.extension().and_then(|e| e.to_str()) != Some("yaml") {
+        return Err(format!(
+            "{ctx}: id `{id}` must equal the file name `{}` (as ID.yaml)",
+            stem.escape_debug()
+        ));
+    }
+    let subject = req(&y, "subject", ctx)?;
+    let mut identifiers = Vec::new();
+    for e in list(&y, "identifiers", ctx)? {
+        only_keys(e, &["reading_point", "role"], "identifiers")?;
+        identifiers.push((
+            plain_id(
+                &req(e, "reading_point", "identifiers")?,
+                "reading point",
+                "identifiers",
+            )?,
+            req(e, "role", "identifiers")?,
+        ));
+    }
+
+    let s = mapping(&y, "source", ctx)?;
+    only_keys(s, &["registry", "commit", "excerpts"], "source")?;
+    let source = StatementSource {
+        registry: req(s, "registry", "source")?,
+        commit: opt(s, "commit", "source")?,
+        excerpts: str_list(s, "excerpts", "source")?,
+    };
+    if source.excerpts.is_empty() {
+        return Err("source: at least one excerpt is required".into());
+    }
+
+    let k = mapping(&y, "kernel", ctx)?;
+    only_keys(
+        k,
+        &[
+            "proof",
+            "sha256",
+            "convention",
+            "definitions_sha256",
+            "axiom_set",
+            "axiom_set_sha256",
+            "checked_goal",
+            "assumptions",
+        ],
+        "kernel",
+    )?;
+    let mut assumptions = Vec::new();
+    match &k["assumptions"] {
+        Yaml::Array(v) => {
+            for e in v {
+                only_keys(e, &["name", "formula"], "kernel.assumptions")?;
+                assumptions.push((
+                    req(e, "name", "kernel.assumptions")?,
+                    req(e, "formula", "kernel.assumptions")?,
+                ));
+            }
+        }
+        Yaml::BadValue => return Err("kernel: `assumptions` is required ([] for Γ = ∅)".into()),
+        _ => return Err("kernel: `assumptions` must be a list".into()),
+    }
+    let kernel = KernelPins {
+        proof: req(k, "proof", "kernel")?,
+        sha256: sha_field(k, "sha256", "kernel")?,
+        convention: req(k, "convention", "kernel")?,
+        definitions_sha256: match &k["definitions_sha256"] {
+            Yaml::BadValue => None,
+            _ => Some(sha_field(k, "definitions_sha256", "kernel")?),
+        },
+        axiom_set: req(k, "axiom_set", "kernel")?,
+        axiom_set_sha256: sha_field(k, "axiom_set_sha256", "kernel")?,
+        checked_goal: req(k, "checked_goal", "kernel")?,
+        assumptions,
+    };
+
+    let m = mapping(&y, "semantic", ctx)?;
+    only_keys(
+        m,
+        &[
+            "status",
+            "assessed_by",
+            "date",
+            "basis",
+            "assessed_goal",
+            "matches",
+            "differs",
+            "lean",
+        ],
+        "semantic",
+    )?;
+    let status = req(m, "status", "semantic")?;
+    if !SEMANTIC_STATUSES.contains(&status.as_str()) {
+        return Err(format!(
+            "semantic: status `{status}` is outside the vocabulary ({})",
+            SEMANTIC_STATUSES.join(", ")
+        ));
+    }
+    let basis = match &m["basis"] {
+        Yaml::BadValue => None,
+        b @ Yaml::Hash(_) => {
+            only_keys(b, &["path", "sha256"], "semantic.basis")?;
+            Some((
+                req(b, "path", "semantic.basis")?,
+                sha_field(b, "sha256", "semantic.basis")?,
+            ))
+        }
+        _ => return Err("semantic: `basis` must be a mapping {path, sha256}".into()),
+    };
+    let mut lean = Vec::new();
+    for e in list(m, "lean", "semantic")? {
+        only_keys(e, &["file", "theorem"], "semantic.lean")?;
+        lean.push(LeanRef {
+            file: req(e, "file", "semantic.lean")?,
+            theorem: req(e, "theorem", "semantic.lean")?,
+        });
+    }
+    let semantic = SemanticAssessment {
+        assessed_by: opt(m, "assessed_by", "semantic")?,
+        date: opt(m, "date", "semantic")?,
+        basis,
+        assessed_goal: opt(m, "assessed_goal", "semantic")?,
+        matches: str_list(m, "matches", "semantic")?,
+        differs: str_list(m, "differs", "semantic")?,
+        lean,
+        status,
+    };
+    let sm = &semantic;
+    if sm.status == "unassessed" {
+        if sm.assessed_by.is_some()
+            || sm.date.is_some()
+            || sm.basis.is_some()
+            || sm.assessed_goal.is_some()
+            || !sm.matches.is_empty()
+            || !sm.differs.is_empty()
+            || !sm.lean.is_empty()
+        {
+            return Err(
+                "semantic: an unassessed statement carries no assessor, date, basis, assessed goal, findings or Lean references"
+                    .into(),
+            );
+        }
+    } else {
+        for (field, present) in [
+            ("assessed_by", sm.assessed_by.is_some()),
+            ("date", sm.date.is_some()),
+            ("basis", sm.basis.is_some()),
+            ("assessed_goal", sm.assessed_goal.is_some()),
+        ] {
+            if !present {
+                return Err(format!(
+                    "semantic: status `{}` requires `{field}`: an assessment is always attributed",
+                    sm.status
+                ));
+            }
+        }
+        if !sm.date.as_deref().is_some_and(is_date) {
+            return Err("semantic: `date` must be written YYYY-MM-DD".into());
+        }
+        let need_matches = matches!(sm.status.as_str(), "matches" | "partial");
+        let need_differs = matches!(sm.status.as_str(), "partial" | "differs");
+        if need_matches && sm.matches.is_empty() {
+            return Err(format!(
+                "semantic: status `{}` requires `matches`",
+                sm.status
+            ));
+        }
+        if need_differs && sm.differs.is_empty() {
+            return Err(format!(
+                "semantic: status `{}` requires `differs`",
+                sm.status
+            ));
+        }
+        if sm.status == "matches" && !sm.differs.is_empty() {
+            return Err("semantic: status `matches` lists no `differs`; use `partial`".into());
+        }
+        if sm.status == "differs" && !sm.matches.is_empty() {
+            return Err("semantic: status `differs` lists no `matches`; use `partial`".into());
+        }
+    }
+
+    let p = mapping(&y, "physical", ctx)?;
+    only_keys(
+        p,
+        &["applicability", "reason", "reading_point", "correspondence"],
+        "physical",
+    )?;
+    let physical = PhysicalScope {
+        applicability: req(p, "applicability", "physical")?,
+        reason: opt(p, "reason", "physical")?,
+        reading_point: opt(p, "reading_point", "physical")?,
+        correspondence: str_list(p, "correspondence", "physical")?,
+    };
+    match physical.applicability.as_str() {
+        "not-applicable" => {
+            if physical.reason.is_none()
+                || physical.reading_point.is_some()
+                || !physical.correspondence.is_empty()
+            {
+                return Err(
+                    "physical: `not-applicable` requires a `reason` and names no correspondence"
+                        .into(),
+                );
+            }
+        }
+        "relevant" => {
+            if physical.reading_point.is_none() || physical.correspondence.is_empty() {
+                return Err(
+                    "physical: `relevant` requires a `reading_point` and at least one `correspondence` id"
+                        .into(),
+                );
+            }
+        }
+        o => {
+            return Err(format!(
+                "physical: applicability `{o}` must be not-applicable or relevant"
+            ))
+        }
+    }
+    Ok(StatementRecord {
+        open_questions: str_list(&y, "open_questions", ctx)?,
+        id,
+        subject,
+        identifiers,
+        source,
+        kernel,
+        semantic,
+        physical,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

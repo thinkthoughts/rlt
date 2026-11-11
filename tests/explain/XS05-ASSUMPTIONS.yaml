@@ -1,0 +1,23 @@
+# Statement record (RLT-004b): a conditional theorem. The assumption is false
+# on purpose; the record pins it so Γ stays visible.
+format: rlt-statement/1
+id: XS05-ASSUMPTIONS
+subject: "A conditional theorem: if 2 × 3 = 7 then 2 × 3 + 1 = 8"
+source:
+  registry: RLT-000-REFINEMENT
+  excerpts:
+    - "A theorem may be reported as unconditional only when its assumption context is empty."
+kernel:
+  proof: tests/accept/M1_conditional.rlt
+  sha256: de8dee325db954b8bc0ade312d441a3e4be340d1a21c340b17166e377b418c42
+  convention: NAT-DEC
+  axiom_set: PEANO-ARITH
+  axiom_set_sha256: 00ceffa9a60b53286f350edbf2f1a5f48a14169a9b09a82cbedc6f9956ff01e4
+  checked_goal: "(2 × 3) + 1 = 8"
+  assumptions:
+    - {name: h, formula: "2 × 3 = 6"}
+semantic:
+  status: unassessed
+physical:
+  applicability: not-applicable
+  reason: "a conditional arithmetic statement used to show assumptions"

@@ -1,0 +1,123 @@
+{
+  "format": "rlt-explain/1",
+  "record": {
+    "path": "statements/MOD30-CLASSIFICATION.yaml",
+    "id": "MOD30-CLASSIFICATION",
+    "subject": "Modulo 30: the numbers below 30 with no factor 2, 3 or 5",
+    "identifiers": [
+      {
+        "reading_point": "math29",
+        "role": "historical identifier"
+      }
+    ],
+    "state": "current",
+    "problems": [],
+    "stale": []
+  },
+  "exit": 0,
+  "exit_meaning": "0 — record valid, its proof and specification pins current, and the RLT checker accepts the proof; semantic correspondence may be incomplete and physical correspondence unestablished",
+  "kernel": {
+    "verdict": "ACCEPT",
+    "verdict_line": "ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q",
+    "checker_exit": 0,
+    "proof": "tests/m3e/accept/E_T1.rlt",
+    "sha256": "e11712c64baf6fcb40bc172b5d7e12607809c85b9f1cd087064a0c17ca651750",
+    "proof_id": "M3e.E_T1",
+    "written_goal": "\"∀r. r < 30 → (free235(r) → (r = 1 ∨ r = 7 ∨ r = 11 ∨ r = 13 ∨ r = 17 ∨ r = 19 ∨ r = 23 ∨ r = 29)) ∧ ((r = 1 ∨ r = 7 ∨ r = 11 ∨ r = 13 ∨ r = 17 ∨ r = 19 ∨ r = 23 ∨ r = 29) → free235(r))\"",
+    "convention": "NAT-DEF",
+    "definitions": {
+      "file": "spec/definitions.rlt",
+      "sha256": "122e37fc627b136023a1a5ffac0344162ed77ae95312248a9f6a76c2b639ecda",
+      "used": [
+        "dvd",
+        "free235",
+        "lt"
+      ]
+    },
+    "checked_goal": "∀r. ((∃z. S(z) + r = 30) → ((((¬(∃k. r = 2 × k) ∧ ¬(∃k. r = 3 × k)) ∧ ¬(∃k. r = 5 × k)) → (((((((r = 1 ∨ r = 7) ∨ r = 11) ∨ r = 13) ∨ r = 17) ∨ r = 19) ∨ r = 23) ∨ r = 29)) ∧ ((((((((r = 1 ∨ r = 7) ∨ r = 11) ∨ r = 13) ∨ r = 17) ∨ r = 19) ∨ r = 23) ∨ r = 29) → ((¬(∃k. r = 2 × k) ∧ ¬(∃k. r = 3 × k)) ∧ ¬(∃k. r = 5 × k)))))",
+    "axiom_set": "ROBINSON-Q",
+    "axiom_set_sha256": "4ad55192222576e3901abc4ee7ea5a6760b64ff212e8c55796ab9847e423b00c",
+    "proved": "∀r. ((∃z. S(z) + r = 30) → ((((¬(∃k. r = 2 × k) ∧ ¬(∃k. r = 3 × k)) ∧ ¬(∃k. r = 5 × k)) → (((((((r = 1 ∨ r = 7) ∨ r = 11) ∨ r = 13) ∨ r = 17) ∨ r = 19) ∨ r = 23) ∨ r = 29)) ∧ ((((((((r = 1 ∨ r = 7) ∨ r = 11) ∨ r = 13) ∨ r = 17) ∨ r = 19) ∨ r = 23) ∨ r = 29) → ((¬(∃k. r = 2 × k) ∧ ¬(∃k. r = 3 × k)) ∧ ¬(∃k. r = 5 × k)))))",
+    "assumptions": "Γ = ∅",
+    "axioms_used": "add_succ, add_zero, mul_succ, mul_zero, q1_succ_inj, q2_zero_ne_succ, q3_zero_or_succ",
+    "rules_used": "and-intro, forall-elim, forall-intro, hyp, imp-elim, imp-intro",
+    "theorems_cited": "BWD, FWD — checked theorem dependencies (see `cites`), not inference rules",
+    "steps": "9",
+    "cites": [
+      {
+        "label": "FWD",
+        "path": "tests/m3e/accept/E_FWD.rlt",
+        "proof_id": "M3e.E_FWD",
+        "sha256": "4758d9dd7ffb2d875e11b0cbeac3eb0d47faae5e3b59308e831fa25c01a92182",
+        "proved": "∀r. ((∃z. S(z) + r = 30) → (((¬(∃k. r = 2 × k) ∧ ¬(∃k. r = 3 × k)) ∧ ¬(∃k. r = 5 × k)) → (((((((r = 1 ∨ r = 7) ∨ r = 11) ∨ r = 13) ∨ r = 17) ∨ r = 19) ∨ r = 23) ∨ r = 29)))"
+      },
+      {
+        "label": "BWD",
+        "path": "tests/m3e/accept/E_BWD.rlt",
+        "proof_id": "M3e.E_BWD",
+        "sha256": "10e27c9f3b49b902cefae86ffc0f3067d32abdbac754a64cf3256efd524d16bf",
+        "proved": "∀r. ((((((((r = 1 ∨ r = 7) ∨ r = 11) ∨ r = 13) ∨ r = 17) ∨ r = 19) ∨ r = 23) ∨ r = 29) → ((¬(∃k. r = 2 × k) ∧ ¬(∃k. r = 3 × k)) ∧ ¬(∃k. r = 5 × k)))"
+      }
+    ],
+    "check_report": "RLT check       tests/m3e/accept/E_T1.rlt\nproof id        M3e.E_T1\nwritten goal    \"∀r. r < 30 → (free235(r) → (r = 1 ∨ r = 7 ∨ r = 11 ∨ r = 13 ∨ r = 17 ∨ r = 19 ∨ r = 23 ∨ r = 29)) ∧ ((r = 1 ∨ r = 7 ∨ r = 11 ∨ r = 13 ∨ r = 17 ∨ r = 19 ∨ r = 23 ∨ r = 29) → free235(r))\"\n  tokens        ∀ · r · . · r · < · 30 · → · ( · free · 235 · ( · r · ) · → · ( · r · = · 1 · ∨ · r · = · 7 · ∨ · r · = · 11 · ∨ · r · = · 13 · ∨ · r · = · 17 · ∨ · r · = · 19 · ∨ · r · = · 23 · ∨ · r · = · 29 · ) · ) · ∧ · ( · ( · r · = · 1 · ∨ · r · = · 7 · ∨ · r · = · 11 · ∨ · r · = · 13 · ∨ · r · = · 17 · ∨ · r · = · 19 · ∨ · r · = · 23 · ∨ · r · = · 29 · ) · → · free · 235 · ( · r · ) · )\nconvention      NAT-DEF (authority: interpretation)\nchecked goal    ∀r. ((∃z. S(z) + r = 30) → ((((¬(∃k. r = 2 × k) ∧ ¬(∃k. r = 3 × k)) ∧ ¬(∃k. r = 5 × k)) → (((((((r = 1 ∨ r = 7) ∨ r = 11) ∨ r = 13) ∨ r = 17) ∨ r = 19) ∨ r = 23) ∨ r = 29)) ∧ ((((((((r = 1 ∨ r = 7) ∨ r = 11) ∨ r = 13) ∨ r = 17) ∨ r = 19) ∨ r = 23) ∨ r = 29) → ((¬(∃k. r = 2 × k) ∧ ¬(∃k. r = 3 × k)) ∧ ¬(∃k. r = 5 × k)))))\n  kernel form   ∀r. ((∃z. +(S(z), r) = S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(0))))))))))))))))))))))))))))))) → ((((¬(∃k. r = *(S(S(0)), k)) ∧ ¬(∃k. r = *(S(S(S(0))), k))) ∧ ¬(∃k. r = *(S(S(S(S(S(0))))), k))) → (((((((r = S(0) ∨ r = S(S(S(S(S(S(S(0)))))))) ∨ r = S(S(S(S(S(S(S(S(S(S(S(0)))))))))))) ∨ r = S(S(S(S(S(S(S(S(S(S(S(S(S(0)))))))))))))) ∨ r = S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(0)))))))))))))))))) ∨ r = S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(0)))))))))))))))))))) ∨ r = S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(0)))))))))))))))))))))))) ∨ r = S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(0))))))))))))))))))))))))))))))) ∧ ((((((((r = S(0) ∨ r = S(S(S(S(S(S(S(0)))))))) ∨ r = S(S(S(S(S(S(S(S(S(S(S(0)))))))))))) ∨ r = S(S(S(S(S(S(S(S(S(S(S(S(S(0)))))))))))))) ∨ r = S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(0)))))))))))))))))) ∨ r = S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(0)))))))))))))))))))) ∨ r = S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(0)))))))))))))))))))))))) ∨ r = S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(0)))))))))))))))))))))))))))))) → ((¬(∃k. r = *(S(S(0)), k)) ∧ ¬(∃k. r = *(S(S(S(0))), k))) ∧ ¬(∃k. r = *(S(S(S(S(S(0))))), k))))))\n  folded        ∀r. r < 30 → (free235(r) → (r = 1 ∨ r = 7 ∨ r = 11 ∨ r = 13 ∨ r = 17 ∨ r = 19 ∨ r = 23 ∨ r = 29)) ∧ ((r = 1 ∨ r = 7 ∨ r = 11 ∨ r = 13 ∨ r = 17 ∨ r = 19 ∨ r = 23 ∨ r = 29) → free235(r))\ndefinitions     dvd, free235, lt — abbreviations expanded before the kernel (spec/definitions.rlt sha256 122e37fc627b136023a1a5ffac0344162ed77ae95312248a9f6a76c2b639ecda)\nmode            unconditional (requires Γ = ∅)\naxiom set       ROBINSON-Q (spec/robinson-q.rlt, source OLP-ROBINSON-Q)\n  sha256        4ad55192222576e3901abc4ee7ea5a6760b64ff212e8c55796ab9847e423b00c\n  axiom         q1_succ_inj : ∀ x y. S(x) = S(y) → x = y\n  axiom         q2_zero_ne_succ : ∀ x. ¬(0 = S(x))\n  axiom         q3_zero_or_succ : ∀ x. x = 0 ∨ (∃y. x = S(y))\n  axiom         add_zero : ∀ x. x + 0 = x\n  axiom         add_succ : ∀ x y. x + S(y) = S(x + y)\n  axiom         mul_zero : ∀ x. x × 0 = 0\n  axiom         mul_succ : ∀ x y. x × S(y) = (x × y) + x\n  status        assumed: the SHA-256 binds these axioms' exact content to the approved file; their mathematical truth and any physical correspondence remain assumptions\ncites           FWD = tests/m3e/accept/E_FWD.rlt (M3e.E_FWD)\n  sha256        4758d9dd7ffb2d875e11b0cbeac3eb0d47faae5e3b59308e831fa25c01a92182\n  proved        ∀r. ((∃z. S(z) + r = 30) → (((¬(∃k. r = 2 × k) ∧ ¬(∃k. r = 3 × k)) ∧ ¬(∃k. r = 5 × k)) → (((((((r = 1 ∨ r = 7) ∨ r = 11) ∨ r = 13) ∨ r = 17) ∨ r = 19) ∨ r = 23) ∨ r = 29)))\n  assumptions   Γ = ∅\n  axiom set     ROBINSON-Q\n  axioms used   add_succ, add_zero, mul_succ, mul_zero, q1_succ_inj, q2_zero_ne_succ, q3_zero_or_succ\ncites           BWD = tests/m3e/accept/E_BWD.rlt (M3e.E_BWD)\n  sha256        10e27c9f3b49b902cefae86ffc0f3067d32abdbac754a64cf3256efd524d16bf\n  proved        ∀r. ((((((((r = 1 ∨ r = 7) ∨ r = 11) ∨ r = 13) ∨ r = 17) ∨ r = 19) ∨ r = 23) ∨ r = 29) → ((¬(∃k. r = 2 × k) ∧ ¬(∃k. r = 3 × k)) ∧ ¬(∃k. r = 5 × k)))\n  assumptions   Γ = ∅\n  axiom set     ROBINSON-Q\n  axioms used   add_succ, add_zero, mul_succ, mul_zero, q1_succ_inj, q2_zero_ne_succ, q3_zero_or_succ\nsteps           9\nproved          ∀r. ((∃z. S(z) + r = 30) → ((((¬(∃k. r = 2 × k) ∧ ¬(∃k. r = 3 × k)) ∧ ¬(∃k. r = 5 × k)) → (((((((r = 1 ∨ r = 7) ∨ r = 11) ∨ r = 13) ∨ r = 17) ∨ r = 19) ∨ r = 23) ∨ r = 29)) ∧ ((((((((r = 1 ∨ r = 7) ∨ r = 11) ∨ r = 13) ∨ r = 17) ∨ r = 19) ∨ r = 23) ∨ r = 29) → ((¬(∃k. r = 2 × k) ∧ ¬(∃k. r = 3 × k)) ∧ ¬(∃k. r = 5 × k)))))\nassumptions     Γ = ∅\naxioms used     add_succ, add_zero, mul_succ, mul_zero, q1_succ_inj, q2_zero_ne_succ, q3_zero_or_succ\nrules used      and-intro, forall-elim, forall-intro, hyp, imp-elim, imp-intro\ntheorems cited  BWD, FWD — checked theorem dependencies (see `cites`), not inference rules\nresult kind     general (a formula with connectives or quantifiers; it establishes this statement only)\nverdict         ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q\n  scope         the checked formula follows from the listed axioms under Γ by the registered rules; the axioms remain assumptions, and the reading point's meanings and physical claims keep their own separate status\n"
+  },
+  "source": {
+    "registry": "NEWS-MATH29",
+    "registry_status": "available",
+    "commit": "1ffd5ea9886386dc0b16c13499ecfe2ed59fd9e9",
+    "location": "https://github.com/thinkthoughts/news/blob/1ffd5ea9886386dc0b16c13499ecfe2ed59fd9e9/MATH_29.md",
+    "excerpts": [
+      "{1, 7, 11, 13, 17, 19, 23, 29}: 17111317192329",
+      "For instance (nonfiction): (1+1) × 3 × 5 = 30 > 29, where every prime > 5 resists division by 2, 3, and 5 and corresponds to one of eight residue classes modulo 30:"
+    ],
+    "registry_fidelity": "verified",
+    "pinned": true,
+    "upstream": "not run by rlt explain; scripts/check_excerpts.py compares registered excerpts with the source at 1ffd5ea9886386dc0b16c13499ecfe2ed59fd9e9 (run by scripts/verify.sh)"
+  },
+  "semantic": {
+    "status": "partial",
+    "assessment": "current",
+    "stale_reasons": [],
+    "assessed_by": "RLT-003 M3e review and report",
+    "date": "2026-11-09",
+    "basis": {
+      "path": "docs/RLT-003-M3e.md",
+      "sha256": "67d01af5df3d9d39880d5e41170dd4c8c888909281c022631938faec7a1966e4",
+      "current": true
+    },
+    "assessed_goal": "∀r. ((∃z. S(z) + r = 30) → ((((¬(∃k. r = 2 × k) ∧ ¬(∃k. r = 3 × k)) ∧ ¬(∃k. r = 5 × k)) → (((((((r = 1 ∨ r = 7) ∨ r = 11) ∨ r = 13) ∨ r = 17) ∨ r = 19) ∨ r = 23) ∨ r = 29)) ∧ ((((((((r = 1 ∨ r = 7) ∨ r = 11) ∨ r = 13) ∨ r = 17) ∨ r = 19) ∨ r = 23) ∨ r = 29) → ((¬(∃k. r = 2 × k) ∧ ¬(∃k. r = 3 × k)) ∧ ¬(∃k. r = 5 × k)))))",
+    "assessed_goal_current": true,
+    "matches": [
+      "The eight listed representatives are exactly the r < 30 with free235(r), proved in both directions from Robinson's Q.",
+      "Over the natural numbers, free235(r) agrees with gcd(r, 30) = 1 for r < 30 (a Lean 4 statement, standard axioms only)."
+    ],
+    "differs": [
+      "The source sentence speaks of every prime > 5 and of residue classes modulo 30; the checked formula speaks of the 30 numbers below 30."
+    ],
+    "lean": [
+      {
+        "file": "lean/M3eReadings.lean",
+        "theorem": "RLTM3eReadings.free235_iff_coprime",
+        "declared": true,
+        "checked_by": "scripts/verify.sh"
+      },
+      {
+        "file": "lean/M3eReadings.lean",
+        "theorem": "RLTM3eReadings.classification",
+        "declared": true,
+        "checked_by": "scripts/verify.sh"
+      }
+    ]
+  },
+  "physical": {
+    "applicability": "not-applicable",
+    "reason": "a mathematical statement about the numbers below 30",
+    "reading_point": null,
+    "records": []
+  },
+  "open_questions": [
+    "Every n: n mod 30 lies in the eight classes exactly when gcd(n, 30) = 1. Needs division with remainder for all n, hence induction; deferred to a separate review.",
+    "Every prime above 5. Needs a definition of prime and the quantified statement; same dependency.",
+    "Whether RESIDUE-30's registered reading should cite E-T1 as backing (a backed-by link; records unchanged)."
+  ]
+}

@@ -2,6 +2,7 @@
 //! Every report is a deterministic string so tests can compare it with a
 //! golden file.
 
+pub mod explain;
 pub mod gen;
 pub mod residues;
 use rlt_kernel::{check, Axiom, Formula, Mode, Theorem, Verdict};
@@ -385,6 +386,14 @@ pub fn check_file_outcome_with(
 ) -> CheckOutcome {
     let budget = std::cell::Cell::new(MAX_CITED_CHECKS);
     check_inner(root, file, classify, &[], None, &budget)
+}
+
+/// As `check_file_outcome`, on bytes the caller already read (RLT-004b):
+/// `rlt explain` hashes the proof file once and checks exactly those bytes,
+/// through the same function `rlt check` uses.
+pub fn check_preread_outcome(root: &Path, file: &Path, src: String) -> CheckOutcome {
+    let budget = std::cell::Cell::new(MAX_CITED_CHECKS);
+    check_inner(root, file, result_kind, &[], Some(src), &budget)
 }
 
 /// Most cited-file checks one top-level check may run, counted over the

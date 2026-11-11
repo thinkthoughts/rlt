@@ -1,0 +1,25 @@
+# Statement record (RLT-004b): 29 + 1 = 30, the math29 pairing, whose reading
+# point carries a physical-correspondence record.
+format: rlt-statement/1
+id: XR16-UNKNOWN-CORRESPONDENCE
+subject: "Pairing through 29 to 30: 29 + 1 = 30"
+identifiers:
+  - {reading_point: math29, role: reading point}
+source:
+  registry: USER-2026-11-07
+  excerpts:
+    - "math29: Pairing through 29 to 30."
+kernel:
+  proof: tests/accept/R_math29_pairing.rlt
+  sha256: 76975f0a2a7d560c92aab0c6a846f1dc5f7280e63a3b5564ff7bf535848fddb3
+  convention: NAT-DEC
+  axiom_set: PEANO-ADD
+  axiom_set_sha256: 1a3f83444a06fdfbd02c9af2a5881b47137ba102a675a4e012c84be477b10a0d
+  checked_goal: "29 + 1 = 30"
+  assumptions: []
+semantic:
+  status: unassessed
+physical:
+  applicability: relevant
+  reading_point: math29
+  correspondence: [math29.weather]

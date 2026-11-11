@@ -1,0 +1,24 @@
+# Statement record (RLT-004b): a purely mathematical closed statement with
+# no semantic assessment yet and no physical correspondence.
+format: rlt-statement/1
+id: XR04-PARENT-PATH
+subject: "Divisibility: 2 divides 8"
+source:
+  registry: LEAN-CORE-NAT-DVD
+  commit: 6a10ac8c22beadecabdbb0919c2b50214762f91d
+  excerpts:
+    - "dvd a b := Exists (fun c => b = a * c)"
+kernel:
+  proof: ../rlt/tests/m3c/accept/CA01_two_divides_eight.rlt
+  sha256: c237e7de9c8a5ef620506fbe5e18469b7b624c652beef5dd63369cdf2765196d
+  convention: NAT-DEF
+  definitions_sha256: 122e37fc627b136023a1a5ffac0344162ed77ae95312248a9f6a76c2b639ecda
+  axiom_set: ROBINSON-Q
+  axiom_set_sha256: 4ad55192222576e3901abc4ee7ea5a6760b64ff212e8c55796ab9847e423b00c
+  checked_goal: "∃k. 8 = 2 × k"
+  assumptions: []
+semantic:
+  status: unassessed
+physical:
+  applicability: not-applicable
+  reason: "a closed arithmetic statement"

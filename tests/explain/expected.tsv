@@ -1,0 +1,39 @@
+# file	exit	a line (or line fragment) the text report contains
+XR01-UNKNOWN-KEY.yaml	2	field `colour` is outside this record type
+XR02-DUPLICATE-KEY.yaml	2	duplicated key
+XR03-ID-MISMATCH.yaml	2	must equal the file name
+XR04-PARENT-PATH.yaml	2	must be a repository-relative .rlt path
+XR06-MISSING-PROOF.yaml	2	cited path `tests/m3c/accept/CA99_absent.rlt`
+XR07-UNKNOWN-CONVENTION.yaml	2	convention `NAT-HEX` is not registered
+XR08-UNKNOWN-AXIOM-SET.yaml	2	axiom set `PEANO-IND`
+XR09-UNKNOWN-SOURCE.yaml	2	`LEAN-CORE-NAT-MOD` is not in sources/registry.yaml
+XR10-EXCERPT-ALTERED.yaml	2	is not a whole unit of any registered excerpt
+XR11-COMMIT-DIFFERS.yaml	2	differs from the registry's
+XR12-PARTIAL-NO-DIFFERS.yaml	2	status `partial` requires `differs`
+XR13-MATCHES-UNATTRIBUTED.yaml	2	requires `assessed_by`
+XR14-UNASSESSED-WITH-BASIS.yaml	2	an unassessed statement carries no assessor
+XR15-PHYSICAL-MISSING.yaml	2	missing mapping `physical`
+XR16-UNKNOWN-CORRESPONDENCE.yaml	2	`math29.weather` is not a correspondence record of reading point math29
+XR17-LEAN-THEOREM-ABSENT.yaml	2	is not declared in lean/M3eReadings.lean
+XR18-VERDICT-KEY.yaml	2	field `verdict` is outside this record type
+XR19-CONTROL-CHARACTER.yaml	2	control or invisible character U+0007
+XR20-BAD-SHA.yaml	2	must be 64 lower-case hexadecimal digits
+XR21-FORGED-STATUS.yaml	2	status `verified-by-kernel` is outside the vocabulary
+XR22-BASIS-MISSING.yaml	2	semantic basis `docs/RLT-003-M3z.md`
+XR23-UNKNOWN-READING-POINT.yaml	2	reading point `math31`
+XR24-UNKNOWN-FORMAT.yaml	2	format `rlt-statement/2` is unknown
+XR25-RELEVANT-WITHOUT-IDS.yaml	2	`relevant` requires
+XR26-ACCEPTED-AS-STATUS.yaml	2	status `accepted` is outside the vocabulary
+XS01-PROOF-SHA.yaml	3	  stale         proof sha256: record ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+XS02-DEFINITIONS-SHA.yaml	3	  stale         definitions sha256: record ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+XS03-AXIOM-SET-SHA.yaml	3	  stale         axiom set sha256: record 5ad55192
+XS04-CHECKED-GOAL.yaml	3	  stale         checked goal: record ∃k. 8 = k × 2 · current ∃k. 8 = 2 × k
+XS05-ASSUMPTIONS.yaml	3	  stale         assumptions: record Γ = { h : 2 × 3 = 6 } · current Γ = { h : 2 × 3 = 7 }
+XS06-CONVENTION.yaml	3	  stale         convention: record NAT-LOGIC · current NAT-DEC
+XS07-AXIOM-SET.yaml	3	  stale         axiom set: record PEANO-ARITH · current PEANO-ADD
+XS08-DEFINITIONS-PIN-UNUSED.yaml	3	  stale         definitions sha256: record 122e37fc627b136023a1a5ffac0344162ed77ae95312248a9f6a76c2b639ecda · current (none)
+XF01-REJECTED-PROOF.yaml	1	1 KERNEL ACCEPTANCE: REJECT
+XF02-MALFORMED-PROOF.yaml	2	1 KERNEL ACCEPTANCE: MALFORMED
+XA01-ASSESSED-GOAL-DIFFERS.yaml	0	3 SEMANTIC CORRESPONDENCE: partial · assessment stale
+XA02-BASIS-SHA-DIFFERS.yaml	0	3 SEMANTIC CORRESPONDENCE: partial · assessment stale
+XA03-UNPINNED-SOURCE.yaml	0	2 SOURCE FIDELITY: registry verified · unpinned
