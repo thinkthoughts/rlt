@@ -218,6 +218,8 @@ The proposed order puts no change in the kernel first.
 
 ## 10. Decisions for review (revised after refinements 1–3)
 
+**Approval, 2026-11-11.** V1–V10 approved, with V6 modified as recorded in its row. RLT-004a (§11) approved for implementation; PR #10 stays in draft until its implementation report has been reviewed.
+
 | ID | Decision | Options | Recommended |
 |---|---|---|---|
 | V1 | Kernel during the next phase | (a) unchanged; (b) open to change | (a), including during the numerals experiment |
@@ -225,7 +227,7 @@ The proposed order puts no change in the kernel first.
 | V3 | Translation artifact | (a) a statement record plus `rlt explain`, with four separately reported assessments; (b) extend the existing records | (a) |
 | V4 | Library and reuse | (a) `lib/` with stable names plus `rlt deps`; (b) keep tests/ as the library | (a) |
 | V5 | Citation scaling | (a) keep 64 and 8, and design wide graphs; (b) review a verified-result cache | (a) for now |
-| V6 | Numerals | (a) unary only; (b) the binary-as-definitions experiment, which needs a separately reviewed induction axiom set and is judged by §5's criteria; (c) a kernel numeral primitive | first measure the unary baseline (§5); then (b) if approved; (c) only if (b) fails criterion 2 |
+| V6 | Numerals | (a) unary only; (b) the binary-as-definitions experiment, which needs a separately reviewed induction axiom set and is judged by §5's criteria; (c) a kernel numeral primitive | **Approved as modified (2026-11-11):** measure only. RLT-004a measures written size, kernel term size, proof steps, proof nodes and checking time separately, with existing proof generation and no added axioms, and records any limit reached. (b) and (c), and any induction axioms, go to a separate review. |
 | V7 | `↔` | (a) defer; (b) add to NAT-DEF now | (a) |
 | V8 | Candidate applications | (a) keep them as design tests; (b) choose one as a milestone | (a), and choose after V6's baseline |
 | V9 | Soundness documentation | (a) one consolidated note, with argument and evidence kept apart; (b) leave it in the M3 reports | (a) |
@@ -238,7 +240,7 @@ The proposed order puts no change in the kernel first.
 1. **The user manual:** chapters 1–11 of §7, describing what exists, with every command shown run against main and its real output.
 2. **The kernel soundness note** (§5a, V9).
 3. **The statement-record format**, as a written specification only. It defines the fields, the four assessment blocks and the status vocabulary, and gives the Modulo 30 record as its worked example. No code yet.
-4. **The unary baseline (§5):** proof sizes for Goldbach decompositions at n = 100 and 1,000, generated as test data outside `tests/`, so the measurement adds no new accepted files. They are reported in nodes, steps and check time.
+4. **The unary baseline (§5, V6 as modified):** written size, kernel term size, steps, proof nodes and check time, measured separately for Goldbach decompositions, non-divisibility certificates and finite enumerations, generated outside `tests/` with existing mechanisms and no added axioms. Limits reached are recorded, not worked around. Result: docs/RLT-004a-BASELINE.md.
 
 **Done when:**
 - every command in the manual reproduces its shown output on main;
