@@ -411,26 +411,40 @@ pub fn explain(root: &Path, record: &str) -> Explanation {
     // Loader messages name files by full path; show them repository-relative
     // so the report is the same on every machine.
     let r = root.display().to_string();
-    let r = r.trim_end_matches('/');
     for p in &mut x.problems {
-        if r == "." || r.is_empty() {
-            if let Some(rest) = p.strip_prefix("./") {
-                *p = rest.to_string();
-            }
-        } else {
-            // Remove the root and the separators after it, wherever a path
-            // under the root appears in the message.
-            let mut out = String::new();
-            let mut rest = p.as_str();
-            while let Some(i) = rest.find(&format!("{r}/")) {
-                out.push_str(&rest[..i]);
-                rest = rest[i + r.len()..].trim_start_matches('/');
-            }
-            out.push_str(rest);
-            *p = out;
-        }
+        *p = relative_problem(&r, p);
     }
     x
+}
+
+/// A loader message with the repository root removed where it starts a path:
+/// at the start of the message or after a character that cannot be part of
+/// a path name. `./` is removed only at the start.
+pub fn relative_problem(root: &str, p: &str) -> String {
+    let r = root.trim_end_matches('/');
+    if r == "." || r.is_empty() {
+        return p.strip_prefix("./").unwrap_or(p).to_string();
+    }
+    let pat = format!("{r}/");
+    let mut out = String::new();
+    let mut rest = p;
+    while let Some(i) = rest.find(&pat) {
+        let before = if i == 0 {
+            out.chars().last()
+        } else {
+            rest[..i].chars().last()
+        };
+        let starts_path = before.is_none_or(|c| !(c.is_alphanumeric() || "._-/~".contains(c)));
+        out.push_str(&rest[..i]);
+        if starts_path {
+            rest = rest[i + r.len()..].trim_start_matches('/');
+        } else {
+            out.push_str(&pat);
+            rest = &rest[i + pat.len()..];
+        }
+    }
+    out.push_str(rest);
+    out
 }
 
 fn explain_at(root: &Path, record: &str) -> Explanation {

@@ -689,3 +689,32 @@ fn problems_are_repository_relative_for_any_root_spelling() {
         );
     }
 }
+
+#[test]
+fn relative_root_is_removed_only_where_it_starts_a_path() {
+    use rlt_cli::explain::relative_problem;
+    assert_eq!(
+        relative_problem("a", "kernel: cited path `data/../x.rlt` must be plain"),
+        "kernel: cited path `data/../x.rlt` must be plain"
+    );
+    assert_eq!(
+        relative_problem("a", "a/target/x.yaml: duplicated key; see `a/b`"),
+        "target/x.yaml: duplicated key; see `b`"
+    );
+    assert_eq!(
+        relative_problem("/r/", "/r//t/x.yaml: bad"),
+        "t/x.yaml: bad"
+    );
+    assert_eq!(
+        relative_problem("/r", "x /r/t.yaml and /rr/t.yaml"),
+        "x t.yaml and /rr/t.yaml"
+    );
+    assert_eq!(
+        relative_problem(".", "./tests/../x/./y.rlt: bad"),
+        "tests/../x/./y.rlt: bad"
+    );
+    assert_eq!(
+        relative_problem(".", "kernel: `tests/../x/./y.rlt`"),
+        "kernel: `tests/../x/./y.rlt`"
+    );
+}
