@@ -29,6 +29,8 @@ cargo build --release
 export PATH="$PWD/target/release:$PATH"
 ```
 
+Run `rlt` from the repository root: it reads the axiom sets, definitions and conventions from there. From another folder, pass `--root PATH_TO_RLT` (for example `rlt --root ~/rlt check /tmp/x.rlt`).
+
 Check a proof that 29 + 1 = 30:
 
 ```console
@@ -60,7 +62,15 @@ physical        math29.context [referent]: unestablished (evidence: 0)
 exit 0
 ```
 
-The proof file is four steps. Each names a rule and the earlier steps or axiom instances it uses:
+The report is long because it carries everything a reader might need. For now, read these lines: `written goal` (what the file says), `checked goal` (what was proved), `axiom set` and `axioms used` (what it rests on), `assumptions` (Γ = ∅ means none), `steps`, and `verdict`. The `reading point` and `physical` lines belong to chapter 10; they record where the subject comes from and are never decided by a proof.
+
+**Words used throughout.**
+- The **kernel** is the small part of RLT that checks each step against its rule. Everything else (reading files, printing reports, generating proofs) sits outside it, and the kernel re-checks whatever those parts produce.
+- **S** is the successor function: S(0) is 1, S(S(0)) is 2. Inside the kernel every numeral is written this way.
+- An **axiom** is a statement accepted without proof; an **axiom set** is a named, fixed collection of them (chapter 4).
+- **Γ** (gamma) is the list of assumptions a result still depends on; **Γ = ∅** means it depends on none.
+
+The proof file is four steps. Steps are written in prefix form: `(= a b)` is a = b, `(+ 29 (S 0))` is 29 + S(0), and `(* 2 3)` is 2 × 3. Each step states a formula, then names a rule and what the rule uses:
 
 ```console
 $ grep -A4 '(steps' tests/accept/R_math29_pairing.rlt
@@ -70,6 +80,10 @@ $ grep -A4 '(steps' tests/accept/R_math29_pairing.rlt
     (s3 (= (S (+ 29 0)) (S 29))        (cong S s2))
     (s4 (= (+ 29 (S 0)) (S 29))        (trans s1 s3))))
 ```
+
+The four rules here: **inst** takes an axiom and fills in its variables (add_succ with x = 29, y = 0); **cong** applies the same function to both sides of an equation; **trans** chains a = b and b = c into a = c. Two more appear in chapter 5: **refl** states t = t, and **symm** turns a = b into b = a.
+
+A proof file has these fields: `id`, `convention`, `goal` (the statement, in quotes), `mode` (`unconditional` or `conditional`), `axioms` (the axiom set), optional `assume` lines (chapter 5), and `steps`.
 
 Exit status: **0** accepted, **1** rejected (a step fails a rule), **2** malformed (the file cannot be read as a proof, or exceeds a limit).
 
@@ -84,7 +98,7 @@ Exit status: **0** accepted, **1** rejected (a step fails a rule), **2** malform
 
 ## 2. Written statements and what RLT reads
 
-RLT separates **what you write** from **what is checked**. `rlt written` shows both for two expressions:
+RLT separates **what you write** from **what is checked**. `rlt written` shows both for two arithmetic expressions (terms such as `29 + 1`; it reads them under NAT-DEC and takes no `=`, variables or definitions):
 
 ```console
 $ rlt written "29 + 1" NAT-DEC "30" NAT-DEC
@@ -109,13 +123,15 @@ terms           structurally identical
 …
 ```
 
-A **convention** says how written text becomes a formula. Three are used for proofs:
+A **convention** says how a proof file's `goal` text becomes a formula. Three are used for proofs:
 
 | Convention | Reads | Example |
 |---|---|---|
 | NAT-DEC | closed arithmetic: decimal numerals, `+`, `×`, `=` | `30 = 2 × 3 × 5` (× groups to the left: `(2 × 3) × 5`) |
 | NAT-LOGIC | adds ∀, ∃, ∧, ∨, →, ¬, ⊥ and variables | `∀x. x + 0 = x` |
 | NAT-DEF | adds the registered definitions `<`, `∣`, `free235` (chapter 3); ∨ groups to the left | `¬(2 ∣ 7)` |
+
+**Typing the symbols.** Goal strings use the mathematical symbols: × (U+00D7), ∣ (U+2223, "divides", distinct from the ASCII bar `|`), ¬, ∀, ∃, →, ∧, ∨. ASCII stand-ins such as `*`, `|` or `~` are refused in goals as malformed. Proof *steps* use ASCII names instead: `*`, `dvd`, `not`, `and`, `or`, `imp`, `forall`, `exists`.
 
 ```console
 $ rlt check tests/accept/M1_thirty.rlt
@@ -203,7 +219,9 @@ $ grep '^(axiom' spec/robinson-q.rlt
 
 In words: successor is one-to-one (Q1); zero is no successor (Q2); every number is zero or a successor (Q3); and addition and multiplication are defined by recursion on the second argument. Robinson's Q has **no induction axiom**. It proves facts about particular numbers and finite ranges, which is everything the Modulo 30 chapters need; statements about *every* number generally need induction, which RLT does not have (chapter 9, "Still open").
 
-"ACCEPT relative to ROBINSON-Q" means: the formula holds in every structure satisfying these seven axioms. ℕ is one of them, so the formula is true of the natural numbers. The axioms themselves are assumptions; RLT prints each one used.
+"ACCEPT relative to an axiom set" means: the formula holds in every system of numbers (every *structure*) that satisfies the axioms of that set; for ROBINSON-Q, these seven. The natural numbers ℕ satisfy all three sets, so an accepted formula is true of ℕ. This rests on the kernel's rules being sound, which docs/KERNEL-SOUNDNESS.md argues rule by rule. The axioms themselves are assumptions; RLT prints each one used.
+
+Each proof names one axiom set and may use only its axioms: a step using mul_succ in a file that names PEANO-ADD is refused.
 
 ## 5. Proofs: steps, rules and assumptions
 
@@ -236,7 +254,7 @@ verdict         ACCEPT — unconditional theorem relative to registered axiom se
 exit 0
 ```
 
-**Break one step and see the kernel refuse it.** Change the first instance of `(y 6)` to `(y 5)`:
+**Break one step and see the kernel refuse it.** Look at the generated steps (`head -12 /tmp/ten.rlt`), then change the first instance of `(y 6)` to `(y 5)`. The `sed` form below is GNU sed; on macOS, edit the file by hand:
 
 ```console
 $ sed '0,/(y 6)/s//(y 5)/' /tmp/ten.rlt > /tmp/ten-bad.rlt && rlt check /tmp/ten-bad.rlt; echo "exit $?"
@@ -248,7 +266,26 @@ exit 1
 
 The message names the step, what it claimed and what the rule actually yields. A rejection is a fact about this derivation only; the goal's truth stays undetermined by it.
 
-**Assumptions and Γ.** `hyp h` introduces an assumption named h. Rules such as imp-intro, or-cases and exists-elim discharge assumptions. The report's `assumptions` line shows what is left, written Γ. An **unconditional** proof must end with Γ = ∅; RLT refuses it otherwise.
+**Assumptions and Γ.** A step `(hyp h)` uses an assumption named h. The name must come from one of two places:
+- an `(assume h "…")` line in the file, which declares h for the whole proof; or
+- a later step that **discharges** h, i.e. turns "χ, assuming h" into a statement that no longer depends on h. imp-intro does this ("if h then χ"); or-cases and exists-elim do it for case analysis (chapter 6).
+
+Otherwise the step is refused: `assumption `h` is undeclared in the goal`. The report's `assumptions` line shows what is left, written Γ. A proof in `unconditional` mode must end with Γ = ∅. A proof in `conditional` mode may keep declared assumptions, and the report keeps them visible:
+
+```console
+$ rlt check tests/accept/M1_conditional.rlt; echo "exit $?"
+…
+mode            conditional (Γ ⊆ declared assumptions)
+…
+proved          (2 × 3) + 1 = 8
+assumptions     Γ = { h : 2 × 3 = 7 }
+…
+verdict         ACCEPT — conditional theorem relative to registered axiom set PEANO-ARITH
+…
+exit 0
+```
+
+That file assumes the false statement 2 × 3 = 7 on purpose: a conditional theorem says only "if the assumptions hold, so does the conclusion".
 
 | | |
 |---|---|
@@ -257,7 +294,7 @@ The message names the step, what it claimed and what the rule actually yields. A
 | **The kernel checks** | each of 23 steps; in the edited file, step s1 fails |
 | **Axioms and assumptions** | PEANO-ARITH; Γ = ∅ |
 | **Result** | ACCEPT for the generated file; REJECT at step s1 for the edited one |
-| **Still open** | nothing for these closed equations beyond the axioms' own status |
+| **Still open** | for closed equations, only the axioms' own status as assumptions |
 
 ## 6. Proving that something never happens: ¬(2 ∣ 7)
 

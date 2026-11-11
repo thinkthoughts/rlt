@@ -25,6 +25,7 @@ Development stops after M3e. The next phase is a broader review of RLT as a usab
 - The audit was read and CI confirmed.
 - M3e was merged (see the merge record below).
 - The broader review is in docs/RLT-004-REVIEW.md.
+- RLT-004 decisions V1–V10 approved 2026-11-11 (V6 modified: measure only). RLT-004a (manual chapters 1–11, kernel soundness note, statement-record specification, unary baseline) is on PR #10, in draft; report in docs/RLT-004a-REPORT.md.
 
 ## Design principles for the review
 
