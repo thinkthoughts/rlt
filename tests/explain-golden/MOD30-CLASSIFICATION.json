@@ -99,13 +99,13 @@
         "file": "lean/M3eReadings.lean",
         "theorem": "RLTM3eReadings.free235_iff_coprime",
         "named_in_file": true,
-        "checked_by": "scripts/verify.sh (Lean #print axioms gate), not rlt explain"
+        "checked_by": "scripts/verify.sh (Lean #print axioms gate) for records in statements/; not rlt explain"
       },
       {
         "file": "lean/M3eReadings.lean",
         "theorem": "RLTM3eReadings.classification",
         "named_in_file": true,
-        "checked_by": "scripts/verify.sh (Lean #print axioms gate), not rlt explain"
+        "checked_by": "scripts/verify.sh (Lean #print axioms gate) for records in statements/; not rlt explain"
       }
     ]
   },

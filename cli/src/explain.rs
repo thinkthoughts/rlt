@@ -10,7 +10,7 @@
 //!
 //! Every value printed, in text or JSON, comes from one `Explanation` value.
 
-use crate::{check_preread_outcome, citation_path, rp_path, sha256_hex, ACCEPT, MALFORMED, REJECT};
+use crate::{citation_path, rp_path, sha256_hex, ACCEPT, MALFORMED, REJECT};
 use rlt_syntax::records::{
     load_readingpoint, load_registry, load_statement, read_regular, units, StatementRecord,
 };
@@ -293,13 +293,9 @@ fn kernel_block(root: &Path, proof_path: &Path, rel: &str, bytes: &[u8]) -> Kern
         sha256: sha,
         ..Default::default()
     };
-    // Not UTF-8 (None): `rlt check`'s own path reads and refuses the file, so
-    // the report is exactly the one `rlt check` gives.
-    let src = String::from_utf8(bytes.to_vec()).ok();
-    let out = match src {
-        Some(src) => check_preread_outcome(root, proof_path, src),
-        None => crate::check_file_outcome(root, proof_path),
-    };
+    // One read: the bytes hashed above are the bytes checked, whether or not
+    // they are UTF-8 (a non-UTF-8 file gets `rlt check`'s own report).
+    let out = crate::check_bytes_outcome(root, proof_path, bytes.to_vec());
     let r = &out.report.text;
     k.check_report = r.clone();
     if out.report.code == ACCEPT {
@@ -414,9 +410,25 @@ pub fn explain(root: &Path, record: &str) -> Explanation {
     let mut x = explain_at(root, record);
     // Loader messages name files by full path; show them repository-relative
     // so the report is the same on every machine.
-    let prefix = format!("{}/", root.display());
+    let r = root.display().to_string();
+    let r = r.trim_end_matches('/');
     for p in &mut x.problems {
-        *p = p.replace(&prefix, "");
+        if r == "." || r.is_empty() {
+            if let Some(rest) = p.strip_prefix("./") {
+                *p = rest.to_string();
+            }
+        } else {
+            // Remove the root and the separators after it, wherever a path
+            // under the root appears in the message.
+            let mut out = String::new();
+            let mut rest = p.as_str();
+            while let Some(i) = rest.find(&format!("{r}/")) {
+                out.push_str(&rest[..i]);
+                rest = rest[i + r.len()..].trim_start_matches('/');
+            }
+            out.push_str(rest);
+            *p = out;
+        }
     }
     x
 }
@@ -988,7 +1000,7 @@ pub fn render_text(x: &Explanation) -> String {
                 &mut t,
                 "  lean",
                 &format!(
-                    "{} · {} (named in the file; scripts/verify.sh checks it with Lean #print axioms)",
+                    "{} · {} (named in the file; for records in statements/, scripts/verify.sh checks it with Lean #print axioms)",
                     one(&l.file),
                     one(&l.theorem)
                 ),
@@ -1215,7 +1227,7 @@ pub fn to_json(x: &Explanation) -> Json {
                                 ("file", Json::s(&l.file)),
                                 ("theorem", Json::s(&l.theorem)),
                                 ("named_in_file", Json::Bool(l.present)),
-                                ("checked_by", Json::s("scripts/verify.sh (Lean #print axioms gate), not rlt explain")),
+                                ("checked_by", Json::s("scripts/verify.sh (Lean #print axioms gate) for records in statements/; not rlt explain")),
                             ])
                         })
                         .collect(),

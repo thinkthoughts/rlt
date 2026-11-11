@@ -39,8 +39,8 @@ record          valid · current
   matches       The eight listed representatives are exactly the r < 30 with free235(r), proved in both directions from Robinson's Q.
   matches       Over the natural numbers, free235(r) agrees with gcd(r, 30) = 1 for r < 30 (a Lean 4 statement, standard axioms only).
   differs       The source sentence speaks of every prime > 5 and of residue classes modulo 30; the checked formula speaks of the 30 numbers below 30.
-  lean          lean/M3eReadings.lean · RLTM3eReadings.free235_iff_coprime (named in the file; scripts/verify.sh checks it with Lean #print axioms)
-  lean          lean/M3eReadings.lean · RLTM3eReadings.classification (named in the file; scripts/verify.sh checks it with Lean #print axioms)
+  lean          lean/M3eReadings.lean · RLTM3eReadings.free235_iff_coprime (named in the file; for records in statements/, scripts/verify.sh checks it with Lean #print axioms)
+  lean          lean/M3eReadings.lean · RLTM3eReadings.classification (named in the file; for records in statements/, scripts/verify.sh checks it with Lean #print axioms)
   scope         an attributed assessment; kernel acceptance never sets it
 
 4 PHYSICAL CORRESPONDENCE: not applicable

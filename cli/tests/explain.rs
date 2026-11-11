@@ -666,3 +666,26 @@ fn exit_meaning_follows_the_record_state() {
     let s = rlt_cli::explain::exit_meaning(REJECT, "stale");
     assert!(s.contains("stale pins"), "{s}");
 }
+
+#[test]
+fn problems_are_repository_relative_for_any_root_spelling() {
+    let r = root();
+    let abs = r.display().to_string();
+    for root_spelling in [abs.clone(), format!("{abs}/"), format!("{abs}//")] {
+        let x = explain(
+            Path::new(&root_spelling),
+            "tests/explain/XR02-DUPLICATE-KEY.yaml",
+        );
+        assert_eq!(x.exit, MALFORMED);
+        assert!(
+            !x.problems[0].contains(&abs),
+            "{root_spelling}: {:?}",
+            x.problems
+        );
+        assert!(
+            x.problems[0].starts_with("tests/explain/XR02-DUPLICATE-KEY.yaml"),
+            "{:?}",
+            x.problems
+        );
+    }
+}

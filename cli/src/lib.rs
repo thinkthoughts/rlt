@@ -396,6 +396,34 @@ pub fn check_preread_outcome(root: &Path, file: &Path, src: String) -> CheckOutc
     check_inner(root, file, result_kind, &[], Some(src), &budget)
 }
 
+/// As `check_preread_outcome`, from raw bytes (RLT-004b audit): bytes that
+/// are not UTF-8 get exactly the report `rlt check` gives for them, built from
+/// these bytes without reading the file again.
+pub fn check_bytes_outcome(root: &Path, file: &Path, bytes: Vec<u8>) -> CheckOutcome {
+    match String::from_utf8(bytes) {
+        Ok(src) => check_preread_outcome(root, file, src),
+        Err(_) => {
+            let mut t = String::new();
+            let _ = writeln!(t, "RLT check       {}", shown_path(root, file));
+            let msg = if file.to_string_lossy().chars().any(|c| c.is_control()) {
+                "the proof file name contains a control character".to_string()
+            } else {
+                format!(
+                    "cannot read the proof file: {}",
+                    std::io::Error::from(std::io::ErrorKind::InvalidData).kind()
+                )
+            };
+            CheckOutcome {
+                report: malformed(&mut t, msg),
+                proof: None,
+                goal: None,
+                prop: None,
+                theorem: None,
+            }
+        }
+    }
+}
+
 /// Most cited-file checks one top-level check may run, counted over the
 /// whole citation tree (RLT-003 M3c audit note 4): each citation re-checks
 /// its file from scratch, so this bounds the work as well as the depth.

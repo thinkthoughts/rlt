@@ -260,7 +260,15 @@ done
 # Lean references named in statement records: each must be a theorem Lean
 # accepts in that file, with standard axioms only (rlt explain only finds the name).
 ex_lean=$(command -v lean || { [ -x "$HOME/.elan/bin/lean" ] && echo "$HOME/.elan/bin/lean"; })
-ex_refs=$(grep -hoE '\{file: lean/[A-Za-z0-9_]+\.lean, theorem: [A-Za-z0-9_.]+\}' statements/*.yaml | sed -E 's/\{file: (lean\/[^,]+), theorem: ([^}]+)\}/\1 \2/' | sort -u)
+ex_refs=$(for f in statements/*.yaml; do "$rlt" explain "$f" --format json; done | python3 -c '
+import json, sys
+dec, s, i, out = json.JSONDecoder(), sys.stdin.read(), 0, set()
+while i < len(s):
+    while i < len(s) and s[i].isspace(): i += 1
+    if i == len(s): break
+    d, i = dec.raw_decode(s, i)
+    for l in ((d.get("semantic") or {}).get("lean") or []): out.add((l["file"], l["theorem"]))
+print("\n".join(f"{a} {b}" for a, b in sorted(out)))')
 if [ -n "$ex_lean" ]; then
   while read -r lf th; do
     [ -z "$lf" ] && continue
