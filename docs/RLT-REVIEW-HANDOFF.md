@@ -14,18 +14,18 @@ Development stops after M3e. The next phase is a broader review of RLT as a usab
 | M3b | merged (93e85a5) | Robinson's Q; definitions of `<`, `∣` and `free235` |
 | M3c | merged (73198e6) | ¬(d ∣ 7) for every witness; free235(7); theorem citation |
 | M3d | merged (3d0f8e2) | ∀x. x < 30 → x = 0 ∨ … ∨ x = 29 |
-| M3e | **draft PR #9** (branch `rlt-003-m3e`): independent audit recommends merge, no substantive findings; CI green | the modulo-30 classification, E-T1; see docs/RLT-003-M3e.md |
+| M3e | merged (cc01968, 2026-11-11) | the modulo-30 classification, E-T1; see docs/RLT-003-M3e.md |
 
 **Not yet done, and held for the review:**
-- merging M3e;
 - the `backed by` links (designed in the M3e review §9);
 - any M3f;
 - release and deployment.
 
-**Resume on Friday:**
-1. Read docs/RLT-003-M3e.md §6 (audit: merge recommended) and confirm CI on PR #9's head.
-2. Decide whether to merge M3e.
-3. Start the broader review from the design principles below.
+**Resume steps:** completed on 2026-11-11.
+- The audit was read and CI confirmed.
+- M3e was merged (see the merge record below).
+- The broader review is in docs/RLT-004-REVIEW.md.
+- RLT-004 decisions V1–V10 approved 2026-11-11 (V6 modified: measure only). RLT-004a (manual chapters 1–11, kernel soundness note, statement-record specification, unary baseline) is on PR #10, in draft; report in docs/RLT-004a-REPORT.md.
 
 ## Design principles for the review
 
@@ -50,3 +50,12 @@ target/release/rlt check tests/m3e/accept/E_T1.rlt         # the classification
 target/release/rlt rp math29                               # the reading point, unchanged
 target/release/rlt residues residues/residue-30.yaml       # the record, unchanged
 ```
+
+## Merge record, 2026-11-11
+
+- **PR #9 merged:** the audited head f99d146 went into main as merge commit **cc01968**, with parents 3d0f8e2 and f99d146. The merge tree 12871335 equals f99d146's tree.
+- **Fresh clone of main at cc01968:** `cargo test` passes 227 of 227. `scripts/verify.sh` prints `RESULT all checks hold`, with 54 of 54 M3e proofs accepted and 16 of 16 refused.
+- **CI on cc01968:** `check` and `gdt-comparison` both succeed.
+- **Unchanged against 3d0f8e2:** kernel, syntax, `cli/src`, axiom sets, definitions, conventions, registry and reading-point records.
+
+The broader review began on the same day: docs/RLT-004-REVIEW.md.
