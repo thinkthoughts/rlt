@@ -1,0 +1,17 @@
+# file	exit	required substring of the verdict (RLT-003 M3e rejected cases)
+tests/m3e/reject/ER04_false_not_three_divides_nine.rlt	1	step claims `¬(0 = 0)`, rule `inst` yields `¬(0 = 1)`
+tests/m3e/reject/ER11b_false_not_two_divides_two.rlt	1	step claims `¬(0 = 0)`, rule `inst` yields `¬(0 = 1)`
+tests/m3e/reject/ER01_representative_29_missing.rlt	1	cite: `P29` is not a declared citation
+tests/m3e/reject/ER02_extra_representative_9.rlt	2	is not an accepted theorem (REJECT
+tests/m3e/reject/ER03_nine_in_place_of_seven.rlt	2	is not an accepted theorem (REJECT
+tests/m3e/reject/ER05_false_three_divides_four.rlt	1	exists-intro: witness does not match premise
+tests/m3e/reject/ER06_pd4_under_pd6_label.rlt	1	the cited theorem `P6` proves
+tests/m3e/reject/ER07_edited_fwd_hash.rlt	2	the citation records
+tests/m3e/reject/ER08_bound_31_from_da01.rlt	1	the cited theorem `D` proves
+tests/m3e/reject/ER09_free235_conjuncts_reordered.rlt	1	rule `and-intro` yields
+tests/m3e/reject/ER10_biconditional_written.rlt	2	goal:
+tests/m3e/reject/ER11_backward_with_two.rlt	2	is not an accepted theorem (REJECT
+tests/m3e/reject/ER12_forward_with_one_only.rlt	1	cite: `P7` is not a declared citation
+tests/m3e/reject/ER13_citation_budget_exceeded.rlt	2	more than 64 files
+tests/m3e/reject/ER14_cites_peano_arith_theorem.rlt	2	differs from this file's ROBINSON-Q
+tests/m3e/reject/ER16_assumption_in_unconditional_mode.rlt	1	unconditional goal requested, but the result depends on assumptions

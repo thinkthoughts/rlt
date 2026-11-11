@@ -36,6 +36,7 @@ scripts/gdt-compare.sh GDT_CHECKOUT                           # M2 GDT compariso
 target/release/rlt check tests/m3a/accept/A09_forall_elim_intro.rlt  # RLT-003 M3a: first-order derivations (∀, ∃, ∧, ∨, →, ⊥)
 target/release/rlt check tests/m3b/accept/BA06_two_divides_eight.rlt  # RLT-003 M3b: 2 ∣ 8 under ROBINSON-Q, with the pinned definition of ∣
 target/release/rlt check tests/m3c/accept/CA02_two_not_divides_seven.rlt  # RLT-003 M3c: ¬(2 ∣ 7), every multiplication witness eliminated by finite case analysis
+target/release/rlt check tests/m3e/accept/E_T1.rlt  # RLT-003 M3e: the modulo-30 classification below 30, under ROBINSON-Q
 target/release/rlt check tests/m3c/accept/CA05_free235_seven.rlt  # RLT-003 M3c: free235(7), citing three independently checked theorems
 target/release/rlt check tests/m3d/accept/DA01_below_thirty.rlt  # RLT-003 M3d: every x < 30 is one of 0 … 29, by 31 Q3 splits
 scripts/verify.sh SOURCE_CLONES_DIR                           # fmt, clippy, tests, proofs, records, Lean, excerpts; exit 0 only if all hold
