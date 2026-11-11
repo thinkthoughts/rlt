@@ -2,6 +2,7 @@
 //! Every report is a deterministic string so tests can compare it with a
 //! golden file.
 
+pub mod explain;
 pub mod gen;
 pub mod residues;
 use rlt_kernel::{check, Axiom, Formula, Mode, Theorem, Verdict};
@@ -385,6 +386,42 @@ pub fn check_file_outcome_with(
 ) -> CheckOutcome {
     let budget = std::cell::Cell::new(MAX_CITED_CHECKS);
     check_inner(root, file, classify, &[], None, &budget)
+}
+
+/// As `check_file_outcome`, on bytes the caller already read (RLT-004b):
+/// `rlt explain` hashes the proof file once and checks exactly those bytes,
+/// through the same function `rlt check` uses.
+pub fn check_preread_outcome(root: &Path, file: &Path, src: String) -> CheckOutcome {
+    let budget = std::cell::Cell::new(MAX_CITED_CHECKS);
+    check_inner(root, file, result_kind, &[], Some(src), &budget)
+}
+
+/// As `check_preread_outcome`, from raw bytes (RLT-004b audit): bytes that
+/// are not UTF-8 get exactly the report `rlt check` gives for them, built from
+/// these bytes without reading the file again.
+pub fn check_bytes_outcome(root: &Path, file: &Path, bytes: Vec<u8>) -> CheckOutcome {
+    match String::from_utf8(bytes) {
+        Ok(src) => check_preread_outcome(root, file, src),
+        Err(_) => {
+            let mut t = String::new();
+            let _ = writeln!(t, "RLT check       {}", shown_path(root, file));
+            let msg = if file.to_string_lossy().chars().any(|c| c.is_control()) {
+                "the proof file name contains a control character".to_string()
+            } else {
+                format!(
+                    "cannot read the proof file: {}",
+                    std::io::Error::from(std::io::ErrorKind::InvalidData).kind()
+                )
+            };
+            CheckOutcome {
+                report: malformed(&mut t, msg),
+                proof: None,
+                goal: None,
+                prop: None,
+                theorem: None,
+            }
+        }
+    }
 }
 
 /// Most cited-file checks one top-level check may run, counted over the

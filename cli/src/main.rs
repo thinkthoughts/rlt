@@ -15,6 +15,8 @@ usage:
   rlt chem WRITTEN CONVENTION            how a species-table convention reads a written formula
   rlt gen EQUATION ID                    untrusted generator: a PEANO-ARITH proof file for a closed equation
   rlt residues FILE                      closed quotient–remainder witnesses and their registered readings
+  rlt explain RECORD [--format text|json] a statement record: kernel, source, semantic, physical
+                                         (exit 0 current+accept, 1 reject, 2 invalid/malformed, 3 stale)
 options:
   --root DIR                             repository root (default: current directory)";
 
@@ -90,6 +92,18 @@ fn run() -> i32 {
             let r = chem_report(&root, &args[1], &args[2]);
             print!("{}", r.text);
             r.code
+        }
+        Some("explain") if args.len() == 2 || (args.len() == 4 && args[2] == "--format") => {
+            let x = rlt_cli::explain::explain(&root, &args[1]);
+            match args.get(3).map(|s| s.as_str()) {
+                None | Some("text") => print!("{}", rlt_cli::explain::render_text(&x)),
+                Some("json") => print!("{}", rlt_cli::explain::render_json(&x)),
+                Some(_) => {
+                    eprintln!("{USAGE}");
+                    return MALFORMED;
+                }
+            }
+            x.exit
         }
         Some("validate") if args.len() == 1 => {
             let r = validate(&root);

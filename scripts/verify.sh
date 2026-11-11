@@ -241,6 +241,67 @@ if [ -n "${RLT_REFERENCE:-}" ]; then
   scripts/compare-reports.sh "${RLT_REFERENCE%%:*}" "${RLT_REFERENCE#*:}" "$rlt" . | grep -E '^(DIFF|proof files|differences)'
 fi
 
+echo; echo "== statement records and rlt explain, RLT-004b (statements/, tests/explain)"
+ex_tmp=$(mktemp -d)
+cp -r tests/explain "$ex_tmp/before"
+if python3 scripts/gen-explain-tests.py >/dev/null && diff -r -q "$ex_tmp/before" tests/explain >/dev/null; then
+  echo "scripts/gen-explain-tests.py reproduces tests/explain"
+else
+  echo "  UNEXPECTED: tests/explain differs from scripts/gen-explain-tests.py output"; rm -rf tests/explain; cp -r "$ex_tmp/before" tests/explain; fail=1
+fi
+rm -rf "$ex_tmp"
+for f in statements/*.yaml; do
+  ex_log=$("$rlt" explain "$f"); ex_code=$?
+  ex_json=$("$rlt" explain "$f" --format json); ex_jcode=$?
+  ex_parsed=$(printf '%s' "$ex_json" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["exit"], d["kernel"]["verdict"], d["record"]["state"], d["semantic"]["status"]+"/"+d["semantic"]["assessment"], d["physical"]["applicability"])')
+  printf '%-42s exit %s  json: %s\n' "$f" "$ex_code" "$ex_parsed"
+  { [ "$ex_code" = 0 ] && [ "$ex_jcode" = 0 ] && [ "${ex_parsed%% *}" = 0 ]; } || { echo "$ex_log" | grep -E '^(  problem|  stale|verdict)'; fail=1; }
+done
+# Lean references named in statement records: each must be a theorem Lean
+# accepts in that file, with standard axioms only (rlt explain only finds the name).
+ex_lean=$(command -v lean || { [ -x "$HOME/.elan/bin/lean" ] && echo "$HOME/.elan/bin/lean"; })
+ex_refs=$(for f in statements/*.yaml; do "$rlt" explain "$f" --format json; done | python3 -c '
+import json, sys
+dec, s, i, out = json.JSONDecoder(), sys.stdin.read(), 0, set()
+while i < len(s):
+    while i < len(s) and s[i].isspace(): i += 1
+    if i == len(s): break
+    d, i = dec.raw_decode(s, i)
+    for l in ((d.get("semantic") or {}).get("lean") or []): out.add((l["file"], l["theorem"]))
+print("\n".join(f"{a} {b}" for a, b in sorted(out)))')
+if [ -n "$ex_lean" ]; then
+  while read -r lf th; do
+    [ -z "$lf" ] && continue
+    ex_gate=$(mktemp -d)/Gate.lean
+    { cat "$lf"; echo; echo "#print axioms $th"; } > "$ex_gate"
+    ex_glog=$(cd lean && "$ex_lean" "$ex_gate" 2>&1); ex_gcode=$?
+    ex_line=$(echo "$ex_glog" | grep -E "^'$th' (depends on axioms|does not depend on any axioms)")
+    ex_bad=$(echo "$ex_line" | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound')
+    if [ $ex_gcode = 0 ] && [ -n "$ex_line" ] && [ -z "$ex_bad" ] && ! echo "$ex_glog" | grep -qiE "warning|error|sorry"; then
+      echo "Lean reference $th ($lf): checked, standard axioms only"
+    else
+      echo "  UNEXPECTED: Lean reference $th ($lf) is not a Lean-checked theorem with standard axioms"; fail=1
+    fi
+  done <<< "$ex_refs"
+elif [ "${RLT_ALLOW_NO_LEAN:-}" = 1 ]; then
+  echo "SKIPPED: Lean references in statement records (lean unavailable; RLT_ALLOW_NO_LEAN=1)"; skipped=1
+else
+  echo "FAILED: Lean references in statement records (lean unavailable)"; fail=1
+fi
+ex_n=0; ex_ok=0
+while IFS=$'\t' read -r f want line; do
+  case "$f" in \#*|"") continue ;; esac
+  ex_n=$((ex_n + 1))
+  ex_log=$("$rlt" explain "tests/explain/$f"); ex_code=$?
+  { [ "$ex_code" = "$want" ] && echo "$ex_log" | grep -qF -- "$line"; } && ex_ok=$((ex_ok + 1)) || { echo "  UNEXPECTED: $f exit $ex_code (want $want)"; fail=1; }
+done < tests/explain/expected.tsv
+echo "tests/explain: $ex_ok of $ex_n fixtures give the required exit code and report line"
+for g in txt json; do
+  fmt=text; [ $g = json ] && fmt=json
+  "$rlt" explain statements/MOD30-CLASSIFICATION.yaml --format $fmt | cmp -s - tests/explain-golden/MOD30-CLASSIFICATION.$g \
+    && echo "golden $g output reproduced" || { echo "  UNEXPECTED: golden $g output differs"; fail=1; }
+done
+
 echo; echo "== chemical notation (rlt chem; 0 interpreted, 1 uninterpreted)"
 for case in "CO₂:0" "O₂:0" "COO:1" "CO2:1" "O2:1"; do
   w=${case%:*}; want=${case##*:}

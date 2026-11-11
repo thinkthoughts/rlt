@@ -1,6 +1,6 @@
 # Statement records and `rlt explain` — specification
 
-**Status.** RLT-004a deliverable, written 2026-11-11. This is a written specification. The record format and `rlt explain` described here are **intended and unimplemented**; nothing in this document is produced by the current `rlt` binary. Where a field can already be filled from an existing command, that command is named.
+**Status.** Written as a specification in RLT-004a (2026-11-11) and **implemented in RLT-004b** the same day. The implemented schema is `rlt-statement/1` (docs/RLT-004b-REVIEW.md §5; refined in docs/RLT-004b-REPORT.md), and the records live in `statements/`. Sections 4–5 below keep the RLT-004a design text for the record; where they differ from the implementation, the implementation and `rlt explain`'s own output govern. Run `rlt explain statements/MOD30-CLASSIFICATION.yaml` for the current report.
 
 ## 1. Purpose
 
@@ -41,17 +41,17 @@ A statement record is a YAML file (intended location: `statements/<id>.yaml`). E
 | `physical` | Status and evidence records, or `unestablished` | `readingpoints/*.yaml` |
 | `open_questions` | Specification and correspondence questions that remain | review record |
 
-## 4. Intended `rlt explain` interface
+## 4. `rlt explain` interface (RLT-004a design; implemented in RLT-004b)
 
 ```
-rlt explain STATEMENT_RECORD            (intended; unimplemented)
+rlt explain RECORD [--format text|json]
 ```
 
-It would print four blocks, one per outcome, in this order, each with its own status line. It would re-run `rlt check` on the proof file and re-verify every hash it prints; the semantic and physical blocks would be read from the record and attributed. Exit status would reflect kernel acceptance only, so that scripts cannot mistake an attributed assessment for a check.
+It would print four blocks, one per outcome, in this order, each with its own status line. It would re-run `rlt check` on the proof file and re-verify every hash it prints; the semantic and physical blocks would be read from the record and attributed. As implemented, the exit status is 0 (record valid, pins current, checker accepts), 1 (checker rejects), 2 (record invalid or proof malformed) or 3 (record stale); semantic and physical assessments never affect it, so scripts cannot mistake an attributed assessment for a check.
 
 ## 5. Complete example: the Modulo 30 classification
 
-### 5.1 The record
+### 5.1 The record (RLT-004a draft; the implemented record is statements/MOD30-CLASSIFICATION.yaml)
 
 ```yaml
 id: MOD30-CLASSIFICATION
@@ -99,7 +99,7 @@ open_questions:
   - "Whether RESIDUE-30's registered reading should cite E-T1 as backing (a future backed-by link; records unchanged in RLT-004a)."
 ```
 
-### 5.2 What `rlt explain` would print (intended)
+### 5.2 What `rlt explain` would print (RLT-004a draft; see tests/explain-golden/ for the implemented output)
 
 ```
 statement        MOD30-CLASSIFICATION — Modulo 30 (historical identifier: math29)
