@@ -13,6 +13,11 @@
 
 One scaling question, how numbers are represented, is the main constraint on wider applications (§5). It needs a decision before any certificate work begins.
 
+**Refinements, 2026-11-11.** The direction was approved for continued review with three refinements, now recorded here:
+1. Numeral scaling separates written notation, kernel term and checked proof size, with measurable success criteria (§5).
+2. The written soundness argument is kept apart from implementation evidence (§5a).
+3. `rlt explain` reports kernel acceptance separately from source fidelity and semantic correspondence (§3).
+
 ## 1. Where RLT stands
 
 | Layer | What exists (main cc01968) | Trusted? |
@@ -72,6 +77,17 @@ source excerpt ──▶ written statement ──▶ specification ──▶ che
 
 **What the report adds.** A new reporting command, working name `rlt explain`, prints the record as three blocks: what was proved, what it rests on, and how the words were translated. It reads existing verdicts and reaches every verdict through `check`.
 
+**What `rlt explain` reports (refinement 3).** It reports four assessments in separate blocks. A kernel verdict never implies the others.
+
+| Block | Question | Who or what decides | Possible statuses |
+|---|---|---|---|
+| Kernel acceptance | Is the formal statement a theorem relative to the axiom set? | the kernel, through `rlt check` | ACCEPT / REJECT / MALFORMED, with Γ, axioms used and cited theorems |
+| Source fidelity | Is the quoted source exactly the pinned text? | hash and excerpt checks | verified / differs / unpinned |
+| Semantic correspondence | Does the formal statement say what the written claim says? | a recorded human or independent review, with reviewer, date and listed gaps | unassessed / reviewed: matches / reviewed: partial, with listed gaps / reviewed: differs |
+| Physical correspondence | Does the mathematics describe a measured or physical situation? | correspondence records | unestablished / registered evidence |
+
+An accepted theorem alone never establishes that a translation matches the original claim. `rlt explain` prints `semantic correspondence: unassessed` until a review is recorded. Even then it shows that review as a separate, attributed judgement beside the verdict.
+
 **Translation gaps the review should settle:**
 - **`↔`.** The fix is a written-goal abbreviation for (A → B) ∧ (B → A). It changes a pinned convention, so it needs its own review.
 - **Bounded quantifiers.** "for every r below 30" is ∀r. r < 30 → …; it already elaborates and can be named in the manual.
@@ -95,24 +111,57 @@ source excerpt ──▶ written statement ──▶ specification ──▶ che
 | Citation depth | 8 files | long lemma chains are impossible | keep; design libraries to be wide |
 | Re-checking | every citation re-checked from scratch | about 0.7 s for E-T1, growing with the graph | the same cache question as the budget |
 
-## 5. The scaling constraint: numerals
+## 5. The scaling constraint: numerals (refinement 1)
 
-Kernel numerals are unary: 30 is S³⁰(0). This keeps the kernel very small, and it bounds what certificates can reach.
-- DA01, the enumeration below 30, uses 21.5% of the 1,000,000-node limit, and the same scheme stops at bound 47.
-- A multiplication chain for k = p × q grows with the size of k.
+**Three sizes, kept apart.**
 
-| Application size | Unary numerals |
-|---|---|
-| numbers below about 50 | feasible with the M3 schemes |
-| Goldbach checks up to a few hundred | feasible as separate small certificates; enumeration-style theorems run past the node limit |
-| numbers in the thousands or more | out of reach |
+| Size | What it measures | Today |
+|---|---|---|
+| **Written notation** | characters a person writes: `29`, `2 ∣ 8` | already decimal in written goals and proof files, so notation size is not the problem |
+| **Kernel term** | nodes in the term the kernel compares | unary: the numeral n is S(S(…S(0)…)), n + 1 nodes, and every claim mentioning n carries them |
+| **Checked proof** | steps and total nodes in the derivation the kernel replays | for closed arithmetic, steps grow with the unary structure: `mul_succ` and `add_succ` recurse one successor at a time. Measured: DA01 has 971 steps and 215,390 nodes at bound 30, and the scheme fails beyond bound 47 |
 
-**Options, each a decision for review, and each needing its own milestone:**
-- **(a) Unary only.** Keep the kernel and limit the scope to small, explicit certificates.
-- **(b) Binary numerals as definitions.** Define numerals in binary in the arithmetic, with proved conversion lemmas, and leave the kernel unchanged. Proofs grow logarithmically, but the derivations are larger to write and generate.
-- **(c) A kernel numeral primitive.** Add binary numerals with checked arithmetic rules. This is compact and fast, and it is a trusted change requiring a new kernel review and audit.
+**What binary-as-definitions would and would not reduce.**
 
-The recommendation is (b) first, as an experiment outside the kernel, with (c) considered only if (b) proves impractical.
+- **Kernel term size: yes, if built with a numeral factor.**
+  - Definitions such as `B0(t) := 2 × t` and `B1(t) := S(2 × t)` expand to terms with O(log n) nodes. For example, 13 = B1(B0(B1(1))).
+  - A doubling definition `t + t` would not help, because expansion copies t and the term returns to O(n) nodes.
+- **Checked proof size: no, under ROBINSON-Q alone.**
+  - The kernel compares terms syntactically. A binary term and the unary numeral are different terms, so relating them needs a derivation.
+  - Q's axioms compute only by peeling successors, so evaluating a binary term in Q costs O(n) steps again.
+  - Proof size shrinks only if general lemmas are proved once and then cited, for example ∀x y. 2 × (x + y) = 2 × x + 2 × y. Such lemmas need induction, which ROBINSON-Q lacks.
+  - So the experiment needs a **registered axiom set with induction**: PEANO with an induction schema. That is a registry addition with its own source pin and review. It is not a kernel change, but it changes what "relative to an axiom set" means for those theorems.
+- **Written notation: no change needed.** Decimal input can elaborate to either representation.
+
+**The experiment, under the constraint that the kernel stays unchanged.**
+- **Baseline:** measure unary certificates for a fixed test set: Goldbach decompositions of n = 100, 1,000 and 10,000, with primality of both parts.
+- **Variant:** binary definitions plus induction-proved, cited lemmas, under a separately reviewed induction axiom set.
+
+**Success criteria, all required:**
+1. `git diff` of `kernel/` against the starting commit is empty.
+2. For n = 1,000, the checked proof is at least 10 times smaller in total nodes than the unary baseline, counting every cited lemma once.
+3. n = 10,000 checks within the 1,000,000-node limit per file and the 64-check citation budget.
+4. Every lemma is accepted by the kernel with Γ = ∅, and its axioms used are exactly the reviewed induction set.
+5. The Lean comparison states each certificate over ℕ, and the numeral correspondence (binary term = n) is proved in RLT and in Lean.
+6. If criterion 2 fails, the result is recorded and option (c), a kernel numeral primitive, is reviewed only then.
+
+## 5a. Soundness: argument and evidence, kept apart (refinement 2)
+
+Two different things support trust in RLT's verdicts, and RLT reports them separately.
+
+| | The written soundness argument | The implementation evidence |
+|---|---|---|
+| Question | Are the 20 rules sound? If the premises hold in every model of the axiom set, does the conclusion hold too? | Does the Rust code implement exactly those rules? |
+| Form | a mathematical argument per rule: side conditions, eigenvariables, substitution and capture, citation as composition | tests, rejected cases, byte-for-byte regression, independent adversarial audits, CI |
+| Where it lives today | spread across the M3a, M3b and M3c reports (Q-f, T1–T2, E1–E4, C1–C5) | `cargo test` (227), `verify.sh`, compare-reports, the audit sections of each M3 report |
+| What it cannot show | that the code matches the argument | that the rules are sound: tests sample behaviour and prove nothing |
+
+**Proposal.** One consolidated kernel soundness note, `docs/KERNEL-SOUNDNESS.md`, written as documentation:
+- each of the 20 rules and the citation step, with its statement, side conditions and soundness argument relative to the standard semantics of first-order logic;
+- the assumptions the argument needs, such as locally nameless binding and α-equivalence as syntactic equality;
+- for each rule, a separate list of the implementation evidence and where it lives.
+
+The manual cites the note. Audits check the code against the note. Neither stands in for the other.
 
 ## 6. Candidate applications as tests of generality
 
@@ -167,15 +216,33 @@ The proposed order puts no change in the kernel first.
 - The candidate applications are described at the level of what would be checked. Their exact statements and sources need their own pinning.
 - Lean's role and wording are proposed for the manual. They do not change the existing comparison files.
 
-## 10. Decisions for review
+## 10. Decisions for review (revised after refinements 1–3)
 
 | ID | Decision | Options | Recommended |
 |---|---|---|---|
-| V1 | Kernel during the next phase | (a) unchanged; (b) open to change | (a) |
-| V2 | The first milestone | (a) the user manual; (b) statement records; (c) the numerals experiment | (a), then (b) |
-| V3 | Translation artifact | (a) a statement record plus a reporting command; (b) extend the existing records | (a): one record per claim, from source to verdict |
+| V1 | Kernel during the next phase | (a) unchanged; (b) open to change | (a), including during the numerals experiment |
+| V2 | The first milestone | (a) the user manual with the soundness note; (b) statement records; (c) the numerals experiment | (a), then (b) |
+| V3 | Translation artifact | (a) a statement record plus `rlt explain`, with four separately reported assessments; (b) extend the existing records | (a) |
 | V4 | Library and reuse | (a) `lib/` with stable names plus `rlt deps`; (b) keep tests/ as the library | (a) |
-| V5 | Citation scaling | (a) keep 64 and 8, and design wide graphs; (b) review a verified-result cache | (a) for now; revisit (b) with the numerals decision |
-| V6 | Numerals | (a) unary only; (b) binary as definitions; (c) a kernel primitive | (b) as an experiment, with (c) only after review |
-| V7 | `↔` | (a) defer; (b) add to NAT-DEF now | (a), until the manual shows the need |
-| V8 | Candidate applications | (a) keep them as design tests; (b) choose one as a milestone | (a), then choose after V6 |
+| V5 | Citation scaling | (a) keep 64 and 8, and design wide graphs; (b) review a verified-result cache | (a) for now |
+| V6 | Numerals | (a) unary only; (b) the binary-as-definitions experiment, which needs a separately reviewed induction axiom set and is judged by §5's criteria; (c) a kernel numeral primitive | first measure the unary baseline (§5); then (b) if approved; (c) only if (b) fails criterion 2 |
+| V7 | `↔` | (a) defer; (b) add to NAT-DEF now | (a) |
+| V8 | Candidate applications | (a) keep them as design tests; (b) choose one as a milestone | (a), and choose after V6's baseline |
+| V9 | Soundness documentation | (a) one consolidated note, with argument and evidence kept apart; (b) leave it in the M3 reports | (a) |
+| V10 | Semantic correspondence | (a) recorded, attributed reviews with fixed statuses, defaulting to `unassessed`; (b) leave it implicit | (a) |
+
+## 11. The first milestone: RLT-004a, the manual and the soundness note
+
+**Scope:** documentation and the measurement of a baseline only. It makes no change to code, kernel, rules, axiom sets, conventions or records.
+
+1. **The user manual:** chapters 1–11 of §7, describing what exists, with every command shown run against main and its real output.
+2. **The kernel soundness note** (§5a, V9).
+3. **The statement-record format**, as a written specification only. It defines the fields, the four assessment blocks and the status vocabulary, and gives the Modulo 30 record as its worked example. No code yet.
+4. **The unary baseline (§5):** proof sizes for Goldbach decompositions at n = 100 and 1,000, generated as test data outside `tests/`, so the measurement adds no new accepted files. They are reported in nodes, steps and check time.
+
+**Done when:**
+- every command in the manual reproduces its shown output on main;
+- the soundness note covers all 20 rules and the citation step;
+- the baseline table is recorded;
+- an independent reader review finds the manual's chapters 1–5 usable without prior formal-logic vocabulary.
+
