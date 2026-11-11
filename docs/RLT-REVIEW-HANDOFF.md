@@ -59,3 +59,13 @@ target/release/rlt residues residues/residue-30.yaml       # the record, unchang
 - **Unchanged against 3d0f8e2:** kernel, syntax, `cli/src`, axiom sets, definitions, conventions, registry and reading-point records.
 
 The broader review began on the same day: docs/RLT-004-REVIEW.md.
+
+## Merge record, 2026-11-11 (RLT-004a)
+
+- **Gate before merge:** PR #10 head was exactly 253561d. Its diff against main held only the reviewed documentation (docs/KERNEL-SOUNDNESS.md, MANUAL.md, RLT-004-REVIEW.md, RLT-004a-BASELINE.md, RLT-004a-REPORT.md, RLT-REVIEW-HANDOFF.md, STATEMENT-RECORDS.md) and two untrusted helper scripts (scripts/check-manual.py, scripts/measure-baseline.py). CI `check` and `gdt-comparison` were green on 253561d.
+- **PR #10 merged:** marked ready, merged as merge commit **58838c9**, with parents cc01968 and 253561d. The merge tree 56e58eb3 equals 253561d's tree.
+- **Fresh clone of main at 58838c9:** `cargo test --release` passes 227 of 227. `scripts/verify.sh` prints `RESULT all checks hold`. `scripts/check-manual.py` reports 23 of 23 manual examples matching.
+- **CI on 58838c9:** `check` and `gdt-comparison` both succeed.
+- **Deviations:** none.
+
+RLT-004b (statement records and `rlt explain`) review: docs/RLT-004b-REVIEW.md.
