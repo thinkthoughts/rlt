@@ -1082,14 +1082,32 @@ fn mapping<'a>(y: &'a Yaml, key: &str, ctx: &str) -> Result<&'a Yaml, String> {
     }
 }
 
+/// A calendar date written YYYY-MM-DD (Gregorian, year 1000 or later).
 fn is_date(d: &str) -> bool {
     let b = d.as_bytes();
-    b.len() == 10
+    if !(b.len() == 10
         && b[4] == b'-'
         && b[7] == b'-'
         && b.iter()
             .enumerate()
-            .all(|(i, c)| i == 4 || i == 7 || c.is_ascii_digit())
+            .all(|(i, c)| i == 4 || i == 7 || c.is_ascii_digit()))
+    {
+        return false;
+    }
+    let (y, m, day): (u32, u32, u32) = (
+        d[..4].parse().unwrap_or(0),
+        d[5..7].parse().unwrap_or(0),
+        d[8..].parse().unwrap_or(0),
+    );
+    let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
+    let days = match m {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => 0,
+    };
+    y >= 1000 && day >= 1 && day <= days
 }
 
 /// Read and schema-check one statement record. References to other files
@@ -1174,10 +1192,19 @@ pub fn load_statement(path: &Path) -> Result<StatementRecord, String> {
         Yaml::Array(v) => {
             for e in v {
                 only_keys(e, &["name", "formula"], "kernel.assumptions")?;
-                assumptions.push((
-                    req(e, "name", "kernel.assumptions")?,
-                    req(e, "formula", "kernel.assumptions")?,
-                ));
+                let name = req(e, "name", "kernel.assumptions")?;
+                let ident = name.chars().next().is_some_and(|c| c.is_ascii_alphabetic())
+                    && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
+                if !ident {
+                    return Err(format!(
+                        "kernel.assumptions: name `{}` must be an identifier (letters, digits, `_`)",
+                        name.escape_debug()
+                    ));
+                }
+                if assumptions.iter().any(|(n, _)| *n == name) {
+                    return Err(format!("kernel.assumptions: `{name}` is listed twice"));
+                }
+                assumptions.push((name, req(e, "formula", "kernel.assumptions")?));
             }
         }
         Yaml::BadValue => return Err("kernel: `assumptions` is required ([] for Γ = ∅)".into()),
@@ -1276,6 +1303,13 @@ pub fn load_statement(path: &Path) -> Result<StatementRecord, String> {
                     sm.status
                 ));
             }
+        }
+        if sm
+            .assessed_by
+            .as_deref()
+            .is_some_and(|a| a.trim().is_empty())
+        {
+            return Err("semantic: `assessed_by` must name the assessor".into());
         }
         if !sm.date.as_deref().is_some_and(is_date) {
             return Err("semantic: `date` must be written YYYY-MM-DD".into());

@@ -53,6 +53,13 @@ CASES = [
     ("XR24-UNKNOWN-FORMAT", "D", [("format: rlt-statement/1", "format: rlt-statement/2")], 2, "format `rlt-statement/2` is unknown"),
     ("XR25-RELEVANT-WITHOUT-IDS", "D", [("applicability: not-applicable\n  reason: \"a closed arithmetic statement\"", "applicability: relevant\n  reading_point: math29")], 2, "`relevant` requires"),
     ("XR26-ACCEPTED-AS-STATUS", "D", [("status: unassessed", "status: accepted")], 2, "status `accepted` is outside the vocabulary"),
+    # Added after the RLT-004b audit.
+    ("XR27-BLANK-ASSESSOR", "E", [("assessed_by: \"RLT-003 M3e review and report\"", "assessed_by: \"  \"")], 2, "`assessed_by` must name the assessor"),
+    ("XR28-IMPOSSIBLE-DATE", "E", [("date: 2026-11-09", "date: 2026-02-30")], 2, "`date` must be written YYYY-MM-DD"),
+    ("XR29-LEAN-OUTSIDE-LEAN-DIR", "E", [("file: lean/M3eReadings.lean, theorem: RLTM3eReadings.classification", "file: target/fake.lean, theorem: Foo.bar")], 2, "must be a top-level file in lean/"),
+    ("XR30-EXCERPT-MARKUP", "C", [("only when its assumption context is empty.", "only when its assumption context is &lt;b&gt;empty.&lt;/b&gt;")], 2, "must be written as its normalised unit"),
+    ("XR31-ASSUMPTION-NAME", "C", [("{name: h,", "{name: \"g : 1 = 1, h\",")], 2, "must be an identifier"),
+    ("XR32-ASSUMPTION-TWICE", "C", [("    - {name: h, formula: \"2 × 3 = 7\"}", "    - {name: h, formula: \"2 × 3 = 7\"}\n    - {name: h, formula: \"2 × 3 = 7\"}")], 2, "is listed twice"),
     # Stale records (exit 3).
     ("XS01-PROOF-SHA", "D", [("sha256: c237e7de9c8a5ef620506fbe5e18469b7b624c652beef5dd63369cdf2765196d", "sha256: " + OTHER_SHA)], 3, "  stale         proof sha256: record " + OTHER_SHA),
     ("XS02-DEFINITIONS-SHA", "D", [("definitions_sha256: 122e37fc627b136023a1a5ffac0344162ed77ae95312248a9f6a76c2b639ecda", "definitions_sha256: " + OTHER_SHA)], 3, "  stale         definitions sha256: record " + OTHER_SHA),

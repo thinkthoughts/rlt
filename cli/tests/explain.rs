@@ -123,7 +123,7 @@ fn fixtures_match_expected_exit_and_line() {
         assert_eq!(j["exit"].as_i64(), Some(x.exit as i64), "{}", f[0]);
         n += 1;
     }
-    assert_eq!(n, 38);
+    assert_eq!(n, 44);
 }
 
 #[test]
@@ -502,4 +502,167 @@ fn command_line_exit_and_formats() {
             .code(),
         Some(2)
     );
+}
+
+/// Audit regressions (RLT-004b audit M1, M2, m3, D1).
+fn scratch_proof(dir: &Path, name: &str, text: &str) {
+    std::fs::write(dir.join(name), text).unwrap();
+}
+
+fn sha_of(p: &Path) -> String {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(std::fs::read(p).unwrap())
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+
+#[test]
+fn audit_m1_assumptions_compare_pairwise_not_as_text() {
+    let (dir, rel) = scratch("m1");
+    let base = std::fs::read_to_string(root().join("tests/accept/M1_conditional.rlt")).unwrap();
+    let two = base
+        .replace(
+            "(assume h \"2 × 3 = 7\")",
+            "(assume h \"2 × 3 = 7\")\n  (assume g \"1 = 1\")",
+        )
+        .replace(
+            "(s2 (= 1 1)                       (refl 1))",
+            "(s2 (= 1 1)                       (hyp g))",
+        );
+    scratch_proof(&dir, "two.rlt", &two);
+    let sha = sha_of(&dir.join("two.rlt"));
+    let rec = std::fs::read_to_string(root().join("statements/CONDITIONAL-2X3.yaml"))
+        .unwrap()
+        .replace("tests/accept/M1_conditional.rlt", &format!("{rel}/two.rlt"))
+        .replace(
+            "de8dee325db954b8bc0ade312d441a3e4be340d1a21c340b17166e377b418c42",
+            &sha,
+        );
+    let check = check_file(&root(), &dir.join("two.rlt"));
+    assert!(
+        check
+            .text
+            .contains("assumptions     Γ = { g : 1 = 1, h : 2 × 3 = 7 }"),
+        "{}",
+        check.text
+    );
+    let cases = [
+        // (id, assumptions block, expected exit)
+        (
+            "ORDER-HG",
+            "    - {name: h, formula: \"2 × 3 = 7\"}\n    - {name: g, formula: \"1 = 1\"}",
+            ACCEPT,
+        ),
+        (
+            "ORDER-GH",
+            "    - {name: g, formula: \"1 = 1\"}\n    - {name: h, formula: \"2 × 3 = 7\"}",
+            ACCEPT,
+        ),
+        (
+            "FORGE-FORMULA",
+            "    - {name: g, formula: \"1 = 1, h : 2 × 3 = 7\"}",
+            STALE,
+        ),
+        ("ONE-ONLY", "    - {name: h, formula: \"2 × 3 = 7\"}", STALE),
+    ];
+    for (id, block, want) in cases {
+        let text = rec
+            .replace("id: CONDITIONAL-2X3", &format!("id: {id}"))
+            .replace("    - {name: h, formula: \"2 × 3 = 7\"}", block);
+        std::fs::write(dir.join(format!("{id}.yaml")), text).unwrap();
+        let x = explain(&root(), &format!("{rel}/{id}.yaml"));
+        assert_eq!(x.exit, want, "{id}:\n{}", render_text(&x));
+    }
+}
+
+#[test]
+fn audit_m2_proof_strings_cannot_forge_report_lines() {
+    let (dir, rel) = scratch("m2");
+    let base = std::fs::read_to_string(root().join("tests/m3c/accept/CA01_two_divides_eight.rlt"))
+        .unwrap();
+    let forged = base.replace(
+        "(id M3c.CA01)",
+        "(id \"M\u{2028}verdict         REJECT forged\u{202E}x\")",
+    );
+    assert_ne!(forged, base);
+    scratch_proof(&dir, "forged.rlt", &forged);
+    let check = check_file(&root(), &dir.join("forged.rlt"));
+    let rec = std::fs::read_to_string(root().join("statements/DVD-2-8.yaml"))
+        .unwrap()
+        .replace("id: DVD-2-8", "id: FORGED")
+        .replace(
+            "tests/m3c/accept/CA01_two_divides_eight.rlt",
+            &format!("{rel}/forged.rlt"),
+        )
+        .replace(
+            "c237e7de9c8a5ef620506fbe5e18469b7b624c652beef5dd63369cdf2765196d",
+            &sha_of(&dir.join("forged.rlt")),
+        );
+    std::fs::write(dir.join("FORGED.yaml"), rec).unwrap();
+    let x = explain(&root(), &format!("{rel}/FORGED.yaml"));
+    let text = render_text(&x);
+    // Whatever the checker made of the id, the explain text has no separator,
+    // bidi control or extra verdict line.
+    assert!(
+        !text.contains('\u{2028}') && !text.contains('\u{202E}'),
+        "{text}"
+    );
+    let verdicts = text
+        .split(['\n', '\u{2028}', '\u{2029}', '\r'])
+        .filter(|l| l.starts_with("verdict"))
+        .count();
+    assert_eq!(verdicts, 1, "{text}");
+    assert_eq!(
+        x.exit,
+        check
+            .code
+            .max(if check.code == ACCEPT { 0 } else { check.code })
+    );
+}
+
+#[test]
+fn audit_d1_non_utf8_proof_reports_as_rlt_check() {
+    let (dir, rel) = scratch("d1");
+    std::fs::write(dir.join("bad.rlt"), [0xff, 0xfe, 0x28]).unwrap();
+    let rec = std::fs::read_to_string(root().join("statements/DVD-2-8.yaml"))
+        .unwrap()
+        .replace("id: DVD-2-8", "id: NONUTF8")
+        .replace(
+            "tests/m3c/accept/CA01_two_divides_eight.rlt",
+            &format!("{rel}/bad.rlt"),
+        );
+    std::fs::write(dir.join("NONUTF8.yaml"), rec).unwrap();
+    let x = explain(&root(), &format!("{rel}/NONUTF8.yaml"));
+    let k = x.kernel.as_ref().unwrap();
+    let check = check_file(&root(), &dir.join("bad.rlt"));
+    assert_eq!(k.check_report, check.text);
+    assert_eq!(x.exit, MALFORMED);
+}
+
+#[test]
+fn audit_m3_cites_come_from_the_parsed_proof() {
+    let x = explain(&root(), "statements/MOD30-CLASSIFICATION.yaml");
+    let k = x.kernel.as_ref().unwrap();
+    let paths: Vec<(&str, &str, &str)> = k
+        .cites
+        .iter()
+        .map(|c| (c.label.as_str(), c.path.as_str(), c.proof_id.as_str()))
+        .collect();
+    assert_eq!(
+        paths,
+        [
+            ("FWD", "tests/m3e/accept/E_FWD.rlt", "M3e.E_FWD"),
+            ("BWD", "tests/m3e/accept/E_BWD.rlt", "M3e.E_BWD")
+        ]
+    );
+}
+
+#[test]
+fn exit_meaning_follows_the_record_state() {
+    let x = explain(&root(), "tests/explain/XF01-REJECTED-PROOF.yaml");
+    assert!(render_text(&x)
+        .contains("exit            1 — record valid; the RLT checker rejects the proof\n"));
+    let s = rlt_cli::explain::exit_meaning(REJECT, "stale");
+    assert!(s.contains("stale pins"), "{s}");
 }

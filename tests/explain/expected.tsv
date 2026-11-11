@@ -24,6 +24,12 @@ XR23-UNKNOWN-READING-POINT.yaml	2	reading point `math31`
 XR24-UNKNOWN-FORMAT.yaml	2	format `rlt-statement/2` is unknown
 XR25-RELEVANT-WITHOUT-IDS.yaml	2	`relevant` requires
 XR26-ACCEPTED-AS-STATUS.yaml	2	status `accepted` is outside the vocabulary
+XR27-BLANK-ASSESSOR.yaml	2	`assessed_by` must name the assessor
+XR28-IMPOSSIBLE-DATE.yaml	2	`date` must be written YYYY-MM-DD
+XR29-LEAN-OUTSIDE-LEAN-DIR.yaml	2	must be a top-level file in lean/
+XR30-EXCERPT-MARKUP.yaml	2	must be written as its normalised unit
+XR31-ASSUMPTION-NAME.yaml	2	must be an identifier
+XR32-ASSUMPTION-TWICE.yaml	2	is listed twice
 XS01-PROOF-SHA.yaml	3	  stale         proof sha256: record ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 XS02-DEFINITIONS-SHA.yaml	3	  stale         definitions sha256: record ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 XS03-AXIOM-SET-SHA.yaml	3	  stale         axiom set sha256: record 5ad55192

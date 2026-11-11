@@ -257,6 +257,29 @@ for f in statements/*.yaml; do
   printf '%-42s exit %s  json: %s\n' "$f" "$ex_code" "$ex_parsed"
   { [ "$ex_code" = 0 ] && [ "$ex_jcode" = 0 ] && [ "${ex_parsed%% *}" = 0 ]; } || { echo "$ex_log" | grep -E '^(  problem|  stale|verdict)'; fail=1; }
 done
+# Lean references named in statement records: each must be a theorem Lean
+# accepts in that file, with standard axioms only (rlt explain only finds the name).
+ex_lean=$(command -v lean || { [ -x "$HOME/.elan/bin/lean" ] && echo "$HOME/.elan/bin/lean"; })
+ex_refs=$(grep -hoE '\{file: lean/[A-Za-z0-9_]+\.lean, theorem: [A-Za-z0-9_.]+\}' statements/*.yaml | sed -E 's/\{file: (lean\/[^,]+), theorem: ([^}]+)\}/\1 \2/' | sort -u)
+if [ -n "$ex_lean" ]; then
+  while read -r lf th; do
+    [ -z "$lf" ] && continue
+    ex_gate=$(mktemp -d)/Gate.lean
+    { cat "$lf"; echo; echo "#print axioms $th"; } > "$ex_gate"
+    ex_glog=$(cd lean && "$ex_lean" "$ex_gate" 2>&1); ex_gcode=$?
+    ex_line=$(echo "$ex_glog" | grep -E "^'$th' (depends on axioms|does not depend on any axioms)")
+    ex_bad=$(echo "$ex_line" | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound')
+    if [ $ex_gcode = 0 ] && [ -n "$ex_line" ] && [ -z "$ex_bad" ] && ! echo "$ex_glog" | grep -qiE "warning|error|sorry"; then
+      echo "Lean reference $th ($lf): checked, standard axioms only"
+    else
+      echo "  UNEXPECTED: Lean reference $th ($lf) is not a Lean-checked theorem with standard axioms"; fail=1
+    fi
+  done <<< "$ex_refs"
+elif [ "${RLT_ALLOW_NO_LEAN:-}" = 1 ]; then
+  echo "SKIPPED: Lean references in statement records (lean unavailable; RLT_ALLOW_NO_LEAN=1)"; skipped=1
+else
+  echo "FAILED: Lean references in statement records (lean unavailable)"; fail=1
+fi
 ex_n=0; ex_ok=0
 while IFS=$'\t' read -r f want line; do
   case "$f" in \#*|"") continue ;; esac

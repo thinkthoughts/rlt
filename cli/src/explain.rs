@@ -147,6 +147,8 @@ pub struct KernelBlock {
     pub axiom_set_sha256: Option<String>,
     pub proved: Option<String>,
     pub assumptions: Option<String>,
+    /// Γ as `(name, formula)` pairs from the kernel's theorem, when accepted.
+    pub assumption_pairs: Option<Vec<(String, String)>>,
     pub axioms_used: Option<String>,
     pub rules_used: Option<String>,
     pub theorems_cited: Option<String>,
@@ -291,18 +293,23 @@ fn kernel_block(root: &Path, proof_path: &Path, rel: &str, bytes: &[u8]) -> Kern
         sha256: sha,
         ..Default::default()
     };
-    let src = match String::from_utf8(bytes.to_vec()) {
-        Ok(s) => s,
-        Err(_) => {
-            k.verdict = "MALFORMED".into();
-            k.verdict_line = "MALFORMED — the proof file is not UTF-8".into();
-            k.exit = MALFORMED;
-            return k;
-        }
+    // Not UTF-8 (None): `rlt check`'s own path reads and refuses the file, so
+    // the report is exactly the one `rlt check` gives.
+    let src = String::from_utf8(bytes.to_vec()).ok();
+    let out = match src {
+        Some(src) => check_preread_outcome(root, proof_path, src),
+        None => crate::check_file_outcome(root, proof_path),
     };
-    let out = check_preread_outcome(root, proof_path, src);
     let r = &out.report.text;
     k.check_report = r.clone();
+    if out.report.code == ACCEPT {
+        k.assumption_pairs = out.theorem.as_ref().map(|th| {
+            th.assumptions()
+                .iter()
+                .map(|(n, f)| (n.clone(), f.to_string()))
+                .collect()
+        });
+    }
     k.exit = out.report.code;
     k.verdict = match out.report.code {
         ACCEPT => "ACCEPT",
@@ -338,19 +345,26 @@ fn kernel_block(root: &Path, proof_path: &Path, rel: &str, bytes: &[u8]) -> Kern
                 .and_then(|n| n.strip_prefix("  sha256"))
                 .map(|v| v.trim().to_string());
         }
-        if let Some(c) = l.strip_prefix("cites           ") {
-            let (label, rest) = c.split_once(" = ").unwrap_or((c, ""));
-            let (path, id) = rest.rsplit_once(" (").unwrap_or((rest, ""));
+    }
+    // Citations: label, path and hash from the parsed proof file; the cited
+    // proof id and formula from the report line whose exact prefix is known.
+    if let Some(pf) = &out.proof {
+        for c in &pf.cites {
+            let prefix = format!("cites           {} = {} (", c.label, c.path.escape_debug());
+            let Some(i) = lines.iter().position(|l| l.starts_with(&prefix)) else {
+                continue;
+            };
             let mut cited = Cited {
-                label: label.into(),
-                path: path.into(),
-                proof_id: id.trim_end_matches(')').into(),
+                label: c.label.clone(),
+                path: c.path.clone(),
+                proof_id: lines[i][prefix.len()..]
+                    .strip_suffix(')')
+                    .unwrap_or("")
+                    .to_string(),
+                sha256: c.sha256.clone(),
                 ..Default::default()
             };
             for n in lines.iter().skip(i + 1).take_while(|n| n.starts_with("  ")) {
-                if let Some(v) = n.strip_prefix("  sha256") {
-                    cited.sha256 = v.trim().into();
-                }
                 if let Some(v) = n.strip_prefix("  proved") {
                     cited.proved = v.trim().into();
                 }
@@ -397,6 +411,17 @@ fn invalid(path: String, problem: String) -> Explanation {
 
 /// Build the explanation of one statement record.
 pub fn explain(root: &Path, record: &str) -> Explanation {
+    let mut x = explain_at(root, record);
+    // Loader messages name files by full path; show them repository-relative
+    // so the report is the same on every machine.
+    let prefix = format!("{}/", root.display());
+    for p in &mut x.problems {
+        *p = p.replace(&prefix, "");
+    }
+    x
+}
+
+fn explain_at(root: &Path, record: &str) -> Explanation {
     let shown = record.escape_debug().to_string();
     let path = match repo_file(root, record, ".yaml", "statement record") {
         Ok(p) => p,
@@ -463,6 +488,13 @@ fn resolve(root: &Path, rec: &StatementRecord) -> Result<Resolved, String> {
     let registered: Vec<String> = src.excerpts.iter().flat_map(|e| e.units()).collect();
     for x in &rec.source.excerpts {
         let unit = units(x, true).into_iter().next().unwrap_or_default();
+        if unit != *x {
+            return Err(format!(
+                "source: excerpt \"{}\" must be written as its normalised unit \"{}\" (no markup, entities or repeated spaces)",
+                x.escape_debug(),
+                unit.escape_debug()
+            ));
+        }
         if !registered.contains(&unit) {
             return Err(format!(
                 "source: excerpt \"{}\" is not a whole unit of any registered excerpt of {}",
@@ -525,6 +557,14 @@ fn resolve(root: &Path, rec: &StatementRecord) -> Result<Resolved, String> {
     };
     let mut lean = Vec::new();
     for l in &rec.semantic.lean {
+        // Only the top-level lean/*.lean files, which scripts/verify.sh
+        // compiles and whose referenced theorems it gates with #print axioms.
+        if !(l.file.starts_with("lean/") && l.file[5..].split('/').count() == 1) {
+            return Err(format!(
+                "semantic: Lean file `{}` must be a top-level file in lean/ (the files scripts/verify.sh compiles)",
+                l.file.escape_debug()
+            ));
+        }
         let lp = repo_file(root, &l.file, ".lean", "Lean file")?;
         let text = read_regular(&lp)?;
         let (ns, name) = l.theorem.rsplit_once('.').unwrap_or(("", &l.theorem));
@@ -623,12 +663,18 @@ fn finish(path: String, rec: StatementRecord, x: Resolved) -> Explanation {
             k.axiom_set_sha256.as_deref(),
         );
     }
-    if k.assumptions.is_some() {
-        cmp(
-            "assumptions",
-            Some(&gamma_text(&p.assumptions)),
-            k.assumptions.as_deref(),
-        );
+    // Γ is compared pair by pair with the kernel's theorem, so a formula
+    // containing `, ` cannot make two different contexts print alike.
+    if let Some(pairs) = &k.assumption_pairs {
+        let mut pinned = p.assumptions.clone();
+        pinned.sort();
+        if *pairs != pinned {
+            stale.push(StaleItem {
+                what: "assumptions".into(),
+                record: gamma_text(&p.assumptions),
+                current: k.assumptions.clone().unwrap_or_else(|| gamma_text(pairs)),
+            });
+        }
     }
 
     // Semantic: an attributed assessment, pinned to the goal it assessed.
@@ -706,15 +752,19 @@ fn finish(path: String, rec: StatementRecord, x: Resolved) -> Explanation {
 
 const L: usize = 16;
 
+/// One report line. Every value passes through `one`, so no value from a
+/// record, proof file or report can add, split or reorder lines.
 fn row(t: &mut String, label: &str, value: &str) {
-    let _ = writeln!(t, "{label:<L$}{value}", L = L);
+    let _ = writeln!(t, "{label:<L$}{}", one(value), L = L);
 }
 
-/// A string from a record or report, shown on one line.
+/// A string from a record or report, shown on one line: control characters,
+/// line and paragraph separators, bidirectional controls and other invisible
+/// characters are escaped, so no value can add or reorder report lines.
 fn one(s: &str) -> String {
     s.chars()
         .map(|c| {
-            if c.is_control() {
+            if c.is_control() || rlt_syntax::records::invisible(c) {
                 c.escape_default().to_string()
             } else {
                 c.to_string()
@@ -749,7 +799,7 @@ pub fn render_text(x: &Explanation) -> String {
             "verdict",
             "record invalid — nothing further is reported",
         );
-        row(&mut t, "exit", &exit_meaning(x.exit));
+        row(&mut t, "exit", &exit_meaning(x.exit, &x.state));
         return t;
     }
     row(&mut t, "record", &format!("valid · {}", x.state));
@@ -938,7 +988,7 @@ pub fn render_text(x: &Explanation) -> String {
                 &mut t,
                 "  lean",
                 &format!(
-                    "{} · {} (declared; Lean checks it in scripts/verify.sh)",
+                    "{} · {} (named in the file; scripts/verify.sh checks it with Lean #print axioms)",
                     one(&l.file),
                     one(&l.theorem)
                 ),
@@ -991,17 +1041,27 @@ pub fn render_text(x: &Explanation) -> String {
     }
     let _ = writeln!(t);
     row(&mut t, "verdict", &summary(x));
-    row(&mut t, "exit", &exit_meaning(x.exit));
+    row(&mut t, "exit", &exit_meaning(x.exit, &x.state));
     t
 }
 
 /// What an exit status asserts, and what it leaves open.
-pub fn exit_meaning(code: i32) -> String {
-    match code {
+pub fn exit_meaning(code: i32, state: &str) -> String {
+    let pins = if state == "stale" {
+        "; the stale pins listed above also differ from the current files or checker result"
+    } else {
+        ""
+    };
+    let base: String = match code {
         ACCEPT => "0 — record valid, its proof and specification pins current, and the RLT checker accepts the proof; semantic correspondence may be incomplete and physical correspondence unestablished".into(),
-        REJECT => "1 — record valid and its pins current where the checker reports them; the RLT checker rejects the proof".into(),
+        REJECT => "1 — record valid; the RLT checker rejects the proof".into(),
         STALE => "3 — record valid and the RLT checker accepts the proof, but a proof or specification pin differs from the current files or checker result".into(),
         _ => "2 — the record is invalid, or the RLT checker reports the proof malformed".into(),
+    };
+    if code == REJECT || (code == MALFORMED && state != "invalid") {
+        format!("{base}{pins}")
+    } else {
+        base
     }
 }
 
@@ -1154,8 +1214,8 @@ pub fn to_json(x: &Explanation) -> Json {
                             obj(vec![
                                 ("file", Json::s(&l.file)),
                                 ("theorem", Json::s(&l.theorem)),
-                                ("declared", Json::Bool(l.present)),
-                                ("checked_by", Json::s("scripts/verify.sh")),
+                                ("named_in_file", Json::Bool(l.present)),
+                                ("checked_by", Json::s("scripts/verify.sh (Lean #print axioms gate), not rlt explain")),
                             ])
                         })
                         .collect(),
@@ -1229,7 +1289,7 @@ pub fn to_json(x: &Explanation) -> Json {
             ]),
         ),
         ("exit", Json::Int(x.exit as i64)),
-        ("exit_meaning", Json::s(exit_meaning(x.exit))),
+        ("exit_meaning", Json::s(exit_meaning(x.exit, &x.state))),
         ("kernel", kernel.unwrap_or(Json::Null)),
         ("source", source.unwrap_or(Json::Null)),
         ("semantic", semantic.unwrap_or(Json::Null)),
