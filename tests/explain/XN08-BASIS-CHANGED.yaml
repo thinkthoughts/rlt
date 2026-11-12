@@ -24,18 +24,19 @@ semantic:
   status: partial
   assessed_by: "RLT-005 review (docs/RLT-005-CORRESPONDENCE.md)"
   date: 2026-11-11
-  basis: {path: docs/RLT-005-CORRESPONDENCE.md, sha256: 000000004e2562d8e0d44434dd6dcc7ca1b48531277218ed83005ebf1a9f33ea}
+  basis: {path: docs/RLT-005-CORRESPONDENCE.md, sha256: 0000000008900f5bd8b7247eb76606929eb87460232f5cafd0b3084ed4841038}
   assessed_goal: "((∀d. ((((∃z. S(z) + 0 = d) ∧ (∃k. 8 = d × k)) → (((d = 1 ∨ d = 2) ∨ d = 4) ∨ d = 8)) ∧ ((((d = 1 ∨ d = 2) ∨ d = 4) ∨ d = 8) → ((∃z. S(z) + 0 = d) ∧ (∃k. 8 = d × k))))) ∧ (∀x. ((((∃z. S(z) + 0 = x) ∧ (∃z. S(z) + x = 5)) → (((x = 1 ∨ x = 2) ∨ x = 3) ∨ x = 4)) ∧ ((((x = 1 ∨ x = 2) ∨ x = 3) ∨ x = 4) → ((∃z. S(z) + 0 = x) ∧ (∃z. S(z) + x = 5)))))) ∧ ¬(∃a. ∃b. ∃c. ∃d. (((((((∃z. S(z) + 0 = a) ∧ (∃z. S(z) + a = 5)) ∧ ((∃z. S(z) + 0 = b) ∧ (∃z. S(z) + b = 5))) ∧ ((∃z. S(z) + 0 = c) ∧ (∃z. S(z) + c = 5))) ∧ ((∃z. S(z) + 0 = d) ∧ (∃z. S(z) + d = 5))) ∧ (((((¬(a = b) ∧ ¬(a = c)) ∧ ¬(a = d)) ∧ ¬(b = c)) ∧ ¬(b = d)) ∧ ¬(c = d))) ∧ ((((∀k. ((((∃z. S(z) + 0 = k) ∧ (∃k′. 1 = k × k′)) ∧ (∃k′. a = k × k′)) → k = 1)) ∧ (∀k. ((((∃z. S(z) + 0 = k) ∧ (∃k′. 2 = k × k′)) ∧ (∃k′. b = k × k′)) → k = 1))) ∧ (∀k. ((((∃z. S(z) + 0 = k) ∧ (∃k′. 4 = k × k′)) ∧ (∃k′. c = k × k′)) → k = 1))) ∧ (∀k. ((((∃z. S(z) + 0 = k) ∧ (∃k′. 8 = k × k′)) ∧ (∃k′. d = k × k′)) → k = 1)))))"
   matches:
     - "Partners in 1..4, pairwise distinct, each coprime to its divisor (cop: every positive common divisor is 1) are, over the natural numbers, exactly a coprime matching between D(8) and 1..tau(8) in the paper's sense (Lean explicit_iff, matchable'_eight_iff; the direction of the matching is immaterial, matchable_iff)."
-    - "The divisor set and the partner set are proved inside the theorem (matchable.divisors.8, matchable.partners.4), not assumed."
-    - "The proof follows the paper's argument: the partners of the even divisors 2, 4 and 8 lie in 1 or 3 (matchable.odd_partner.2/4/8), and three distinct values cannot (matchable.pigeonhole.1_3)."
+    - "The divisor set of 8 is proved in RLT (matchable.divisors.8, a conjunct of the theorem); tau(8) = 4 and the identification of the clause numerals with that set are checked in Lean (tau_eight, divisors_eight) and by reading the goal."
+    - "The proof specialises the paper's counting argument to n = 8: the partners of the even divisors 2, 4 and 8 lie in 1 or 3 (matchable.odd_partner.2/4/8), three distinct values cannot (matchable.pigeonhole.1_3), and the invalid claim cop(2, 2) is refuted (matchable.not_coprime.2_2)."
   differs:
     - "RLT has no vocabulary for sets, bijections or cardinality: the identification of matchable with the explicit formula is proved in Lean over the natural numbers, not in RLT under Robinson's Q."
     - "Divisors and common divisors are restricted to positive numbers because Q cannot refute 0 dividing 8 without induction; over the natural numbers this changes nothing (Lean mem_divisors, cop_iff_gcd)."
     - "Only the first claim of the excerpt is covered; nor is any subsequent multiple of 4 quantifies over all n and is outside this target."
   lean:
     - {file: lean/RLT005Direct.lean, theorem: RLT005Direct.matchable_not_8}
+    - {file: lean/RLT005Direct.lean, theorem: RLT005Direct.matchable_not_8_checked}
     - {file: lean/RLT005Readings.lean, theorem: RLT005Readings.explicit_iff}
     - {file: lean/RLT005Readings.lean, theorem: RLT005Readings.matchable'_eight_iff}
     - {file: lean/RLT005Readings.lean, theorem: RLT005Readings.not_matchable_eight}

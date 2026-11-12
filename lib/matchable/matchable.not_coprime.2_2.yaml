@@ -1,0 +1,15 @@
+format: rlt-lib/1
+id: matchable.not_coprime.2_2
+title: "¬(∀k. ((0 < k ∧ k ∣ 2) ∧ k ∣ 2) → k = 1)"
+fingerprint: 723c800b756a19a1cdc38a996ad64dc76ba52df79788d264658e0263a4fb6058
+proof: {path: tests/rlt005/accept/MNC_two_not_coprime_to_two.rlt, sha256: d9544d5d08728839905ac62086a04c798e7e278054cf5cac3424779833e63b53}
+proof_id: RLT005.MNC
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "¬(∀k. ((((∃z. S(z) + 0 = k) ∧ (∃k′. 2 = k × k′)) ∧ (∃k′. 2 = k × k′)) → k = 1))"
+assumptions: []
+citable: true
+uses:
+  - dvd.2_2
+statement_records: []
+history: []

@@ -10,7 +10,7 @@
   (cites
     (MD8 "tests/rlt005/accept/MD8_divisors_of_eight.rlt" "2d0a6ac3215359ad8ace96a6b04c15dc4224d235bf5abe789986d6bc810f2b70")
     (MP4 "tests/rlt005/accept/MP4_partners_one_to_four.rlt" "07b33ec91df8111a12e02df31cecb598e14debf2b8128bfa78c60075cc0576f0")
-    (MC "tests/rlt005/reject/RR01_duplicate_partners_allowed.rlt" "49738a50fb3a4e7aac6476f05c64c9d726bb7bec9338a7d50f9ae15f7320873d"))
+    (MC "tests/rlt005/reject/RR01_duplicate_partners_allowed.rlt" "e25aea2ba6d3ac1213038beedc3cc05bed884176abd95a5bb1ea8f33be87280a"))
   (params pa pb pc pd)
   (steps
     (s1 (forall d (and (imp (and (lt 0 d) (dvd d 8)) (or (or (or (= d 1) (= d 2)) (= d 4)) (= d 8))) (imp (or (or (or (= d 1) (= d 2)) (= d 4)) (= d 8)) (and (lt 0 d) (dvd d 8))))) (cite MD8))

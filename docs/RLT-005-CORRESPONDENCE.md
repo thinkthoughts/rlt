@@ -7,16 +7,16 @@ Basis for the semantic assessment in `statements/MATCHABLE-NOT-8.yaml`. This fil
 | Item | Value |
 |---|---|
 | Paper | Nathan McNew and Carl Pomerance, *Matchable numbers*, arXiv:2604.05304 |
-| Version | **v2**, submitted Sat, 23 May 2026 01:51:30 UTC (v1: Tue, 7 Apr 2026) |
+| Version | **v2**, 23 May 2026 (v1: 7 Apr 2026), as listed on the arXiv abstract page |
 | Location | §1 (Introduction), `match051426.tex` lines 79–96 |
 | Archive | `https://export.arxiv.org/e-print/2604.05304v2`, gzip tar, SHA-256 `21674e5fb69c9a58b187bd51a4efc41330e6eee4d764c3f77882a29fa3aaef16` |
 | Member | `match051426.tex`, SHA-256 `e7b6265c5e3b4e82bc12e14e71a2d84c10a24dd397dca62ae920a0102034260b` |
-| Registry | `MCNEW-POMERANCE-MATCHABLE-V2`, status `archived`; `scripts/check_excerpts.py` verifies the archive hash and finds every excerpt verbatim in the member |
+| Registry | `MCNEW-POMERANCE-MATCHABLE-V2`, status `archived`; `scripts/check_excerpts.py` verifies the archive hash and finds every excerpt in the member, verbatim up to line breaks (whitespace runs are compared as one space) |
 
-The source's definitions, verbatim (LaTeX):
+The source's definitions, verbatim up to line breaks (LaTeX):
 
-- *Coprime matching* (line 79): "a bijection $\psi$ between them is said to be a coprime matching if for each $x$ in the domain of $\psi$, $x$ and $\psi(x)$ are coprime."
-- *Divisors* (lines 90–91): "let $D(n)$ denote the set of divisors of $n$, and $\tau(n)=|D(n)|$." The sentence begins "for a positive integer $n$".
+- *Coprime matching* (lines 79–80): "a bijection $\psi$ between them is said to be a coprime matching if for each $x$ in the domain of $\psi$, $x$ and $\psi(x)$ are coprime."
+- *Divisors* (line 91; the sentence begins on line 90 with "for a positive integer $n$"): "let $D(n)$ denote the set of divisors of $n$, and $\tau(n)=|D(n)|$."
 - *Matchable* (lines 91–92): "We say an integer $n$ is \textit{matchable} if there is a coprime matching between $\{1,2,\dots,\tau(n)\}$ and $D(n)$."
 - *Claim* (line 94): "However, 8 is not matchable, nor is any subsequent multiple of 4."
 - *Argument* (line 96): "Since even divisors must be mapped to odd numbers in a coprime matching, proper multiples of 4 are seen to be not matchable."
@@ -39,17 +39,32 @@ cop(m,x)     ∀k. ((0 < k ∧ k ∣ m) ∧ k ∣ x) → k = 1
 
 | Choice | Reason | Effect on meaning over ℕ |
 |---|---|---|
-| D(8) written as {1, 2, 4, 8}, justified by MD8 | No set vocabulary; MD8 proves the listed set is exactly the positive divisors of 8 | None: MD8 is part of the theorem |
-| {1, …, τ(8)} written as {1, 2, 3, 4}, justified by MP4 | τ(8) = 4 is not expressible as a cardinality in RLT | None. The count 4 is fixed by MD8 listing four distinct numerals; Lean `tau_eight` checks τ(8) = 4 |
+| D(8) written as {1, 2, 4, 8}, justified by MD8 | No set vocabulary; MD8 proves in RLT that the listed set is exactly the positive divisors of 8 | None. MD8 is a conjunct of the theorem, but the impossibility part (from MC) does not use it: that the numerals 1, 2, 4, 8 in the `cop` clauses are MD8's list is seen by reading the goal, and is checked in Lean (`divisors_eight`, `matchable'_eight_iff`) |
+| {1, …, τ(8)} written as {1, 2, 3, 4} | RLT has no cardinality, so τ(8) = 4 is not expressible in RLT | None over ℕ, but **not an RLT theorem**: τ(8) = 4 is checked in Lean (`tau_eight`). MP4 only restates what `0 < x ∧ x < 5` means |
 | `0 < d` in MD8 | Robinson's Q cannot refute `8 = 0 × j` for a variable j: it lacks `0 × x = 0`, which needs induction. So `0 ∣ 8` cannot be refuted in Q | None over ℕ (0 ∤ 8); matches the paper's "set of divisors" of a positive integer. Lean `mem_divisors` proves D(n) = {d : 0 < d ∧ d ∣ n} for n > 0 |
 | `0 < k` in `cop` | Same obstruction: without it, cop(m,1) would need refuting `1 = 0 × j`, which Q cannot do, and even the all-ones assignment could not be shown to meet the coprimality conditions | None over ℕ: k ∣ m with m > 0 forces k > 0. Lean `cop_iff_gcd` proves cop(m,x) ↔ gcd(m,x) = 1 for m > 0 |
 | Partner variables with ranges and distinctness, rather than a bijection | No function vocabulary | Lean `explicit_iff` proves the equivalence (§4) |
+
+**Why the restrictions are safe in every model of Q, not only in ℕ.** Q has models in which 0 divides a nonzero number. One example has domain ℕ ∪ {A}, with:
+
+- S(A) = A;
+- A + n = n + A = A;
+- x · A = A for x ≠ 0;
+- 0 · A = V, for a chosen standard V;
+- otherwise the operations of ℕ.
+
+All seven axioms hold, and 0 ∣ V with witness A.
+
+- With V = 8, MD8 without `0 < d` is false.
+- With V = 1, cop(1, 1) without `0 < k` is false, so non-vacuity could not be proved.
+
+So `0 < d` is necessary. `0 < k` is safe for a second reason: it weakens `cop`, so ¬∃(… ∧ cop) becomes the *stronger* statement in every model. It implies the version without the restriction, and cannot make the theorem easier to prove. (This model is due to the RLT-005 audit; the case analysis is in docs/RLT-005-REPORT.md.)
 
 **Non-vacuity.** `matchable.not.8.nonvacuous` (RLT) and `nonvacuous` (Lean) show that the ranges and coprimality conditions are met by a = b = c = d = 1. So the theorem fails only because of distinctness, not because some condition is unsatisfiable. Lean `six_explicit` and `matchable_six` show that the same encoding holds for D(6) = {1, 2, 3, 6}, which the paper says is matchable.
 
 ## 4. Lean comparisons (core Lean v4.34.0-rc2, standard axioms only)
 
-**Comparison 1 — `lean/RLT005Direct.lean`.** `RLT005Direct.matchable_not_8` is RLT's written goal, symbol for symbol, with `<` and `∣` read as Lean's on ℕ. Lean proves it independently. It reduces `cop` to gcd and decides the 4⁴ partner cases. `lt_iff_rlt` and `dvd_iff_rlt` prove that RLT's NAT-DEF unfoldings of `<` and `∣` agree with Lean's on ℕ. *Claim:* the proposition RLT accepted is true in ℕ, by a separate proof. *Not claimed:* that Lean checked RLT's derivation.
+**Comparison 1 — `lean/RLT005Direct.lean`.** `RLT005Direct.matchable_not_8` is RLT's written goal, symbol for symbol, with `<` and `∣` read as Lean's on ℕ. `matchable_not_8_checked` states the kernel's checked goal literally, with `<` unfolded to ∃z, (z + 1) + x = y and `∣` to ∃k, n = d * k, and derives it from the first by rewriting. Lean proves it independently. It reduces `cop` to gcd and decides the 4⁴ partner cases. `lt_iff_rlt` and `dvd_iff_rlt` prove that RLT's NAT-DEF unfoldings of `<` and `∣` agree with Lean's on ℕ. *Claim:* the proposition RLT accepted is true in ℕ, by a separate proof. *Not claimed:* that Lean checked RLT's derivation.
 
 **Comparison 2 — `lean/RLT005Readings.lean`.** This file defines the paper's notions:
 
@@ -76,8 +91,8 @@ The two files share their definitions of `cop`, `r` and `M` verbatim. `scripts/v
 **Matches.**
 
 1. The four RLT conditions — every divisor of 8 receives a partner in {1..4}, the partners are pairwise distinct, and each divisor is coprime to its partner — are equivalent over ℕ to a coprime matching between D(8) and {1, …, τ(8)} in the paper's sense. This is Lean `explicit_iff` and `matchable'_eight_iff`, with the direction immaterial by `matchable_iff`.
-2. MD8 and MP4 are proved inside the RLT theorem, so the divisor and partner sets are not assumed.
-3. The RLT proof follows the paper's argument (line 96). The lemmas `matchable.odd_partner.2/4/8` prove that the partners of the even divisors 2, 4 and 8 lie in {1, 3}. `matchable.pigeonhole.1_3` proves that three pairwise distinct values cannot lie in {1, 3}.
+2. The divisor set of 8 is proved in RLT: MD8 is a conjunct of the theorem. τ(8) = 4, and the fact that the numerals in the coprimality clauses are that set, are checked in Lean and by reading the goal (§3).
+3. The RLT proof specialises the paper's argument (line 96) to n = 8. Line 96 is a counting argument for every proper multiple of 4: even divisors need odd partners, and there are too few of those. Here, `matchable.odd_partner.2/4/8` prove that the partners of the even divisors 2, 4 and 8 lie in {1, 3}. `matchable.pigeonhole.1_3` proves that three pairwise distinct values cannot lie in {1, 3}. `matchable.not_coprime.2_2` refutes the invalid claim cop(2, 2) in the kernel.
 
 **Differs.**
 

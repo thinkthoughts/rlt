@@ -47,7 +47,7 @@ XN01-ARCHIVE-PIN-MODIFIED.yaml	2	differs from the registry's 21674e5fb69c9a58b18
 XN02-ARCHIVE-PIN-OMITTED.yaml	2	is pinned at commit 21674e5fb69c9a58b187bd51a4efc41330e6eee4d764c3f77882a29fa3aaef16; the record must state that commit
 XN03-EXCERPT-ALTERED.yaml	2	is not a whole unit of any registered excerpt
 XN04-PROOF-SHA.yaml	3	  stale         proof sha256: record ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-XN05-CHECKED-GOAL-NO-DISTINCTNESS.yaml	3	  stale         checked goal: record ((∀d.
+XN05-RECORDED-GOAL-WITHOUT-DISTINCTNESS.yaml	3	  stale         checked goal: record ((∀d.
 XN06-LEAN-THEOREM-ABSENT.yaml	2	is not declared in lean/RLT005Readings.lean
 XN07-REJECTED-PROOF.yaml	2	1 KERNEL ACCEPTANCE: MALFORMED
 XN08-BASIS-CHANGED.yaml	0	3 SEMANTIC CORRESPONDENCE: partial · assessment stale

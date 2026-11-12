@@ -32,6 +32,9 @@ jobs:
           # unless its SHA-256 equals the registry pin.
           mkdir -p /tmp/src/archived
           curl -fsSL -A "rlt-ci" -o /tmp/src/archived/2604.05304v2 https://export.arxiv.org/e-print/2604.05304v2
+          # A gzip archive starts with 1f 8b; anything else (an HTML error or
+          # rate-limit page) is a failed download, not a tampered source.
+          [ "$(head -c 2 /tmp/src/archived/2604.05304v2 | od -An -tx1 | tr -d ' ')" = 1f8b ] || { echo "download failed: export.arxiv.org did not return a gzip archive"; exit 1; }
       - run: scripts/verify.sh /tmp/src
       - uses: actions/upload-artifact@v4
         if: always()

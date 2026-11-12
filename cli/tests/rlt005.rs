@@ -36,7 +36,7 @@ fn every_obligation_is_an_unconditional_theorem() {
         );
         n += 1;
     }
-    assert_eq!(n, 18);
+    assert_eq!(n, 19);
 }
 
 #[test]
@@ -131,6 +131,14 @@ fn validate_refuses_a_malformed_archived_source() {
         (
             "url: https://export.arxiv.org/e-print/2604.05304v2#match051426.tex",
             "url: http://export.arxiv.org/e-print/2604.05304v2#match051426.tex",
+        ),
+        (
+            "url: https://export.arxiv.org/e-print/2604.05304v2#match051426.tex",
+            "url: https://export.arxiv.org/e-print/2604.05304v2#../match051426.tex",
+        ),
+        (
+            "url: https://export.arxiv.org/e-print/2604.05304v2#match051426.tex",
+            "url: https://export.arxiv.org/e-print/2604.05304v2#/match051426.tex",
         ),
     ];
     for (i, (from, to)) in cases.iter().enumerate() {

@@ -106,6 +106,14 @@ theorem matchable_not_8 :
           (∀ k, ((0 < k ∧ k ∣ 8) ∧ k ∣ d) → k = 1))) :=
   ⟨⟨divisors_eight, partners_four⟩, fun ⟨a, b, c, d, h⟩ => no_assignment a b c d h⟩
 
+/-- The kernel's checked goal of MN8, literally: NAT-DEF's `<` unfolded to
+∃z. S(z) + x = y (S(z) read as z + 1) and `∣` to ∃k. n = d × k. -/
+theorem matchable_not_8_checked :
+    ((∀ d, ((((∃ z, (z + 1) + 0 = d) ∧ (∃ k, 8 = d * k)) → (((d = 1 ∨ d = 2) ∨ d = 4) ∨ d = 8)) ∧ ((((d = 1 ∨ d = 2) ∨ d = 4) ∨ d = 8) → ((∃ z, (z + 1) + 0 = d) ∧ (∃ k, 8 = d * k))))) ∧ (∀ x, ((((∃ z, (z + 1) + 0 = x) ∧ (∃ z, (z + 1) + x = 5)) → (((x = 1 ∨ x = 2) ∨ x = 3) ∨ x = 4)) ∧ ((((x = 1 ∨ x = 2) ∨ x = 3) ∨ x = 4) → ((∃ z, (z + 1) + 0 = x) ∧ (∃ z, (z + 1) + x = 5)))))) ∧ ¬ (∃ a, ∃ b, ∃ c, ∃ d, (((((((∃ z, (z + 1) + 0 = a) ∧ (∃ z, (z + 1) + a = 5)) ∧ ((∃ z, (z + 1) + 0 = b) ∧ (∃ z, (z + 1) + b = 5))) ∧ ((∃ z, (z + 1) + 0 = c) ∧ (∃ z, (z + 1) + c = 5))) ∧ ((∃ z, (z + 1) + 0 = d) ∧ (∃ z, (z + 1) + d = 5))) ∧ (((((¬ (a = b) ∧ ¬ (a = c)) ∧ ¬ (a = d)) ∧ ¬ (b = c)) ∧ ¬ (b = d)) ∧ ¬ (c = d))) ∧ ((((∀ k, ((((∃ z, (z + 1) + 0 = k) ∧ (∃ k', 1 = k * k')) ∧ (∃ k', a = k * k')) → k = 1)) ∧ (∀ k, ((((∃ z, (z + 1) + 0 = k) ∧ (∃ k', 2 = k * k')) ∧ (∃ k', b = k * k')) → k = 1))) ∧ (∀ k, ((((∃ z, (z + 1) + 0 = k) ∧ (∃ k', 4 = k * k')) ∧ (∃ k', c = k * k')) → k = 1))) ∧ (∀ k, ((((∃ z, (z + 1) + 0 = k) ∧ (∃ k', 8 = k * k')) ∧ (∃ k', d = k * k')) → k = 1))))) := by
+  have h := matchable_not_8
+  simp only [lt_iff_rlt] at h
+  exact h
+
 /-- Non-vacuity, as RLT's `matchable.not.8.nonvacuous`: without
 distinctness the conditions are met (all partners 1). -/
 theorem nonvacuous :
@@ -126,4 +134,5 @@ end RLT005Direct
 #print axioms RLT005Direct.divisors_eight
 #print axioms RLT005Direct.partners_four
 #print axioms RLT005Direct.matchable_not_8
+#print axioms RLT005Direct.matchable_not_8_checked
 #print axioms RLT005Direct.nonvacuous

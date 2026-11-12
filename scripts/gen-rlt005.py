@@ -738,6 +738,24 @@ MNV = f"(exists a (exists b (exists c (exists d {RC('a', 'b', 'c', 'd')}))))"
 P.add(MNV, f"(exists-intro 1 {w})", "G")
 emit("MNV", "MNV_conditions_without_distinctness", P.text(MNV, "the range and coprimality conditions alone are satisfiable (all partners 1)"))
 
+# A refuted coprimality claim, proved: 2 is not coprime to 2 (k = 2 is a
+# positive common divisor other than 1). With MO2 this makes the paper's
+# "even divisors must be mapped to odd numbers" a theorem in both directions
+# of the test suite: the invalid claim cop(2, 2) is refuted in the kernel.
+P = Proof("MNC")
+P.cite("D22", LIB["D22"])
+COP22 = cop(2, 2)
+h = P.add(COP22, "(hyp hc)")
+i = P.add(IMP(AND(AND(lt(0, 2), dvd(2, 2)), dvd(2, 2)), eq(2, 1)), f"(forall-elim {h} 2)")
+l02 = lt_closed(P, 0, 2)
+d22 = P.add(dvd(2, 2), "(cite D22)")
+a = P.add(AND(lt(0, 2), dvd(2, 2)), f"(and-intro {l02} {d22})")
+a = P.add(AND(AND(lt(0, 2), dvd(2, 2)), dvd(2, 2)), f"(and-intro {a} {d22})")
+e21 = P.add(eq(2, 1), f"(imp-elim {i} {a})")
+f = two_eq_one_false(P, e21)
+P.add(NOT(COP22), f"(imp-intro hc {f})", "G")
+emit("MNC", "MNC_two_not_coprime_to_two", P.text(NOT(COP22), "2 is not coprime to 2: an invalid coprimality claim, refuted"))
+
 # 5. MN8: 8 is not matchable, with its divisor and partner sets.
 P = Proof("MN8")
 for l in ("MD8", "MP4", "MC"):
@@ -791,8 +809,8 @@ def must(text, old, new, count=1):
     return text.replace(old, new, count)
 
 
-def head(text, note):
-    return text.replace("(rlt-proof", f"; REJECT CASE: {note}\n(rlt-proof", 1)
+def head(text, note, kind="REJECT CASE"):
+    return text.replace("(rlt-proof", f"; {kind}: {note}\n(rlt-proof", 1)
 
 
 DIST = "(and (and (and (and (and (not (= pa pb)) (not (= pa pc))) (not (= pa pd))) (not (= pb pc))) (not (= pb pd))) (not (= pc pd)))"
@@ -811,16 +829,16 @@ def rej(name, text, code, reason):
 rr01 = mc.replace(DIST, "(= pa pa)").replace(DISTW, "a = a")
 assert rr01.count("(= pa pa)") == mc.count(DIST) > 0
 rej("RR01_duplicate_partners_allowed",
-    head(rr01, "MC with distinctness replaced by a = a throughout: duplicate partners allowed"),
+    head(rr01, "MC with distinctness replaced by a = a throughout: duplicate partners allowed; the proof breaks where distinctness is used (MNV proves the conditions without distinctness satisfiable)"),
     1, "REJECT at step s37 — and-left: premise is not a conjunction: `pa = pa`")
 rej("RR02_partner_of_2_may_be_2",
     head(must(acc("MO2_partner_of_2_is_odd"), "→ (x = 1 ∨ x = 3)\")", "→ (x = 1 ∨ x = 2)\")"),
-         "invalid coprimality claim: a partner of 2 may be 2"),
-    1, "REJECT — last step proves")
+         "goal mismatch (invalid coprimality claim): a partner of 2 may be 2; the claim is refuted in MNC_two_not_coprime_to_two"),
+    1, "the goal is `∀x. ((((∃z. S(z) + 0 = x) ∧ (∃z. S(z) + x = 5)) ∧ (∀k. ((((∃z. S(z) + 0 = k) ∧ (∃k′. 2 = k × k′)) ∧ (∃k′. x = k × k′)) → k = 1))) → (x = 1 ∨ x = 2))`")
 rej("RR03_coprime_without_positive_k",
     head(must(acc("MCO_one_is_coprime_to_all"), "((0 < k ∧ k ∣ m) ∧ k ∣ 1)", "(k ∣ m ∧ k ∣ 1)"),
-         "coprimality without 0 < k, which Q cannot establish for k = 0"),
-    1, "REJECT — last step proves")
+         "goal mismatch: coprimality without 0 < k, which is unprovable in Q (a model of Q with 0 ∣ 1 exists; docs/RLT-005-CORRESPONDENCE.md §3)"),
+    1, "the goal is `∀m. ∀k. (((∃k′. m = k × k′) ∧ (∃k′. 1 = k × k′)) → k = 1)`")
 rej("RR04_undeclared_assumption",
     head(must(mc, "(hyp hm)", "(hyp hq)"), "a step uses an assumption the goal does not declare"),
     1, "REJECT at step s1 — assumption `hq` is undeclared in the goal")
@@ -828,8 +846,8 @@ md = acc("MD8_divisors_of_eight")
 g = goal_of(md)
 rej("RR05_divisor_eight_omitted",
     head(must(md, g, must(g, "(((d = 1 ∨ d = 2) ∨ d = 4) ∨ d = 8))", "((d = 1 ∨ d = 2) ∨ d = 4))")),
-         "wrong divisor set: 8 omitted"),
-    1, "REJECT — last step proves")
+         "goal mismatch: wrong divisor set, 8 omitted"),
+    1, "the goal is `∀d. ((((∃z. S(z) + 0 = d) ∧ (∃k. 8 = d × k)) → ((d = 1 ∨ d = 2) ∨ d = 4)) ∧ ((((d = 1 ∨ d = 2) ∨ d = 4) ∨ d = 8) → ((∃z. S(z) + 0 = d) ∧ (∃k. 8 = d × k))))`")
 rej("RR06_cited_hash_stale",
     head(must(mn, mc_cite.group(2), "f" * 64), "a citation records a stale SHA-256"),
     2, "MALFORMED — citation `MC`: tests/rlt005/accept/MC_no_assignment.rlt has SHA-256")
@@ -872,7 +890,7 @@ def conditional(text):
     return must(text, "(mode unconditional)", '(assume hz "0 = 0")\n  (mode conditional)')
 
 
-rr08a = head(conditional(mc), "MC with Γ = {hz : 0 = 0}: an accepted conditional theorem, cited by RR08")
+rr08a = head(conditional(mc), "MC with Γ = {hz : 0 = 0}; ACCEPTED as a conditional theorem (exit 0). It is not a rejected case: it is the file RR08 cites", "FIXTURE")
 rej("RR08a_conditional_variant", rr08a, 0, "ACCEPT — conditional theorem")
 rr08a_sha = hashlib.sha256(rr08a.encode()).hexdigest()
 rej("RR08_cites_conditional_theorem",
@@ -882,8 +900,8 @@ rej("RR08_cites_conditional_theorem",
 mp = acc("MP4_partners_one_to_four")
 g = goal_of(mp)
 rej("RR09_partner_range_six",
-    head(must(mp, g, must(g, "x < 5", "x < 6")), "wrong partner range: x < 6"),
-    1, "REJECT — last step proves")
+    head(must(mp, g, must(g, "x < 5", "x < 6")), "goal mismatch: wrong partner range, x < 6"),
+    1, "the goal is `∀x. ((((∃z. S(z) + 0 = x) ∧ (∃z. S(z) + x = 6)) → (((x = 1 ∨ x = 2) ∨ x = 3) ∨ x = 4)) ∧ ((((x = 1 ∨ x = 2) ∨ x = 3) ∨ x = 4) → ((∃z. S(z) + 0 = x) ∧ (∃z. S(z) + x = 5))))`")
 with open("tests/rlt005/expected.tsv", "w", encoding="utf-8") as fh:
     fh.write("# file\texit\trequired substring of the verdict (RLT-005 rejected cases)\n")
     fh.write("\n".join(rejects) + "\n")

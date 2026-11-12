@@ -1788,13 +1788,17 @@ pub fn validate(root: &Path) -> Report {
                 .commit
                 .bytes()
                 .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
-        let member = src
-            .url
-            .split_once('#')
-            .is_some_and(|(a, m)| a.starts_with("https://") && !m.is_empty() && !m.contains('/'));
+        // Same rule as scripts/check_excerpts.py `member_ok`: a relative
+        // path of non-empty components, none of them `.` or `..`.
+        let member = src.url.split_once('#').is_some_and(|(a, m)| {
+            a.starts_with("https://")
+                && !m.is_empty()
+                && !m.starts_with('/')
+                && m.split('/').all(|c| !c.is_empty() && c != "." && c != "..")
+        });
         if !hex || !member || src.excerpts.is_empty() {
             problems.push(format!(
-                "{}: status archived requires `commit` = the archive's SHA-256 (64 lowercase hex), `url` = https archive URL + '#' + member file, and excerpts",
+                "{}: status archived requires `commit` = the archive's SHA-256 (64 lowercase hex), `url` = https archive URL + '#' + member path (relative, no `.` or `..` components), and excerpts",
                 src.id
             ));
         }

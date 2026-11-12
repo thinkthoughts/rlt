@@ -60,33 +60,88 @@ def bounded(text, x):
     return False
 
 
+MAX_ARCHIVE = 50 * 1024 * 1024  # bytes read from the network, at most
+
+
+def member_ok(m):
+    """The member rule shared with `rlt validate`: a relative path of
+    non-empty components, none of them '.' or '..'."""
+    return bool(m) and not m.startswith("/") and all(c not in ("", ".", "..") for c in m.split("/"))
+
+
+def gzip_fname(data):
+    """The FNAME field of a gzip header (RFC 1952), or None."""
+    if data[:2] != b"\x1f\x8b" or len(data) < 10 or not data[3] & 0x08:
+        return None
+    i = 10
+    if data[3] & 0x04:  # FEXTRA
+        i += 2 + int.from_bytes(data[10:12], "little")
+    j = data.index(b"\0", i)
+    return data[i:j].decode("latin-1")
+
+
 def archived_text(s):
     """RLT-005: an archived source is a versioned archive file (e.g. an arXiv
     e-print) pinned by the SHA-256 in `commit`; `url` names the archive and,
     after '#', the member file. The archive is read from CHECKOUTS/archived/
-    if present there, else downloaded; its SHA-256 must equal the pin."""
-    import gzip, hashlib, io, tarfile, urllib.request
+    if present there (never through a symlink), else downloaded (at most
+    MAX_ARCHIVE bytes); its SHA-256 must equal the pin. A tar archive must
+    contain the member; a single gzipped file must name it in its header."""
+    import gzip, hashlib, io, os, tarfile, tempfile, urllib.request
     url, _, member = s["url"].partition("#")
+    if not member_ok(member):
+        raise ValueError(f"member {member!r} must be a relative path without '.' or '..' components")
     cached = checkouts / "archived" / url.rstrip("/").rsplit("/", 1)[-1]
+    if cached.is_symlink():
+        raise ValueError(f"{cached} is a symlink; refusing to read or write through it")
     fetched = not cached.exists()
     if fetched:
         req = urllib.request.Request(url, headers={"User-Agent": "rlt-check-excerpts (scripts/check_excerpts.py)"})
         with urllib.request.urlopen(req, timeout=60) as r:
-            data = r.read()
+            data = r.read(MAX_ARCHIVE + 1)
+        if len(data) > MAX_ARCHIVE:
+            raise ValueError(f"download from {url} exceeds {MAX_ARCHIVE} bytes")
     else:
         data = cached.read_bytes()
     got = hashlib.sha256(data).hexdigest()
     if got != s["commit"]:
         raise ValueError(f"archive SHA-256 {got} differs from the pin {s['commit']}")
-    if fetched:  # cache only bytes that match the pin
+    if fetched:  # cache only bytes that match the pin, atomically
         cached.parent.mkdir(parents=True, exist_ok=True)
-        cached.write_bytes(data)
+        fd, tmp = tempfile.mkstemp(dir=cached.parent)
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+        os.replace(tmp, cached)
     try:
-        with tarfile.open(fileobj=io.BytesIO(data)) as t:
-            return t.extractfile(member).read().decode("utf-8")
+        t = tarfile.open(fileobj=io.BytesIO(data))
     except tarfile.ReadError:
+        name = gzip_fname(data)
+        if name != member:
+            raise ValueError(f"single gzipped file names {name!r} in its header, not the member {member!r}")
         return gzip.decompress(data).decode("utf-8")
+    with t:
+        return t.extractfile(member).read().decode("utf-8")
 
+
+def latex_live(text):
+    """LaTeX source with comments removed: from an unescaped % to the line
+    end (the line break is kept, so excerpts cannot join across comments)."""
+    import re as _re
+    return _re.sub(r"(?<!\\)%[^\n]*", "", text)
+
+
+def at_word_boundaries(hay, x):
+    """Some whitespace-collapsed occurrence of x in hay starts and ends at a
+    word boundary (no letter or digit continues the word on either side)."""
+    h, y = " ".join(hay.split()), " ".join(x.split())
+    start = 0
+    while (i := h.find(y, start)) >= 0:
+        before = h[i - 1] if i else " "
+        after = h[i + len(y)] if i + len(y) < len(h) else " "
+        if not (before.isalnum() and y[0].isalnum()) and not (after.isalnum() and y[-1].isalnum()):
+            return True
+        start = i + 1
+    return False
 
 bad = 0
 for s in reg["sources"]:
@@ -97,9 +152,13 @@ for s in reg["sources"]:
             print(f"ERROR    {s['id']}: {e}")
             bad += 1
             continue
+        # Comments are not the source's text; an excerpt must sit in live
+        # LaTeX and must not start or end inside a word.
+        if s["url"].partition("#")[2].endswith(".tex"):
+            text = latex_live(text)
         for e in s.get("excerpts", []):
             x = e["text"] if isinstance(e, dict) else e
-            ok = x in text or " ".join(x.split()) in " ".join(text.split())
+            ok = at_word_boundaries(text, x)
             print(f"{'ok' if ok else 'MISSING':8} {s['id']}: {x[:70]!r}")
             bad += 0 if ok else 1
         continue

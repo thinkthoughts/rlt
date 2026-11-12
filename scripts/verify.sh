@@ -252,6 +252,8 @@ while IFS=$'\t' read -r f want reason; do
   r5_log=$("$rlt" check "$f"); r5_code=$?
   { [ "$r5_code" = "$want" ] && echo "$r5_log" | grep '^verdict' | grep -qF -- "$reason"; } && r5_r=$((r5_r + 1)) || { echo "  UNEXPECTED: $f exit $r5_code (want $want): $(echo "$r5_log" | grep '^verdict')"; fail=1; }
 done < tests/rlt005/expected.tsv
+r5_files=$(ls tests/rlt005/reject/*.rlt | wc -l)
+{ [ "$r5_rn" -gt 0 ] && [ "$r5_rn" = "$r5_files" ]; } || { echo "  UNEXPECTED: tests/rlt005/expected.tsv lists $r5_rn cases for $r5_files files in tests/rlt005/reject"; fail=1; }
 echo "tests/rlt005/reject: $r5_r of $r5_rn give the required exit code and reason"
 r5_deps=$("$rlt" deps matchable.not.8); r5_dcode=$?
 { [ $r5_dcode = 0 ] && echo "$r5_deps" | grep -q '^exit            0'; } && echo "rlt deps matchable.not.8: $(echo "$r5_deps" | grep -E '^(theorems|budget)' | tr -s ' ' | paste -sd ';')" || { echo "  UNEXPECTED: rlt deps matchable.not.8 exit $r5_dcode"; fail=1; }
@@ -393,12 +395,13 @@ if [ -n "$lean_bin" ]; then
   # Tier 1 axiom gates for M3c and (M3b audit note 4) M3a: every generated theorem.
   # RLT-005: both comparisons, every theorem listed with standard axioms only,
   # and the shared definitions byte-identical in the two files.
-  for rf in RLT005Direct RLT005Readings; do
-    r5_names=$(sed -n 's/^theorem \([A-Za-z0-9_'"'"']*\).*/\1/p' "lean/$rf.lean")
+  for rf_pin in RLT005Direct:11 RLT005Readings:22; do
+    rf=${rf_pin%%:*}; r5_want=${rf_pin#*:}
+    r5_names=$(sed -n 's/^[[:space:]]*\(theorem\|lemma\) \([A-Za-z0-9_'"'"']*\).*/\2/p' "lean/$rf.lean")
     r5_n=$(echo "$r5_names" | grep -c .); r5_listed=0
     for nm in $r5_names; do echo "$lean_log" | grep -qE "^'$rf\.$nm' (depends on axioms|does not depend on any axioms)" && r5_listed=$((r5_listed + 1)); done
     r5_bad=$(echo "$lean_log" | grep "^'$rf\." | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound' | sort -u)
-    { [ "$r5_listed" = "$r5_n" ] && [ -z "$r5_bad" ]; } && echo "$rf.lean: $r5_n statements, standard axioms only (RLT-005 Lean comparison; not RLT theorems)" || { echo "$rf.lean: axiom gate FAILED ($r5_listed of $r5_n listed; non-standard: $r5_bad)"; fail=1; }
+    { [ "$r5_n" = "$r5_want" ] && [ "$r5_listed" = "$r5_n" ] && [ -z "$r5_bad" ]; } && echo "$rf.lean: $r5_n statements, standard axioms only (RLT-005 Lean comparison; not RLT theorems)" || { echo "$rf.lean: axiom gate FAILED ($r5_listed of $r5_n listed, $r5_want pinned; non-standard: $r5_bad)"; fail=1; }
   done
   r5_block() { sed -n '/^-- BEGIN SHARED RLT-005 BLOCK/,/^-- END SHARED RLT-005 BLOCK/p' "$1"; }
   { [ -n "$(r5_block lean/RLT005Direct.lean)" ] && [ "$(r5_block lean/RLT005Direct.lean)" = "$(r5_block lean/RLT005Readings.lean)" ]; } && echo "RLT005 shared definitions: byte-identical in both files" || { echo "RLT005 shared definitions DIFFER between RLT005Direct.lean and RLT005Readings.lean"; fail=1; }
@@ -453,6 +456,9 @@ if [ $# -ge 1 ]; then
     ar_t "pin changed" "$ar_tmp/good" "s.replace('commit: 21674e5f','commit: 31674e5f')" "differs from the pin 31674e5f"
     ar_t "member changed to another file" "$ar_tmp/good" "s.replace('#match051426.tex','#anc/compute_census.py')" "MISSING  $ar_id"
     ar_t "member absent" "$ar_tmp/good" "s.replace('#match051426.tex','#absent.tex')" "ERROR    $ar_id"
+    ar_t "member with a .. component" "$ar_tmp/good" "s.replace('#match051426.tex','#../match051426.tex')" "ERROR    $ar_id: member"
+    ar_t "excerpt from a LaTeX comment" "$ar_tmp/good" "s.replace('However, 8 is not matchable, nor is any subsequent multiple of 4.','to d in last')" "MISSING  $ar_id: 'to d in last"
+    ar_t "excerpt starting inside a word" "$ar_tmp/good" "s.replace('However, 8 is not matchable, nor is any subsequent multiple of 4.','owever, 8 is not matchable')" "MISSING  $ar_id: 'owever"
     ar_t "excerpt changed" "$ar_tmp/good" "s.replace('However, 8 is not matchable','However, 8 is matchable')" "MISSING  $ar_id: 'However, 8 is matchable"
   else
     echo "  UNEXPECTED: $1/archived/$ar_file absent after the excerpt check"; fail=1

@@ -51,6 +51,7 @@ NAMED = {
     "tests/rlt005/accept/MCO_one_is_coprime_to_all.rlt": "matchable.coprime_one",
     "tests/rlt005/accept/MNV_conditions_without_distinctness.rlt": "matchable.not.8.nonvacuous",
     "tests/rlt005/accept/MN8_eight_is_not_matchable.rlt": "matchable.not.8",
+    "tests/rlt005/accept/MNC_two_not_coprime_to_two.rlt": "matchable.not_coprime.2_2",
 }
 PATTERNS = [
     (r"^(\d+) ∣ (\d+)$", "dvd.{0}_{1}"),
@@ -93,6 +94,18 @@ for fp, files in groups.items():
     for f in files:
         by_pin[(f, nodes[f]["sha256"])] = lid
     entries.append((lid, fp, files))
+
+# Append-only identities, checked before anything is written (RLT-005): an
+# existing id whose fingerprint or first proof would change is an error.
+old = open("lib/identities.tsv", encoding="utf-8").read().splitlines() if os.path.exists("lib/identities.tsv") else [
+    "# RLT-004c identity registry: library id, statement fingerprint, first proof sha256.",
+    "# Append-only: scripts/verify.sh refuses any change to an existing line.",
+]
+known = {l.split("\t")[0]: l for l in old if l and not l.startswith("#")}
+for lid, fp, files in entries:
+    line = f"{lid}\t{fp}\t{nodes[files[0]]['sha256']}"
+    if lid in known and known[lid] != line:
+        sys.exit(f"identity of {lid} would change: {known[lid]!r} -> {line!r}")
 
 records = {}
 for r in sorted(glob.glob("statements/*.yaml")):
@@ -137,17 +150,7 @@ for lid, fp, files in sorted(entries):
     with open(f"lib/{area}/{lid}.yaml", "w", encoding="utf-8") as fh:
         fh.write("\n".join(out) + "\n")
     ids.append(f"{lid}\t{fp}\t{n['sha256']}")
-# Append-only: keep the existing file's lines, in place, and add new ids at
-# the end (RLT-005). An existing id whose line would change is an error.
-old = open("lib/identities.tsv", encoding="utf-8").read().splitlines() if os.path.exists("lib/identities.tsv") else [
-    "# RLT-004c identity registry: library id, statement fingerprint, first proof sha256.",
-    "# Append-only: scripts/verify.sh refuses any change to an existing line.",
-]
-known = {l.split("\t")[0]: l for l in old if l and not l.startswith("#")}
-for line in ids:
-    lid = line.split("\t")[0]
-    if lid in known and known[lid] != line:
-        sys.exit(f"identity of {lid} would change: {known[lid]!r} -> {line!r}")
+# Existing lines stay in place; new ids are appended.
 new = [line for line in ids if line.split("\t")[0] not in known]
 with open("lib/identities.tsv", "w", encoding="utf-8") as fh:
     fh.write("\n".join(old + new) + "\n")
