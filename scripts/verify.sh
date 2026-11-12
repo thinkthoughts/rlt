@@ -13,11 +13,64 @@
 #   RLT_SKIP_EXCERPTS=1     run without SOURCE_CHECKOUTS_DIR
 set -uo pipefail
 cd "$(dirname "$0")/.."
+
+# RLT-007a (H2): a supervisor. The checks run in a child process group; this
+# parent only waits, which an interrupt can end at once (bash defers a trap
+# until a foreground command returns). On INT or TERM the parent stops the
+# whole group, restores what a stage altered (state kept under the run's
+# temporary directory), removes the generated certificates (regenerated in
+# about a second) and every temporary file, and exits 130 or 143 with an
+# INTERRUPTED line and no RESULT line.
+if [ -z "${RLT_VERIFY_CHILD:-}" ]; then
+  RLT_RUN_TMP=$(mktemp -d); export RLT_RUN_TMP
+  rlt_restore() {
+    [ -f tests/rlt006/gen/O_43_212.rlt.away ] && mv tests/rlt006/gen/O_43_212.rlt.away tests/rlt006/gen/O_43_212.rlt
+    rm -f sources/transcriptions/_verify_tamper.yaml
+    if [ -d "$RLT_RUN_TMP/r6backup/before" ]; then
+      for x in tests/rlt006/accept tests/rlt006/reject tests/rlt006/expected.tsv tests/rlt006/manifest.sha256 certificates/h45 lean/RLT006Direct.lean; do
+        rm -rf "$x"; cp -r "$RLT_RUN_TMP/r6backup/before/$x" "$x"
+      done
+      rm -f statements/H45-OMITS-*.yaml; cp "$RLT_RUN_TMP"/r6backup/before/statements/H45-OMITS-*.yaml statements/
+    fi
+  }
+  rlt_stop() {
+    trap - INT TERM
+    kill -TERM -- "-$rlt_child" 2>/dev/null; sleep 1; kill -KILL -- "-$rlt_child" 2>/dev/null
+    wait "$rlt_child" 2>/dev/null
+    rlt_restore
+    rm -rf tests/rlt006/gen "$RLT_RUN_TMP"
+    echo; echo "INTERRUPTED ($2): verification stopped before completion; altered files restored; generated certificates removed; no RESULT" | tee -a verification/RLT-001-results.txt
+    exit "$1"
+  }
+  trap 'rlt_stop 130 INT' INT
+  trap 'rlt_stop 143 TERM' TERM
+  RLT_VERIFY_CHILD=1 setsid bash "$0" "$@" &
+  rlt_child=$!
+  wait "$rlt_child"; rlt_code=$?
+  rm -rf "$RLT_RUN_TMP"
+  exit $rlt_code
+fi
+export TMPDIR=$RLT_RUN_TMP
 out=verification/RLT-001-results.txt
 mkdir -p verification
 fail=0
 skipped=0
 rlt=${CARGO_TARGET_DIR:-target}/release/rlt
+export rlt
+# RLT-007a: independent `rlt` runs go through par_map, RLT_JOBS at a time
+# (default: the number of processors). Each item's output and exit code go to
+# a file named by its position; callers read them back in input order, so the
+# report is the same whatever the order in which the runs finish. Every run is
+# a separate process with no shared state: nothing is cached or reused.
+RLT_JOBS=${RLT_JOBS:-$(nproc 2>/dev/null || echo 2)}
+case "$RLT_JOBS" in ''|*[!0-9]*|0) RLT_JOBS=1 ;; esac
+par_map() { # par_map DIR SCRIPT ITEM... ; SCRIPT runs as `bash -c SCRIPT _ ITEM`
+  local dir=$1 script=$2 i=0 it; shift 2
+  rm -rf "$dir"; mkdir -p "$dir"
+  for it in "$@"; do printf '%s\0%s\0' "$i" "$it"; i=$((i + 1)); done |
+    PAR_DIR=$dir PAR_SCRIPT=$script xargs -0 -n 2 -P "$RLT_JOBS" bash -c 'bash -c "$PAR_SCRIPT" _ "$2" > "$PAR_DIR/$1.out" 2>&1; echo $? > "$PAR_DIR/$1.code"' _
+  [ "$(ls "$dir" | grep -c '\.code$')" = "$#" ]
+}
 # `cmd | grep -q PATTERN` can fail under pipefail: grep -q exits at the first
 # match and the writer then takes SIGPIPE (exit 141) once its output exceeds
 # the pipe buffer. grep_q reads all of its input and reports only the status.
@@ -36,7 +89,7 @@ rlt006_cleanup() {
     rm -rf "$r6_backup"; r6_backup=""
   fi
 }
-trap rlt006_cleanup EXIT INT TERM
+trap rlt006_cleanup EXIT
 
 # Log to the results file and the terminal without a subshell, so that
 # `fail` set below reaches the final `exit`; tee is awaited before exit.
@@ -314,7 +367,7 @@ if [ -n "${RLT_REFERENCE:-}" ]; then
 fi
 
 echo; echo "== H45 residue certificates, RLT-006 (tests/rlt006, certificates/h45)"
-r6_tmp=$(mktemp -d); r6_backup=$r6_tmp
+r6_tmp=$RLT_RUN_TMP/r6backup; rm -rf "$r6_tmp"; mkdir -p "$r6_tmp"; r6_backup=$r6_tmp
 r6_out="tests/rlt006/accept tests/rlt006/reject tests/rlt006/expected.tsv tests/rlt006/manifest.sha256 certificates/h45 lean/RLT006Direct.lean"
 for x in $r6_out; do mkdir -p "$r6_tmp/before/$(dirname "$x")"; cp -r "$x" "$r6_tmp/before/$x"; done
 mkdir -p "$r6_tmp/before/statements"; cp statements/H45-OMITS-*.yaml "$r6_tmp/before/statements/"
@@ -336,17 +389,24 @@ else
 fi
 rm -rf "$r6_tmp"; r6_backup=""
 r6_t0=$(date +%s.%N); r6_ok=0
+r6_p=$RLT_RUN_TMP/par-r6-check; par_map "$r6_p" '"$rlt" check "$1"' tests/rlt006/gen/*.rlt || { echo "  UNEXPECTED: a parallel run left no exit code"; fail=1; }
+r6_i=0
 for f in tests/rlt006/gen/*.rlt; do
-  "$rlt" check "$f" | grep_q -E '^verdict         ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q' && r6_ok=$((r6_ok + 1)) || { echo "  UNEXPECTED: $f"; fail=1; }
+  { [ "$(cat "$r6_p/$r6_i.code" 2>/dev/null)" = 0 ] && grep_q -E '^verdict         ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q' "$r6_p/$r6_i.out"; } && r6_ok=$((r6_ok + 1)) || { echo "  UNEXPECTED: $f"; fail=1; }
+  r6_i=$((r6_i + 1))
 done
+rm -rf "$r6_p"
 r6_t1=$(date +%s.%N)
 [ $r6_ok = 630 ] || fail=1
 echo "1. element certificates: $r6_ok of 630 ACCEPT as unconditional theorems under ROBINSON-Q ($(printf %.1f "$(echo "$r6_t1 - $r6_t0" | bc)") s)"
 r6_t0=$(date +%s.%N); r6_ok=0
+r6_p=$RLT_RUN_TMP/par-r6-deps; par_map "$r6_p" '"$rlt" deps "$1"' tests/rlt006/accept/OM_*.rlt || { echo "  UNEXPECTED: a parallel run left no exit code"; fail=1; }
+r6_i=0
 for f in tests/rlt006/accept/OM_*.rlt; do
-  r6_d=$("$rlt" deps "$f")
+  r6_d=$(cat "$r6_p/$r6_i.out"); r6_i=$((r6_i + 1))
   { echo "$r6_d" | grep_q '^budget          cited-file checks 45 of 64 · citing-file chain 1 of 8' && echo "$r6_d" | grep_q '^exit            0'; } && r6_ok=$((r6_ok + 1)) || { echo "  UNEXPECTED: $f: $(echo "$r6_d" | grep -E '^(budget|exit)')"; fail=1; }
 done
+rm -rf "$r6_p"
 r6_t1=$(date +%s.%N)
 [ $r6_ok = 14 ] || fail=1
 echo "2. per-prime theorems: $r6_ok of 14 ACCEPT, each citing its 45 certificates (45 of 64 cited-file checks) ($(printf %.1f "$(echo "$r6_t1 - $r6_t0" | bc)") s)"
@@ -377,26 +437,27 @@ g6_check "$r6_m" >/dev/null && { echo "  UNEXPECTED: an altered manifest hash wa
 rm -f "$r6_m"
 g6_check tests/rlt006/manifest.sha256 >/dev/null && echo "restored: all 630 certificates equal to the manifest again" || { echo "  UNEXPECTED: certificates not restored"; fail=1; }
 x6_ok=0; x6_n=0
+x6_p=$RLT_RUN_TMP/par-x6
+par_map "$x6_p" '"$rlt" explain "tests/explain-rlt006/$1"' $(grep -v -e '^#' -e '^$' tests/explain-rlt006/expected.tsv | cut -f1) || { echo "  UNEXPECTED: a parallel run left no exit code"; fail=1; }
 while IFS=$'\t' read -r f want frag; do
   case "$f" in \#*|"") continue ;; esac
+  x6_log=$(cat "$x6_p/$x6_n.out"); x6_code=$(cat "$x6_p/$x6_n.code")
   x6_n=$((x6_n + 1))
-  x6_log=$("$rlt" explain "tests/explain-rlt006/$f"); x6_code=$?
   { [ "$x6_code" = "$want" ] && echo "$x6_log" | grep_q -F -- "$frag"; } && x6_ok=$((x6_ok + 1)) || { echo "  UNEXPECTED: tests/explain-rlt006/$f exit $x6_code (want $want)"; fail=1; }
 done < tests/explain-rlt006/expected.tsv
+rm -rf "$x6_p"
 [ "$x6_n" = 6 ] || fail=1
 echo "tests/explain-rlt006: $x6_ok of $x6_n record fixtures give the required exit code and line"
-# 3. The residue profile: computed evidence, checked here by plain arithmetic.
-python3 -I - <<'PY' || fail=1
-import sys
-rows = [l.rstrip("\n").split("\t") for l in open("certificates/h45/residues.tsv") if not l.startswith("#")]
-ok = len(rows) == 630 and all(int(h) == int(p) * int(q) + int(s) and 0 <= int(s) < int(p) and (int(s) != int(r)) == (o == "yes") and o == "yes" for p, r, h, q, s, o in rows)
-prof = [l.rstrip("\n").split("\t") for l in open("certificates/h45/profile.tsv") if not l.startswith("#")]
-occ = {(int(p)): set(map(int, oc.split(","))) for p, r, n, oc, om in prof}
-ok = ok and len(prof) == 14 and all(int(n) == len(occ[int(p)]) and int(r) in set(map(int, om.split(","))) for p, r, n, oc, om in prof)
-ok = ok and all(occ[p] == {int(s) for pp, r, h, q, s, o in rows if int(pp) == p} for p in occ)
-print(("3. residue profile (computed evidence, not kernel-checked): 630 rows with h = p*q + s and s != r_p; " + ", ".join(f"nu_{p}={len(occ[int(p)])}" for p, *_ in prof)) if ok else "  UNEXPECTED: certificates/h45 arithmetic fails")
-sys.exit(0 if ok else 1)
-PY
+# 3. The residue profile: computed evidence, checked against the transcription
+# by plain arithmetic, independently of the generator (RLT-007a H1), and a
+# self-test that every altered-table case is refused.
+h1_log=$(python3 -I scripts/check-h45-profile.py); h1_code=$?
+h1_self=$(python3 -I scripts/check-h45-profile.py --self-test); h1_scode=$?
+if [ $h1_code = 0 ] && [ $h1_scode = 0 ]; then
+  echo "3. residue profile (computed evidence, not kernel-checked): $(echo "$h1_log" | sed -n 's/^summary //p'); checked against the transcription by scripts/check-h45-profile.py; $(echo "$h1_self" | tail -1)"
+else
+  echo "  UNEXPECTED: certificates/h45 check failed"; echo "$h1_log" | grep '^PROBLEM' | head -5; echo "$h1_self" | grep -E '^ACCEPTED|self-test needs'; fail=1
+fi
 
 echo; echo "== statement records and rlt explain, RLT-004b (statements/, tests/explain)"
 ex_tmp=$(mktemp -d)
@@ -407,9 +468,18 @@ else
   echo "  UNEXPECTED: tests/explain or tests/explain-rlt006 differs from scripts/gen-explain-tests.py output"; rm -rf tests/explain tests/explain-rlt006; cp -r "$ex_tmp/before" tests/explain; cp -r "$ex_tmp/before6" tests/explain-rlt006; fail=1
 fi
 rm -rf "$ex_tmp"
+# RLT-007a: each record's text and JSON reports run in parallel (two separate
+# processes per record, as before); the JSON reports are then reused, as they
+# are, for the Lean-reference collection below instead of running a third time.
+ex_p=$RLT_RUN_TMP/par-ex
+par_map "$ex_p" 'f=${1#*:}; if [ "${1%%:*}" = json ]; then "$rlt" explain "$f" --format json; else "$rlt" explain "$f"; fi' $(for f in statements/*.yaml; do echo "text:$f json:$f"; done) || { echo "  UNEXPECTED: a parallel run left no exit code"; fail=1; }
+ex_i=0; ex_jsons=""
 for f in statements/*.yaml; do
-  ex_log=$("$rlt" explain "$f"); ex_code=$?
-  ex_json=$("$rlt" explain "$f" --format json); ex_jcode=$?
+  ex_log=$(cat "$ex_p/$ex_i.out"); ex_code=$(cat "$ex_p/$ex_i.code")
+  ex_json=$(cat "$ex_p/$((ex_i + 1)).out"); ex_jcode=$(cat "$ex_p/$((ex_i + 1)).code")
+  ex_jsons="$ex_jsons$ex_json
+"
+  ex_i=$((ex_i + 2))
   ex_parsed=$(printf '%s' "$ex_json" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["exit"], d["kernel"]["verdict"], d["record"]["state"], d["semantic"]["status"]+"/"+d["semantic"]["assessment"], d["physical"]["applicability"])')
   printf '%-42s exit %s  json: %s\n' "$f" "$ex_code" "$ex_parsed"
   { [ "$ex_code" = 0 ] && [ "$ex_jcode" = 0 ] && [ "${ex_parsed%% *}" = 0 ]; } || { echo "$ex_log" | grep -E '^(  problem|  stale|verdict)'; fail=1; }
@@ -417,7 +487,8 @@ done
 # Lean references named in statement records: each must be a theorem Lean
 # accepts in that file, with standard axioms only (rlt explain only finds the name).
 ex_lean=$(command -v lean || { [ -x "$HOME/.elan/bin/lean" ] && echo "$HOME/.elan/bin/lean"; })
-ex_refs=$(for f in statements/*.yaml; do "$rlt" explain "$f" --format json; done | python3 -c '
+rm -rf "$ex_p"
+ex_refs=$(printf '%s' "$ex_jsons" | python3 -c '
 import json, sys
 dec, s, i, out = json.JSONDecoder(), sys.stdin.read(), 0, set()
 while i < len(s):
@@ -433,11 +504,16 @@ if [ -n "$ex_lean" ]; then
   # Pinned: 8 before RLT-006, plus 16 (om_P for 14 primes,
   # lemma_12_1_of_rlt_statements, omits_rlt_form).
   [ "$ex_nrefs" = 24 ] || { echo "  UNEXPECTED: $ex_nrefs distinct Lean references in statement records (24 pinned)"; fail=1; }
+  # RLT-007a: the gate files are independent Lean runs, made in parallel.
+  ex_gdir=$(mktemp -d); ex_gi=0
   for lf in $(echo "$ex_refs" | cut -d' ' -f1 | sort -u); do
-    ex_gdir=$(mktemp -d); ex_gate=$ex_gdir/Gate.lean
-    { cat "$lf"; echo; echo "$ex_refs" | awk -v f="$lf" '$1 == f { print "#print axioms " $2 }'; } > "$ex_gate"
-    ex_glog=$(cd lean && "$ex_lean" "$ex_gate" 2>&1); ex_gcode=$?
-    rm -rf "$ex_gdir"
+    { cat "$lf"; echo; echo "$ex_refs" | awk -v f="$lf" '$1 == f { print "#print axioms " $2 }'; } > "$ex_gdir/Gate$ex_gi.lean"
+    ex_gi=$((ex_gi + 1))
+  done
+  EX_LEAN=$ex_lean par_map "$ex_gdir/run" 'cd lean && "$EX_LEAN" "$1"' $(i=0; while [ $i -lt $ex_gi ]; do echo "$ex_gdir/Gate$i.lean"; i=$((i + 1)); done) || { echo "  UNEXPECTED: a parallel run left no exit code"; fail=1; }
+  ex_gi=0
+  for lf in $(echo "$ex_refs" | cut -d' ' -f1 | sort -u); do
+    ex_glog=$(cat "$ex_gdir/run/$ex_gi.out"); ex_gcode=$(cat "$ex_gdir/run/$ex_gi.code"); ex_gi=$((ex_gi + 1))
     for th in $(echo "$ex_refs" | awk -v f="$lf" '$1 == f { print $2 }'); do
       ex_line=$(echo "$ex_glog" | grep -E "^'$th' (depends on axioms|does not depend on any axioms)" | tail -1)
       ex_bad=$(echo "$ex_line" | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound')
@@ -448,6 +524,7 @@ if [ -n "$ex_lean" ]; then
       fi
     done
   done
+  rm -rf "$ex_gdir"
 elif [ "${RLT_ALLOW_NO_LEAN:-}" = 1 ]; then
   echo "SKIPPED: Lean references in statement records (lean unavailable; RLT_ALLOW_NO_LEAN=1)"; skipped=1
 else
@@ -496,7 +573,20 @@ lean_bin=$(command -v lean || { [ -x "$HOME/.elan/bin/lean" ] && echo "$HOME/.el
 if [ -n "$lean_bin" ]; then
   # Run inside lean/ so elan selects lean/lean-toolchain. Any Lean message
   # other than the #print axioms lines (a warning, `sorry`, an error) fails.
-  lean_log=$(cd lean && "$lean_bin" --version && "$lean_bin" RLT001.lean && "$lean_bin" Generated.lean && "$lean_bin" M2Generated.lean && "$lean_bin" M2Readings.lean && "$lean_bin" M3aGenerated.lean && "$lean_bin" M3bGenerated.lean && "$lean_bin" M3bReadings.lean && "$lean_bin" M3cGenerated.lean && "$lean_bin" M3cReadings.lean && "$lean_bin" M3dGenerated.lean && "$lean_bin" M3dReadings.lean && "$lean_bin" M3eGenerated.lean && "$lean_bin" M3eReadings.lean && "$lean_bin" RLT005Direct.lean && "$lean_bin" RLT005Readings.lean && "$lean_bin" RLT006Direct.lean && "$lean_bin" RLT006BGP212.lean 2>&1); lean_code=$?
+  # RLT-007a: the 17 files are independent Lean runs, made in parallel; their
+  # logs are joined in this fixed order, and any failing run fails the stage.
+  lean_files="RLT001.lean Generated.lean M2Generated.lean M2Readings.lean M3aGenerated.lean M3bGenerated.lean M3bReadings.lean M3cGenerated.lean M3cReadings.lean M3dGenerated.lean M3dReadings.lean M3eGenerated.lean M3eReadings.lean RLT005Direct.lean RLT005Readings.lean RLT006Direct.lean RLT006BGP212.lean"
+  lean_log=$(cd lean && "$lean_bin" --version 2>&1); lean_code=$?
+  lean_p=$RLT_RUN_TMP/par-lean
+  LEAN_BIN=$lean_bin par_map "$lean_p" 'cd lean && "$LEAN_BIN" "$1"' $lean_files || lean_code=1
+  lean_i=0
+  for lf in $lean_files; do
+    [ -s "$lean_p/$lean_i.out" ] && lean_log="$lean_log
+$(cat "$lean_p/$lean_i.out")"
+    [ "$(cat "$lean_p/$lean_i.code" 2>/dev/null)" = 0 ] || lean_code=1
+    lean_i=$((lean_i + 1))
+  done
+  rm -rf "$lean_p"
   echo "$lean_log"
   if [ $lean_code != 0 ] || echo "$lean_log" | grep_q -iE "warning|error|sorry"; then
     echo "FAILED"; fail=1
@@ -603,6 +693,9 @@ else
 fi
 
 echo; echo "== source excerpts"
+# RLT-007a (H3): offline check of the commit-pin table that lets
+# scripts/fetch-sources.py fetch every source by full SHA (no branch).
+pins_log=$(python3 -I scripts/fetch-sources.py --check-pins 2>&1) && echo "$pins_log" || { echo "  UNEXPECTED: $pins_log"; fail=1; }
 if [ $# -ge 1 ]; then
   excerpts_log=$(python3 -I scripts/check_excerpts.py "$1"); excerpts_code=$?
   echo "$excerpts_log" | grep -E "^(MISSING|ERROR|PARTIAL|UNCOVERED)"; echo "$excerpts_log" | tail -1

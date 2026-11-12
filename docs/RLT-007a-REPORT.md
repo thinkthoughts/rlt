@@ -1,0 +1,108 @@
+# RLT-007a — Hardening and performance: implementation report
+
+**Status:** implemented on `docs/rlt-007` (PR #15, draft), measured against main `e5850d9`, 2026-11-12. Independent adversarial audit: see §7.
+
+**Unchanged:**
+- the kernel, the 20 inference rules plus `cite`, the seven axioms of Robinson's Q;
+- the resource limits (1,000,000 term nodes per file, 64 cited-file checks, citation chain 8);
+- every proof file, statement record, library entry, generated certificate and manifest hash.
+
+**Not added:** no persistent proof cache, and no verification result is reused between processes or runs.
+
+**Still the merge gate:** the complete `scripts/verify.sh` run in CI. It checks everything it checked at `e5850d9`, plus two new checks (§6).
+
+## 1. Hardening H1–H4
+
+| Item | What changed | Evidence |
+|---|---|---|
+| **H1** residue profile | New `scripts/check-h45-profile.py` replaces the inline arithmetic check. It reads the reviewed transcription only, never the generator, and checks every field of `certificates/h45/residues.tsv` (14 × 45 rows in order, h equal to H₄₅, r_p equal to the table, h = p·q + s with 0 ≤ s < p, s ≠ r_p) and of `profile.tsv` (one row per prime in order; occupied classes = {h mod p}; count; omitted = the sorted complement; r_p among the omitted) | `--self-test`: **15 of 15** altered tables refused, including every alteration the RLT-006 audit found accepted. verify.sh runs both modes |
+| **H2** interrupts | verify.sh now runs as a supervisor around a child in its own process group (`setsid`). On INT or TERM the supervisor stops the whole group, including parallel `rlt`, `xargs` and Lean runs, restores any file a tamper test had altered, removes the generated certificates and the run's temporary directory, writes an `INTERRUPTED` line, and exits 130 or 143. It never prints `RESULT` | TERM during the parallel certificate stage: stopped in 3 s, exit 143, no `rlt` or `xargs` process left, no temporary directory left, `tests/rlt006/gen` removed, working tree clean. INT: exit 130, the same |
+| **H3** fixed CI inputs | New `scripts/fetch-sources.py` fetches every GitHub source by its pinned full commit SHA (`git fetch --depth 1 --filter=blob:none origin SHA`); no branch is read. lean-bgp212 is fetched at `7898eb4…`. The two abbreviated registry SHAs resolve through the new `sources/commit-pins.tsv`; a row that does not extend its abbreviation, a duplicate row or an unused row is refused. The arXiv e-print and the PDF come from an Actions cache keyed by the registry, transcriptions, pin table and fetch script. They are downloaded only on a cache miss and **refused before writing** unless equal to their SHA-256 pins; `check_excerpts.py` then re-checks every byte as before. A weekly `source-provenance` job (and manual dispatch) re-fetches everything live with no cache. It gates nothing and runs no proofs | 10 repositories, 10 pinned commits, 0 missing; `check_excerpts.py` 0 problems. A mocked download with the wrong bytes is refused and nothing is written. verify.sh runs `fetch-sources.py --check-pins` offline |
+| **H4** report count | `docs/RLT-006-REPORT.md` §8 now says 30 `grep_q` pipes on 29 lines, with a dated correction note | `grep -o '\| grep_q' scripts/verify.sh` at `e5850d9`: 30 |
+
+## 2. Performance changes
+
+All changes are in scheduling: which independent processes run at the same time, and how many times the same output is produced. None alters a check's inputs or its acceptance condition.
+
+| Id | Change | Why the result is unchanged |
+|---|---|---|
+| P1 | `par_map` in verify.sh runs independent `rlt` and Lean processes `RLT_JOBS` at a time (default: the processor count). Each item's output and exit code go to files named by input position, and are read back in input order | The report is the same whatever order the runs finish in. Each run is a separate process with no shared state. Every item must leave an exit code, or the stage fails |
+| P1a | the 630 direct certificate checks | Each must exit 0 **and** print the ACCEPT verdict (at `e5850d9` only the verdict was tested; this is stricter) |
+| P1b | the 14 `rlt deps` runs on the per-prime theorems | Same budget and exit lines required |
+| P1c | `rlt explain`, text and JSON, for the 19 statement records (38 processes) | Same per-record line and conditions |
+| P1d | the 6 RLT-006 record fixtures | Same exit code and fragment |
+| P1e | the 17 Lean replay files, and the Lean-reference gate files | Logs are joined in the fixed file order. Any failing run fails the stage. At `e5850d9` only the last file's stderr reached the log; now every file's does (stricter) |
+| P2 | The Lean-reference collection reuses the 19 JSON reports produced in P1c, instead of running `rlt explain --format json` a third time | The same bytes, from the same binary, in the same run |
+| P3 | `cli/tests/rlt006.rs`: the missing-certificate and modified-certificate cases are now two tests, so the harness runs them at the same time. Each scratch tree's control is now the affected entry accepted before the change (`rlt deps`), instead of a third whole-library verification | Afterwards the whole library is still verified once per case, and exactly the affected entry fails. With every other entry accepted afterwards, this is the same evidence as before |
+| P4 | CI's separate `cargo test --release` step is removed; verify.sh already runs it and fails on any failing test | Tests run once per CI job instead of twice |
+
+## 3. Measurements against `e5850d9`
+
+**Setup.** Same machine (2 processors), same pinned sources (`/tmp/srcfetch`), binaries and test executables prebuilt in both trees, nothing else running. Each run: `scripts/verify.sh` timed by bash `time`.
+
+| | main `e5850d9` | RLT-007a | Change |
+|---|---|---|---|
+| Wall time | 1,622 s | **1,066 s** | −34% |
+| CPU, user | 1,808 s | 1,529 s | −15% |
+| CPU, system | 91 s | 59 s | −36% |
+| Result | all checks hold | all checks hold | — |
+| Generated certificates on disk during the run | 57,528 KB | 57,528 KB | equal |
+| Working tree after the run (excluding `target/`, `.git/`) | 69,236 KB | 69,300 KB | +64 KB (new scripts and this report) |
+| Parallel temporary files | — | under 3 MB, removed after each stage | — |
+| Pinned sources for CI | full default-branch clones plus live downloads | 2.9 MB (partial clones by SHA, plus the two archived files) | no branch read |
+
+**By stage (wall seconds):**
+
+| Stage | `e5850d9` | RLT-007a |
+|---|---|---|
+| `cargo test --release` | 770 | 543 |
+| ↳ `cli/tests/rlt006.rs` alone | 498 | 290 |
+| RLT-006 stage (630 checks, 14 deps, rejects, tamper, fixtures, profile) | 245 | 142 |
+| ↳ 630 direct checks | 80 | 42 |
+| ↳ 14 per-prime `rlt deps` | 89 | 44 |
+| statement records and `rlt explain` (incl. Lean references) | 337 | 144 |
+| library and `rlt deps --verify-lib` | 169 | 167 |
+| Lean replay | 69 | 57 |
+| everything else | 32 | 13 |
+
+GitHub's standard Linux runner has 4 processors. `RLT_JOBS` defaults to the processor count, so CI should gain more than this 2-processor measurement.
+
+**Coverage.** The two run logs were compared line by line, with timings normalized. They differ in exactly four places:
+- the commit line;
+- the RLT-006 test binary reporting 9 tests instead of 8 (the split in P3);
+- the residue-profile line, which now also names its checker and the 15-case self-test;
+- one added line for the commit-pin table check.
+
+Every other report line is identical. `scripts/check-manual.py`: 33/33 examples match.
+
+## 4. Within-run reuse, parallel citation checking and redundancy: findings
+
+- **An in-process citation memo would save almost nothing today.** Within one `rlt` process, each RLT-006 certificate is cited by exactly one per-prime theorem. Neither `--verify-lib` nor `explain` reaches the same certificate twice. The repeats are *across* processes: the direct check, `deps`, `explain`, the library verifier and `cargo test`. A memo cannot remove those without a cache shared between processes, which is excluded. **Not implemented.**
+- **In-process parallel citation checking is blocked by the current data structures.** A check result holds `Rc<Definitions>` with a `RefCell`, so it cannot cross threads. Making it `Send` means changing `syntax` (Arc and Mutex) on the path every proof check takes. That is close enough to the trusted base to need its own design and audit. **Deferred**; process-level parallelism (P1) gives most of the gain without it.
+- **Redundant checking that remains, kept deliberately.** Each item is a separate entry point, and each guards a different interface. Removing any of them would reduce what the mandatory run covers, so none was removed:
+
+| Repeated work | Cost | Entry points that each check it |
+|---|---|---|
+| 630 certificates checked directly | 42 s | verify.sh (CLI) and `cargo test` (library API) |
+| 630 certificates checked again through citation | 14 `deps` runs; 14 records × 2 formats in `explain` | `deps` and `explain` |
+| whole library verified | 167 s | verify.sh `rlt deps --verify-lib`, `cli/tests/deps.rs` (173 s) and twice in `cli/tests/rlt006.rs` |
+
+  A reviewer could approve dropping one of the library verifications, or the direct 630-check in verify.sh (the citations also check every certificate). Either would save a further 40–170 s. That is a coverage decision, and it is left to you.
+
+## 5. Fast CI tier
+
+**Not added.** With P1–P4, the mandatory complete run is about 18 minutes on 2 processors, and less on CI's 4. If a fast tier is wanted later, it would supplement that run and never replace it. It would cover format, lints, unit tests, generator reproduction, the manifest and the 14 per-prime theorems. Branch protection, which would make the complete check required, still needs your separate approval.
+
+## 6. Tests and checks added
+
+- `scripts/check-h45-profile.py`, plus `--self-test` (15 altered-table cases), both run by verify.sh.
+- `scripts/fetch-sources.py --check-pins` (offline), run by verify.sh.
+- `cli/tests/rlt006.rs`: the missing and modified cases as two tests, each with its own before-the-change control.
+- **Manual (recorded here):**
+  - interrupt by TERM and by INT;
+  - a mocked wrong download refused with nothing written;
+  - an idempotent re-run of `fetch-sources.py` on a populated directory ("present" for every item).
+
+## 7. Independent adversarial audit
+
+Required because P1–P3 change proof-check scheduling and reuse. The audit is reported in §7.1 once complete.

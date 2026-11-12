@@ -3,9 +3,15 @@ name: rlt
 on:
   push:
   pull_request:
+  # RLT-007a (H3): weekly live re-fetch of every source (non-blocking; it
+  # gates nothing and runs no proofs). Routine runs use pinned commits only.
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
 
 jobs:
   check:
+    if: github.event_name != 'schedule'
     # Pinned: the RLT-006 transcription pins pdftotext 24.02.0 (poppler on
     # Ubuntu 24.04); a newer runner image would ship another version.
     runs-on: ubuntu-24.04
@@ -15,39 +21,28 @@ jobs:
       - run: rustup show
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all-targets -- -D warnings
-      # PyYAML before cargo test: tests materialize RLT-006's certificates
-      # with scripts/gen-rlt006.py, which reads the transcription (YAML).
-      - run: pip install pyyaml
-      - run: cargo test --release
+      # RLT-007a (B3): `cargo test --release` runs once, inside scripts/verify.sh
+      # (which fails if any test fails); the separate step ran it twice.
       - name: Install Lean (independent replay; lean/lean-toolchain selects the version)
         run: |
           curl -sSfL https://raw.githubusercontent.com/leanprover/elan/v4.2.4/elan-init.sh | sh -s -- -y --default-toolchain none
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
-      - name: Clone source repositories for the excerpt check
+      # RLT-007a (H3): routine runs read no branch and no live URL. Every
+      # GitHub source is fetched by its pinned commit SHA; the arXiv e-print
+      # and the PDF come from a cache keyed by the registry (downloaded only
+      # on a cache miss, and refused unless equal to their SHA-256 pins).
+      # The weekly source-provenance job re-fetches everything live.
+      - name: Restore pinned sources
+        uses: actions/cache@v4
+        with:
+          path: /tmp/src
+          key: rlt-sources-${{ hashFiles('sources/registry.yaml', 'sources/transcriptions/*.yaml', 'sources/commit-pins.tsv', 'scripts/fetch-sources.py') }}
+      - name: Fetch pinned sources (commits by SHA; archived files on a cache miss)
         run: |
           pip install pyyaml
-          mkdir -p /tmp/src
-          for r in news rlt translatepi antiviolence residue-manifold-learning specification-grammar general-divisor-theorem; do
-            git clone -q "https://github.com/thinkthoughts/$r" "/tmp/src/$r"
-          done
-          # RLT-003 M3b sources: partial clones, read with git show COMMIT:PATH.
-          git clone -q --filter=tree:0 --no-checkout https://github.com/OpenLogicProject/OpenLogic /tmp/src/OpenLogic
-          git clone -q --filter=tree:0 --no-checkout https://github.com/leanprover/lean4 /tmp/src/lean4
-          # RLT-005 archived source: arXiv e-print; check_excerpts.py refuses it
-          # unless its SHA-256 equals the registry pin.
-          mkdir -p /tmp/src/archived
-          curl -fsSL -A "rlt-ci" -o /tmp/src/archived/2604.05304v2 https://export.arxiv.org/e-print/2604.05304v2
-          # A gzip archive starts with 1f 8b; anything else (an HTML error or
-          # rate-limit page) is a failed download, not a tampered source.
-          [ "$(head -c 2 /tmp/src/archived/2604.05304v2 | od -An -tx1 | tr -d ' ')" = 1f8b ] || { echo "download failed: export.arxiv.org did not return a gzip archive"; exit 1; }
-          # RLT-006 transcribed source: Axiom Math's PDF (pinned by SHA-256 in the
-          # registry) and pdftotext (poppler 24.02.0 on ubuntu-24.04, pinned by the
-          # transcription); lean-bgp212 for the vendored-block comparison.
           sudo apt-get install -y -qq poppler-utils >/dev/null
           pdftotext -v 2>&1 | head -1
-          curl -fsSL -A "rlt-ci" -o /tmp/src/archived/bgp212.pdf https://primegaps.axiommath.ai/bgp212.pdf
-          [ "$(head -c 5 /tmp/src/archived/bgp212.pdf)" = "%PDF-" ] || { echo "download failed: primegaps.axiommath.ai did not return a PDF"; exit 1; }
-          git clone -q https://github.com/thinkthoughts/lean-bgp212 /tmp/src/lean-bgp212
+          python3 -I scripts/fetch-sources.py /tmp/src
       - run: scripts/verify.sh /tmp/src
       - uses: actions/upload-artifact@v4
         if: always()
@@ -59,6 +54,7 @@ jobs:
   # status (compiled or unverified). It needs Mathlib and is outside the gate
   # above: Lean-checked statements about GDT are not RLT theorems.
   gdt-comparison:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -81,3 +77,19 @@ jobs:
         with:
           name: gdt-comparison
           path: gdt-comparison.txt
+
+  # RLT-007a (H3): the source-provenance check with no cache. Every GitHub
+  # source is fetched by its pinned SHA from the live remote, the arXiv
+  # e-print and the PDF are downloaded from their live URLs and refused unless
+  # equal to their SHA-256 pins, and every excerpt is re-checked. A failure
+  # here means a source moved or vanished; it says nothing about the proofs.
+  source-provenance:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          pip install pyyaml
+          sudo apt-get install -y -qq poppler-utils >/dev/null
+          python3 -I scripts/fetch-sources.py /tmp/live
+          python3 -I scripts/check_excerpts.py /tmp/live
