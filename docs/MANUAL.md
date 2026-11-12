@@ -1,6 +1,6 @@
-# RLT user manual — chapters 1–11
+# RLT user manual — chapters 1–12
 
-**Status.** RLT-004a, written 2026-11-11 against main at cc01968. Every terminal block in this manual is checked against the real program by `scripts/check-manual.py`; lines shown as `…` are omitted output. Chapters 12 (writing your own statement records) and 13 (reference) are planned for a later milestone.
+**Status.** RLT-004a, written 2026-11-11 against main at cc01968. Every terminal block in this manual is checked against the real program by `scripts/check-manual.py`; lines shown as `…` are omitted output. Chapter 12 (RLT-005, 2026-11-11) works through a published result. Chapters on writing your own statement records and a reference are planned for a later milestone.
 
 **Who this is for.** Anyone who wants to run RLT on their own machine and read what it reports, including readers who already use [Lean 4](https://lean-lang.org/). Chapter 11 compares the two precisely.
 
@@ -426,7 +426,7 @@ exit 2
 ```console
 $ rlt deps dvd.free235.7; echo "exit $?"
 RLT deps        dvd.free235.7
-library         lib/ index valid (68 entries)
+library         lib/ index valid (87 entries)
 proof           tests/m3c/accept/CA05_free235_seven.rlt (M3c.CA05)
 …
 library entry   dvd.free235.7 · current
@@ -620,3 +620,79 @@ $ cd lean && lean M3eReadings.lean
 | **Axioms and assumptions** | RLT: the registered axiom set. Lean: its standard axioms, gated |
 | **Result** | agreement of two independent checks of the same statement |
 | **Still open** | that the restatement is faithful is reviewed by reading both files; Lean's proof says nothing about RLT's derivation |
+
+## 12. A published result: 8 is not matchable
+
+N. McNew and C. Pomerance (*Matchable numbers*, arXiv:2604.05304v2, §1) call a positive integer n *matchable* if there is a coprime matching between {1, 2, …, τ(n)} and D(n), the set of divisors of n: a bijection pairing each element with a number coprime to it. They note that 1, …, 7 are matchable and that 8 is not, because the even divisors 2, 4 and 8 would all need odd partners, and {1, 2, 3, 4} has only two odd numbers.
+
+RLT has no sets or bijections, so the statement names one partner per divisor: a for 1, b for 2, c for 4, d for 8. The theorem says that D(8) is {1, 2, 4, 8}, that the partner set is {1, 2, 3, 4}, and that no partners exist that are in range, pairwise distinct, and coprime to their divisors. Coprimality is written `cop(m, x)`: every positive common divisor k of m and x is 1.
+
+The argument is five obligations, each a separate checked file in `tests/rlt005/accept/`. One is the paper's own step: a partner of 2 that is coprime to 2 is 1 or 3:
+
+```console
+$ rlt check tests/rlt005/accept/MO2_partner_of_2_is_odd.rlt
+…
+written goal    "∀x. ((0 < x ∧ x < 5) ∧ (∀k. ((0 < k ∧ k ∣ 2) ∧ k ∣ x) → k = 1)) → (x = 1 ∨ x = 3)"
+…
+steps           49
+…
+verdict         ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q
+…
+```
+
+The library entry `matchable.not.8` collects them. `rlt deps` shows the complete graph, checked in one run:
+
+```console
+$ rlt deps matchable.not.8; echo "exit $?"
+…
+library entry   matchable.not.8 · current
+…
+theorems        19 distinct · 29 cited-file checks
+…
+budget          cited-file checks 29 of 64 · citing-file chain 4 of 8
+statement       statements/MATCHABLE-NOT-8.yaml (rlt explain: record current, exit 0)
+exit            0 — every node checked and accepted; the library index valid and the entry, if any, current
+exit 0
+```
+
+The statement record pins the paper itself. The source is an arXiv e-print fixed by its SHA-256 (status `archived`), and `scripts/check_excerpts.py` finds each quoted sentence verbatim in it:
+
+```console
+$ rlt explain statements/MATCHABLE-NOT-8.yaml; echo "exit $?"
+…
+1 KERNEL ACCEPTANCE: ACCEPT
+…
+2 SOURCE FIDELITY: registry verified · pinned
+  source        MCNEW-POMERANCE-MATCHABLE-V2 (archived) @ 21674e5fb69c9a58b187bd51a4efc41330e6eee4d764c3f77882a29fa3aaef16
+  location      https://arxiv.org/abs/2604.05304v2
+…
+3 SEMANTIC CORRESPONDENCE: partial · assessment current
+…
+4 PHYSICAL CORRESPONDENCE: not applicable
+…
+exit 0
+```
+
+The assessment is `partial`. The checked formula speaks of four partner variables. That this is exactly the paper's coprime matching over ℕ is a Lean theorem, not an RLT theorem: `explicit_iff` in `lean/RLT005Readings.lean` proves the translation for any four distinct positive divisors, and `matchable_one_to_seven` confirms that the Lean definition agrees with the paper on 1–7:
+
+```console
+$ cd lean && lean RLT005Readings.lean
+…
+'RLT005Readings.explicit_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
+…
+'RLT005Readings.not_matchable_eight' depends on axioms: [propext, Classical.choice, Quot.sound]
+…
+'RLT005Readings.matchable_one_to_seven' depends on axioms: [propext, Classical.choice, Quot.sound]
+…
+```
+
+**Why `0 < d` and `0 < k`.** Robinson's Q cannot prove 0 × x = 0 for a variable x, since that needs induction. So it cannot rule out 0 ∣ 8. The statement therefore speaks of positive divisors, which is what the paper means by the divisors of a positive integer. Over ℕ nothing changes (Lean `mem_divisors`, `cop_iff_gcd`).
+
+| | |
+|---|---|
+| **You write** | partner variables, ranges, distinctness and `cop` for each divisor (`tests/rlt005/accept/`, generated by `scripts/gen-rlt005.py`) |
+| **RLT interprets** | NAT-DEF: `<` and `∣` expanded to their definitions |
+| **The kernel checks** | 19 files: the divisor and partner sets, the odd-partner lemmas, the pigeonhole step, the contradiction, the final theorem, and the refutation of cop(2, 2) |
+| **Axioms and assumptions** | Robinson's Q (all seven axioms); Γ = ∅ |
+| **Result** | ACCEPT — unconditional theorem; semantic correspondence partial (Lean bridge); physical not applicable |
+| **Still open** | "nor is any subsequent multiple of 4" needs every n, hence induction |

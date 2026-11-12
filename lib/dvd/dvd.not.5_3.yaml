@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.not.5_3
+title: "¬(5 ∣ 3)"
+fingerprint: 5702d694fea737b2da6601f06359e3f2b20ec67faf882708907896173b64ad22
+proof: {path: tests/rlt005/accept/ND_5_3.rlt, sha256: b4d4cf73eeeb2bbba69a6b8608b6a7e9b57375b60719c71a6e3025dde45c7138}
+proof_id: RLT005.ND_5_3
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "¬(∃k. 3 = 5 × k)"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

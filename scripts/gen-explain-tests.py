@@ -16,6 +16,7 @@ BASE = {
     "D": open("statements/DVD-2-8.yaml", encoding="utf-8").read(),
     "M": open("statements/MATH29-PAIRING.yaml", encoding="utf-8").read(),
     "C": open("statements/CONDITIONAL-2X3.yaml", encoding="utf-8").read(),
+    "N": open("statements/MATCHABLE-NOT-8.yaml", encoding="utf-8").read(),
 }
 OTHER_SHA = "f" * 64
 
@@ -76,11 +77,21 @@ CASES = [
     ("XA01-ASSESSED-GOAL-DIFFERS", "E", [(re.compile(r'  assessed_goal: "∀r\. '), '  assessed_goal: "∀s. ')], 0, "3 SEMANTIC CORRESPONDENCE: partial · assessment stale"),
     ("XA02-BASIS-SHA-DIFFERS", "E", [("sha256: 67d01af5", "sha256: 77d01af5")], 0, "3 SEMANTIC CORRESPONDENCE: partial · assessment stale"),
     ("XA03-UNPINNED-SOURCE", "C", [], 0, "2 SOURCE FIDELITY: registry verified · unpinned"),
+    # RLT-005: the archived arXiv source and the matchable record.
+    ("XN01-ARCHIVE-PIN-MODIFIED", "N", [("commit: 21674e5f", "commit: 31674e5f")], 2, "differs from the registry's 21674e5fb69c9a58b187bd51a4efc41330e6eee4d764c3f77882a29fa3aaef16"),
+    ("XN02-ARCHIVE-PIN-OMITTED", "N", [("  commit: 21674e5fb69c9a58b187bd51a4efc41330e6eee4d764c3f77882a29fa3aaef16\n", "")], 2, "is pinned at commit 21674e5fb69c9a58b187bd51a4efc41330e6eee4d764c3f77882a29fa3aaef16; the record must state that commit"),
+    ("XN03-EXCERPT-ALTERED", "N", [("However, 8 is not matchable", "However, 8 is matchable")], 2, "is not a whole unit of any registered excerpt"),
+    ("XN04-PROOF-SHA", "N", [("sha256: e1704268aa4e906e20f3b94d9597409126e797338054adf3bb8cfe003916a9a3", "sha256: " + OTHER_SHA)], 3, "  stale         proof sha256: record " + OTHER_SHA),
+    ("XN05-RECORDED-GOAL-WITHOUT-DISTINCTNESS", "N", [("(((((¬(a = b) ∧ ¬(a = c)) ∧ ¬(a = d)) ∧ ¬(b = c)) ∧ ¬(b = d)) ∧ ¬(c = d))", "a = a")], 3, "  stale         checked goal: record ((∀d."),
+    ("XN06-LEAN-THEOREM-ABSENT", "N", [("RLT005Readings.not_matchable_eight", "RLT005Readings.not_matchable_twelve")], 2, "is not declared in lean/RLT005Readings.lean"),
+    ("XN07-REJECTED-PROOF", "N", [("proof: tests/rlt005/accept/MN8_eight_is_not_matchable.rlt", "proof: tests/rlt005/reject/RR07_cites_rejected_proof.rlt"), ("sha256: e1704268aa4e906e20f3b94d9597409126e797338054adf3bb8cfe003916a9a3", "sha256: @RR07")], 2, "1 KERNEL ACCEPTANCE: MALFORMED"),
+    ("XN08-BASIS-CHANGED", "N", [(re.compile(r"basis: \{path: docs/RLT-005-CORRESPONDENCE.md, sha256: [0-9a-f]{8}"), "basis: {path: docs/RLT-005-CORRESPONDENCE.md, sha256: 00000000")], 0, "3 SEMANTIC CORRESPONDENCE: partial · assessment stale"),
 ]
 
 FILES = {
     "@CR10": "tests/m3c/reject/CR10_two_not_divides_eight.rlt",
     "@CR17a": "tests/m3c/reject/CR17a_cited_hash_differs.rlt",
+    "@RR07": "tests/rlt005/reject/RR07_cites_rejected_proof.rlt",
 }
 
 

@@ -8,7 +8,9 @@ rlt itself: news, rlt, translatepi, antiviolence, residue-manifold-learning,
 specification-grammar, and (RLT-003 M3b) OpenLogic and lean4. Each excerpt is read with `git show COMMIT:PATH`, so the
 clones may be at any revision as long as they contain the recorded commits.
 Sources without a GitHub file location (conversation records, foundational
-references, missing sources) are listed as skipped.
+references, missing sources) are listed as skipped. An archived source
+(RLT-005) is read from CHECKOUTS_DIR/archived/ or downloaded, and refused
+unless its SHA-256 equals the registry pin.
 """
 import re
 import subprocess
@@ -21,8 +23,20 @@ except ImportError:
     sys.exit("PyYAML is required: pip install pyyaml")
 
 root = Path(__file__).resolve().parent.parent
-checkouts = Path(sys.argv[1])
-reg = yaml.safe_load((root / "sources/registry.yaml").read_text(encoding="utf-8"))
+# Options (RLT-005, for the tamper tests in scripts/verify.sh):
+#   --registry PATH   read this registry instead of sources/registry.yaml
+#   --only ID         check only the source with this id
+args = sys.argv[1:]
+opts = {}
+while args and args[0].startswith("--"):
+    opts[args[0]] = args[1]
+    args = args[2:]
+checkouts = Path(args[0])
+reg = yaml.safe_load(Path(opts.get("--registry", root / "sources/registry.yaml")).read_text(encoding="utf-8"))
+if "--only" in opts:
+    reg["sources"] = [s for s in reg["sources"] if s["id"] == opts["--only"]]
+    if not reg["sources"]:
+        sys.exit(f"no source {opts['--only']}")
 
 pat = re.compile(r"https://github\.com/[^/]+/([^/]+)/blob/([0-9a-f]+)/(.+)$")
 mention = re.compile(r"(?i)(?<![a-z0-9_])math(0|5|29)(?![0-9])")
@@ -46,8 +60,108 @@ def bounded(text, x):
     return False
 
 
+MAX_ARCHIVE = 50 * 1024 * 1024  # bytes read from the network, at most
+
+
+def member_ok(m):
+    """The member rule shared with `rlt validate`: a relative path of
+    non-empty components, none of them '.' or '..'."""
+    return bool(m) and not m.startswith("/") and all(c not in ("", ".", "..") for c in m.split("/"))
+
+
+def gzip_fname(data):
+    """The FNAME field of a gzip header (RFC 1952), or None."""
+    if data[:2] != b"\x1f\x8b" or len(data) < 10 or not data[3] & 0x08:
+        return None
+    i = 10
+    if data[3] & 0x04:  # FEXTRA
+        i += 2 + int.from_bytes(data[10:12], "little")
+    j = data.index(b"\0", i)
+    return data[i:j].decode("latin-1")
+
+
+def archived_text(s):
+    """RLT-005: an archived source is a versioned archive file (e.g. an arXiv
+    e-print) pinned by the SHA-256 in `commit`; `url` names the archive and,
+    after '#', the member file. The archive is read from CHECKOUTS/archived/
+    if present there (never through a symlink), else downloaded (at most
+    MAX_ARCHIVE bytes); its SHA-256 must equal the pin. A tar archive must
+    contain the member; a single gzipped file must name it in its header."""
+    import gzip, hashlib, io, os, tarfile, tempfile, urllib.request
+    url, _, member = s["url"].partition("#")
+    if not member_ok(member):
+        raise ValueError(f"member {member!r} must be a relative path without '.' or '..' components")
+    cached = checkouts / "archived" / url.rstrip("/").rsplit("/", 1)[-1]
+    if cached.is_symlink():
+        raise ValueError(f"{cached} is a symlink; refusing to read or write through it")
+    fetched = not cached.exists()
+    if fetched:
+        req = urllib.request.Request(url, headers={"User-Agent": "rlt-check-excerpts (scripts/check_excerpts.py)"})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            data = r.read(MAX_ARCHIVE + 1)
+        if len(data) > MAX_ARCHIVE:
+            raise ValueError(f"download from {url} exceeds {MAX_ARCHIVE} bytes")
+    else:
+        data = cached.read_bytes()
+    got = hashlib.sha256(data).hexdigest()
+    if got != s["commit"]:
+        raise ValueError(f"archive SHA-256 {got} differs from the pin {s['commit']}")
+    if fetched:  # cache only bytes that match the pin, atomically
+        cached.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=cached.parent)
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+        os.replace(tmp, cached)
+    try:
+        t = tarfile.open(fileobj=io.BytesIO(data))
+    except tarfile.ReadError:
+        name = gzip_fname(data)
+        if name != member:
+            raise ValueError(f"single gzipped file names {name!r} in its header, not the member {member!r}")
+        return gzip.decompress(data).decode("utf-8")
+    with t:
+        return t.extractfile(member).read().decode("utf-8")
+
+
+def latex_live(text):
+    """LaTeX source with comments removed: from an unescaped % to the line
+    end (the line break is kept, so excerpts cannot join across comments)."""
+    import re as _re
+    return _re.sub(r"(?<!\\)%[^\n]*", "", text)
+
+
+def at_word_boundaries(hay, x):
+    """Some whitespace-collapsed occurrence of x in hay starts and ends at a
+    word boundary (no letter or digit continues the word on either side)."""
+    h, y = " ".join(hay.split()), " ".join(x.split())
+    start = 0
+    while (i := h.find(y, start)) >= 0:
+        before = h[i - 1] if i else " "
+        after = h[i + len(y)] if i + len(y) < len(h) else " "
+        if not (before.isalnum() and y[0].isalnum()) and not (after.isalnum() and y[-1].isalnum()):
+            return True
+        start = i + 1
+    return False
+
 bad = 0
 for s in reg["sources"]:
+    if s["status"] == "archived":
+        try:
+            text = archived_text(s)
+        except Exception as e:
+            print(f"ERROR    {s['id']}: {e}")
+            bad += 1
+            continue
+        # Comments are not the source's text; an excerpt must sit in live
+        # LaTeX and must not start or end inside a word.
+        if s["url"].partition("#")[2].endswith(".tex"):
+            text = latex_live(text)
+        for e in s.get("excerpts", []):
+            x = e["text"] if isinstance(e, dict) else e
+            ok = at_word_boundaries(text, x)
+            print(f"{'ok' if ok else 'MISSING':8} {s['id']}: {x[:70]!r}")
+            bad += 0 if ok else 1
+        continue
     m = pat.match(s.get("location", ""))
     if s["status"] == "available" and s.get("excerpts") and not m:
         print(f"ERROR    {s['id']}: status available requires a GitHub file location at a commit")

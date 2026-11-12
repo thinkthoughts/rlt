@@ -1,0 +1,18 @@
+format: rlt-lib/1
+id: matchable.odd_partner.8
+title: "∀x. ((0 < x ∧ x < 5) ∧ (∀k. ((0 < k ∧ k ∣ 8) ∧ k ∣ x) → k = 1)) → (x = 1 ∨ x = 3)"
+fingerprint: cfa2cd1aa46b11dae53a116f94ba89f5d4f53a9573c6d40b2278abb749544852
+proof: {path: tests/rlt005/accept/MO8_partner_of_8_is_odd.rlt, sha256: 0bc40524be4324ead3b81d9d0d3880256b8781504ea8c60cf15b91f33980914b}
+proof_id: RLT005.MO8
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀x. ((((∃z. S(z) + 0 = x) ∧ (∃z. S(z) + x = 5)) ∧ (∀k. ((((∃z. S(z) + 0 = k) ∧ (∃k′. 8 = k × k′)) ∧ (∃k′. x = k × k′)) → k = 1))) → (x = 1 ∨ x = 3))"
+assumptions: []
+citable: true
+uses:
+  - matchable.partners.4
+  - dvd.2_2
+  - dvd.2_4
+  - dvd.2_8
+statement_records: []
+history: []

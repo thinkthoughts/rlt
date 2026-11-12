@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.8_8
+title: "8 ∣ 8"
+fingerprint: 6885aec887d5639511d8ae8df0714bdfcebd02b282fdcdcac4098e6b1c85b801
+proof: {path: tests/rlt005/accept/PD_8_8.rlt, sha256: 6af166d93637aa740f4d72ed81abbdcc321f0e1b8047f27df8b3c432497325ff}
+proof_id: RLT005.PD_8_8
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∃k. 8 = 8 × k"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

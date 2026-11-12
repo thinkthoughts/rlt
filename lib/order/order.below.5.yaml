@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: order.below.5
+title: "∀x. x < 5 → x = 0 ∨ x = 1 ∨ x = 2 ∨ x = 3 ∨ x = 4"
+fingerprint: 0183d39c3ce25b3ea45f23ecb4415426b52469b48953af3996ae29e5e395570a
+proof: {path: tests/rlt005/accept/B5_below_five.rlt, sha256: e1bd55f9ede33628252fd1bc7374765be2de85bd6855669eb8aa73bd13eb8809}
+proof_id: RLT005.B5
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀x. ((∃z. S(z) + x = 5) → ((((x = 0 ∨ x = 1) ∨ x = 2) ∨ x = 3) ∨ x = 4))"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

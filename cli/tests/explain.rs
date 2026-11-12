@@ -55,6 +55,7 @@ fn x01_to_x04_records_are_valid_current_and_accepted() {
         [
             "statements/CONDITIONAL-2X3.yaml",
             "statements/DVD-2-8.yaml",
+            "statements/MATCHABLE-NOT-8.yaml",
             "statements/MATH29-PAIRING.yaml",
             "statements/MOD30-CLASSIFICATION.yaml"
         ]
@@ -123,7 +124,8 @@ fn fixtures_match_expected_exit_and_line() {
         assert_eq!(j["exit"].as_i64(), Some(x.exit as i64), "{}", f[0]);
         n += 1;
     }
-    assert_eq!(n, 44);
+    // 44 fixtures at RLT-004b; RLT-005 adds XN01–XN08.
+    assert_eq!(n, 52);
 }
 
 #[test]

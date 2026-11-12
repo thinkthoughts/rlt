@@ -7,6 +7,11 @@
 #   available     file at a recorded commit; excerpts are checked against it by
 #                 scripts/check_excerpts.py (an available source must have
 #                 a GitHub file location and excerpts)
+#   archived      (RLT-005) a file inside a versioned, immutable archive, such
+#                 as an arXiv e-print: `url` is the archive and, after '#',
+#                 the member file; `commit` holds the archive's SHA-256; the
+#                 excerpts are checked against that member by
+#                 scripts/check_excerpts.py after it verifies the SHA-256
 #   reference     cited literature or a repository referenced as a whole, with no
 #                 excerpts; it can ground an axiom set, never a reading-point meaning
 #   conversation  a statement made in the RLT review conversation, quoted verbatim;
@@ -314,3 +319,17 @@ sources:
     location: https://formalize.now/
     status: missing
     note: unreachable from the review session
+
+  - id: MCNEW-POMERANCE-MATCHABLE-V2
+    title: "Nathan McNew and Carl Pomerance, Matchable numbers, arXiv:2604.05304v2 [math.NT], submitted 23 May 2026 (v1 7 Apr 2026)"
+    location: https://arxiv.org/abs/2604.05304v2
+    url: https://export.arxiv.org/e-print/2604.05304v2#match051426.tex
+    commit: 21674e5fb69c9a58b187bd51a4efc41330e6eee4d764c3f77882a29fa3aaef16
+    status: archived
+    note: "Read 2026-11-11 for RLT-005. The e-print (gzip tar, 25,743 bytes) has the SHA-256 above; its member match051426.tex (SHA-256 e7b6265c5e3b4e82bc12e14e71a2d84c10a24dd397dca62ae920a0102034260b) holds the excerpts, in section 1 (Introduction), lines 79-96. Excerpts are verbatim LaTeX."
+    excerpts:
+      - "a bijection $\\psi$ between them is said to be a coprime matching if for each $x$ in the domain of $\\psi$, $x$ and $\\psi(x)$ are coprime."
+      - "let $D(n)$ denote the set of divisors of $n$, and $\\tau(n)=|D(n)|$."
+      - "We say an integer $n$ is \\textit{matchable} if there is a coprime matching between $\\{1,2,\\dots,\\tau(n)\\}$ and $D(n)$."
+      - "However, 8 is not matchable, nor is any subsequent multiple of 4."
+      - "Since even divisors must be mapped to odd numbers in a coprime matching, proper multiples of 4 are seen to be not matchable."

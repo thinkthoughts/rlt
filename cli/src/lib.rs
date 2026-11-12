@@ -1416,7 +1416,7 @@ pub fn chem_report(root: &Path, written: &str, conv_id: &str) -> Report {
 /// untagged, retagged to another reading point, or newly cited only through a
 /// reviewed code change. Update it with the digest `rlt validate` prints.
 pub const PINNED_REGISTRY_SHA: &str =
-    "db602ae9c03fe1fc9b6c3aea0fcc69c2cda406b65192956027b2a35429a81b1d";
+    "f85b76fb40c7243e9e4a760449c321ede6f94857ee674877181d0bfbc6c92347";
 
 /// Canonical digest of the registry: for every source (in id order) its id,
 /// status and location, then each excerpt's text, `defines` and `split`, one
@@ -1778,6 +1778,27 @@ pub fn validate(root: &Path) -> Report {
         {
             problems.push(format!(
                 "{}: status available with excerpts requires a GitHub file location",
+                src.id
+            ));
+        }
+    }
+    for src in reg.values().filter(|s| s.status == "archived") {
+        let hex = src.commit.len() == 64
+            && src
+                .commit
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
+        // Same rule as scripts/check_excerpts.py `member_ok`: a relative
+        // path of non-empty components, none of them `.` or `..`.
+        let member = src.url.split_once('#').is_some_and(|(a, m)| {
+            a.starts_with("https://")
+                && !m.is_empty()
+                && !m.starts_with('/')
+                && m.split('/').all(|c| !c.is_empty() && c != "." && c != "..")
+        });
+        if !hex || !member || src.excerpts.is_empty() {
+            problems.push(format!(
+                "{}: status archived requires `commit` = the archive's SHA-256 (64 lowercase hex), `url` = https archive URL + '#' + member path (relative, no `.` or `..` components), and excerpts",
                 src.id
             ));
         }

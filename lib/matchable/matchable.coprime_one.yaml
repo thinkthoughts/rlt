@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: matchable.coprime_one
+title: "∀m. ∀k. ((0 < k ∧ k ∣ m) ∧ k ∣ 1) → k = 1"
+fingerprint: 439ad32ecc090743608a1b0192e0a1e0dc89ad62d108dec6a5858aa89303f2ac
+proof: {path: tests/rlt005/accept/MCO_one_is_coprime_to_all.rlt, sha256: 8d3a3803fe79bab2e7e48d2698184a0fda20e18dc1ccfaa368944a0efccb261e}
+proof_id: RLT005.MCO
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀m. ∀k. ((((∃z. S(z) + 0 = k) ∧ (∃k′. m = k × k′)) ∧ (∃k′. 1 = k × k′)) → k = 1)"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

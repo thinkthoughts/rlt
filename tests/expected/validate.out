@@ -1,6 +1,7 @@
 axiom sets      PEANO-ADD (2 axioms), PEANO-ARITH (4 axioms), ROBINSON-Q (7 axioms)
-sources         30 registered
+sources         31 registered
   ambiguous     1
+  archived      1
   available     15
   conversation  6
   missing       4

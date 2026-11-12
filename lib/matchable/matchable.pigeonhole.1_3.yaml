@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: matchable.pigeonhole.1_3
+title: "∀b. ∀c. ∀d. (((b = 1 ∨ b = 3) ∧ (c = 1 ∨ c = 3)) ∧ (d = 1 ∨ d = 3)) → ((b = c ∨ b = d) ∨ c = d)"
+fingerprint: a204d5986cb15964ba92343de601b902bd33248ab45ca8548f3c11ac7a185065
+proof: {path: tests/rlt005/accept/MPH_three_values_in_one_three.rlt, sha256: 822f2140b9ce148a41658b501c54739716a52215032c41e23a0c859dc4912086}
+proof_id: RLT005.MPH
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀b. ∀c. ∀d. ((((b = 1 ∨ b = 3) ∧ (c = 1 ∨ c = 3)) ∧ (d = 1 ∨ d = 3)) → ((b = c ∨ b = d) ∨ c = d))"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []
