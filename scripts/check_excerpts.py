@@ -8,7 +8,9 @@ rlt itself: news, rlt, translatepi, antiviolence, residue-manifold-learning,
 specification-grammar, and (RLT-003 M3b) OpenLogic and lean4. Each excerpt is read with `git show COMMIT:PATH`, so the
 clones may be at any revision as long as they contain the recorded commits.
 Sources without a GitHub file location (conversation records, foundational
-references, missing sources) are listed as skipped.
+references, missing sources) are listed as skipped. An archived source
+(RLT-005) is read from CHECKOUTS_DIR/archived/ or downloaded, and refused
+unless its SHA-256 equals the registry pin.
 """
 import re
 import subprocess
@@ -21,8 +23,20 @@ except ImportError:
     sys.exit("PyYAML is required: pip install pyyaml")
 
 root = Path(__file__).resolve().parent.parent
-checkouts = Path(sys.argv[1])
-reg = yaml.safe_load((root / "sources/registry.yaml").read_text(encoding="utf-8"))
+# Options (RLT-005, for the tamper tests in scripts/verify.sh):
+#   --registry PATH   read this registry instead of sources/registry.yaml
+#   --only ID         check only the source with this id
+args = sys.argv[1:]
+opts = {}
+while args and args[0].startswith("--"):
+    opts[args[0]] = args[1]
+    args = args[2:]
+checkouts = Path(args[0])
+reg = yaml.safe_load(Path(opts.get("--registry", root / "sources/registry.yaml")).read_text(encoding="utf-8"))
+if "--only" in opts:
+    reg["sources"] = [s for s in reg["sources"] if s["id"] == opts["--only"]]
+    if not reg["sources"]:
+        sys.exit(f"no source {opts['--only']}")
 
 pat = re.compile(r"https://github\.com/[^/]+/([^/]+)/blob/([0-9a-f]+)/(.+)$")
 mention = re.compile(r"(?i)(?<![a-z0-9_])math(0|5|29)(?![0-9])")
@@ -54,14 +68,19 @@ def archived_text(s):
     import gzip, hashlib, io, tarfile, urllib.request
     url, _, member = s["url"].partition("#")
     cached = checkouts / "archived" / url.rstrip("/").rsplit("/", 1)[-1]
-    if cached.exists():
-        data = cached.read_bytes()
-    else:
-        with urllib.request.urlopen(url, timeout=60) as r:
+    fetched = not cached.exists()
+    if fetched:
+        req = urllib.request.Request(url, headers={"User-Agent": "rlt-check-excerpts (scripts/check_excerpts.py)"})
+        with urllib.request.urlopen(req, timeout=60) as r:
             data = r.read()
+    else:
+        data = cached.read_bytes()
     got = hashlib.sha256(data).hexdigest()
     if got != s["commit"]:
         raise ValueError(f"archive SHA-256 {got} differs from the pin {s['commit']}")
+    if fetched:  # cache only bytes that match the pin
+        cached.parent.mkdir(parents=True, exist_ok=True)
+        cached.write_bytes(data)
     try:
         with tarfile.open(fileobj=io.BytesIO(data)) as t:
             return t.extractfile(member).read().decode("utf-8")

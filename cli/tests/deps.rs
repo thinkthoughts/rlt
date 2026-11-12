@@ -84,15 +84,16 @@ fn sha(p: &Path) -> String {
 #[test]
 fn the_library_is_valid_and_every_entry_current() {
     let lib = load_library(&root()).expect("lib/ loads");
-    assert_eq!(lib.entries.len(), 68);
+    // 68 entries over 70 proofs at RLT-004c; RLT-005 adds 18 of each.
+    assert_eq!(lib.entries.len(), 86);
     let proofs: usize = lib
         .entries
         .iter()
         .map(|(_, e)| 1 + e.alternatives.len())
         .sum();
     assert_eq!(
-        proofs, 70,
-        "every accepted proof of M3c–M3e and the statement records is indexed"
+        proofs, 88,
+        "every accepted proof of M3c–M3e, RLT-005 and the statement records is indexed"
     );
     let r = verify_lib(&root());
     assert_eq!(r.exit, ACCEPT, "{}", rlt_cli::deps::render_lib_text(&r));

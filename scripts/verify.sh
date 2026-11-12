@@ -231,6 +231,30 @@ while IFS=$'\t' read -r f want reason; do
   { [ "$m3e_code" = "$want" ] && echo "$m3e_log" | grep '^verdict' | grep -qF -- "$reason"; } && m3e_r=$((m3e_r + 1)) || { echo "  UNEXPECTED: $f exit $m3e_code (want $want): $(echo "$m3e_log" | grep '^verdict')"; fail=1; }
 done < tests/m3e/expected.tsv
 echo "tests/m3e/reject: $m3e_r of $m3e_rn refused with the required exit code and reason"
+echo; echo "== published mathematics: 8 is not matchable, RLT-005 (tests/rlt005)"
+r5_tmp=$(mktemp -d); cp -r tests/rlt005 "$r5_tmp/before"
+if python3 -I scripts/gen-rlt005.py "$rlt" >/dev/null && diff -r "$r5_tmp/before" tests/rlt005 >/dev/null; then
+  echo "scripts/gen-rlt005.py reproduces tests/rlt005"
+else
+  echo "  UNEXPECTED: tests/rlt005 differs from scripts/gen-rlt005.py output"; rm -rf tests/rlt005; cp -r "$r5_tmp/before" tests/rlt005; fail=1
+fi
+rm -rf "$r5_tmp"
+r5_ok=0; r5_n=0
+for f in tests/rlt005/accept/*.rlt; do
+  r5_n=$((r5_n + 1))
+  "$rlt" check "$f" | grep -qE '^verdict         ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q' && r5_ok=$((r5_ok + 1)) || { echo "  UNEXPECTED: $f"; fail=1; }
+done
+echo "tests/rlt005/accept: $r5_ok of $r5_n ACCEPT as unconditional theorems under ROBINSON-Q"
+r5_r=0; r5_rn=0
+while IFS=$'\t' read -r f want reason; do
+  case "$f" in \#*|"") continue ;; esac
+  r5_rn=$((r5_rn + 1))
+  r5_log=$("$rlt" check "$f"); r5_code=$?
+  { [ "$r5_code" = "$want" ] && echo "$r5_log" | grep '^verdict' | grep -qF -- "$reason"; } && r5_r=$((r5_r + 1)) || { echo "  UNEXPECTED: $f exit $r5_code (want $want): $(echo "$r5_log" | grep '^verdict')"; fail=1; }
+done < tests/rlt005/expected.tsv
+echo "tests/rlt005/reject: $r5_r of $r5_rn give the required exit code and reason"
+r5_deps=$("$rlt" deps matchable.not.8); r5_dcode=$?
+{ [ $r5_dcode = 0 ] && echo "$r5_deps" | grep -q '^exit            0'; } && echo "rlt deps matchable.not.8: $(echo "$r5_deps" | grep -E '^(theorems|budget)' | tr -s ' ' | paste -sd ';')" || { echo "  UNEXPECTED: rlt deps matchable.not.8 exit $r5_dcode"; fail=1; }
 for pin in "spec/peano.rlt 1a3f83444a06fdfbd02c9af2a5881b47137ba102a675a4e012c84be477b10a0d" "spec/peano-arith.rlt 00ceffa9a60b53286f350edbf2f1a5f48a14169a9b09a82cbedc6f9956ff01e4" "spec/robinson-q.rlt 4ad55192222576e3901abc4ee7ea5a6760b64ff212e8c55796ab9847e423b00c" "spec/definitions.rlt 122e37fc627b136023a1a5ffac0344162ed77ae95312248a9f6a76c2b639ecda"; do
   read -r f want <<< "$pin"
   [ "$(sha256sum "$f" | cut -d' ' -f1)" = "$want" ] && echo "$f sha256 $want" || { echo "  UNEXPECTED: $f changed"; fail=1; }
@@ -331,7 +355,7 @@ lean_bin=$(command -v lean || { [ -x "$HOME/.elan/bin/lean" ] && echo "$HOME/.el
 if [ -n "$lean_bin" ]; then
   # Run inside lean/ so elan selects lean/lean-toolchain. Any Lean message
   # other than the #print axioms lines (a warning, `sorry`, an error) fails.
-  lean_log=$(cd lean && "$lean_bin" --version && "$lean_bin" RLT001.lean && "$lean_bin" Generated.lean && "$lean_bin" M2Generated.lean && "$lean_bin" M2Readings.lean && "$lean_bin" M3aGenerated.lean && "$lean_bin" M3bGenerated.lean && "$lean_bin" M3bReadings.lean && "$lean_bin" M3cGenerated.lean && "$lean_bin" M3cReadings.lean && "$lean_bin" M3dGenerated.lean && "$lean_bin" M3dReadings.lean && "$lean_bin" M3eGenerated.lean && "$lean_bin" M3eReadings.lean 2>&1); lean_code=$?
+  lean_log=$(cd lean && "$lean_bin" --version && "$lean_bin" RLT001.lean && "$lean_bin" Generated.lean && "$lean_bin" M2Generated.lean && "$lean_bin" M2Readings.lean && "$lean_bin" M3aGenerated.lean && "$lean_bin" M3bGenerated.lean && "$lean_bin" M3bReadings.lean && "$lean_bin" M3cGenerated.lean && "$lean_bin" M3cReadings.lean && "$lean_bin" M3dGenerated.lean && "$lean_bin" M3dReadings.lean && "$lean_bin" M3eGenerated.lean && "$lean_bin" M3eReadings.lean && "$lean_bin" RLT005Direct.lean && "$lean_bin" RLT005Readings.lean 2>&1); lean_code=$?
   echo "$lean_log"
   if [ $lean_code != 0 ] || echo "$lean_log" | grep -qiE "warning|error|sorry"; then
     echo "FAILED"; fail=1
@@ -367,6 +391,17 @@ if [ -n "$lean_bin" ]; then
   m3e_bad=$(echo "$lean_log" | grep "RLTM3eReadings\." | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound' | sort -u)
   { [ "$m3e_listed" = "$m3e_n" ] && [ -z "$m3e_bad" ]; } && echo "M3eReadings.lean: $m3e_n statements, standard axioms only (tier 2; Lean-checked correspondence, not RLT theorems)" || { echo "M3eReadings.lean: axiom gate FAILED ($m3e_listed of $m3e_n listed; non-standard: $m3e_bad)"; fail=1; }
   # Tier 1 axiom gates for M3c and (M3b audit note 4) M3a: every generated theorem.
+  # RLT-005: both comparisons, every theorem listed with standard axioms only,
+  # and the shared definitions byte-identical in the two files.
+  for rf in RLT005Direct RLT005Readings; do
+    r5_names=$(sed -n 's/^theorem \([A-Za-z0-9_'"'"']*\).*/\1/p' "lean/$rf.lean")
+    r5_n=$(echo "$r5_names" | grep -c .); r5_listed=0
+    for nm in $r5_names; do echo "$lean_log" | grep -qE "^'$rf\.$nm' (depends on axioms|does not depend on any axioms)" && r5_listed=$((r5_listed + 1)); done
+    r5_bad=$(echo "$lean_log" | grep "^'$rf\." | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound' | sort -u)
+    { [ "$r5_listed" = "$r5_n" ] && [ -z "$r5_bad" ]; } && echo "$rf.lean: $r5_n statements, standard axioms only (RLT-005 Lean comparison; not RLT theorems)" || { echo "$rf.lean: axiom gate FAILED ($r5_listed of $r5_n listed; non-standard: $r5_bad)"; fail=1; }
+  done
+  r5_block() { sed -n '/^-- BEGIN SHARED RLT-005 BLOCK/,/^-- END SHARED RLT-005 BLOCK/p' "$1"; }
+  { [ -n "$(r5_block lean/RLT005Direct.lean)" ] && [ "$(r5_block lean/RLT005Direct.lean)" = "$(r5_block lean/RLT005Readings.lean)" ]; } && echo "RLT005 shared definitions: byte-identical in both files" || { echo "RLT005 shared definitions DIFFER between RLT005Direct.lean and RLT005Readings.lean"; fail=1; }
   for gen in M3eGenerated:RLTGeneratedM3e M3dGenerated:RLTGeneratedM3d M3cGenerated:RLTGeneratedM3c M3aGenerated:RLTGeneratedM3a; do
     gfile=${gen%%:*}; gns=${gen##*:}
     ggate=$(mktemp -d)/${gfile}Gate.lean
@@ -402,6 +437,27 @@ if [ $# -ge 1 ]; then
   excerpts_log=$(python3 -I scripts/check_excerpts.py "$1"); excerpts_code=$?
   echo "$excerpts_log" | grep -E "^(MISSING|ERROR|PARTIAL|UNCOVERED)"; echo "$excerpts_log" | tail -1
   [ $excerpts_code = 0 ] || fail=1
+  # RLT-005: the archived source is refused when the archive, the member or an
+  # excerpt is tampered with (scratch copies; the real registry is untouched).
+  ar_id=MCNEW-POMERANCE-MATCHABLE-V2; ar_file=2604.05304v2; ar_tmp=$(mktemp -d)
+  if [ -f "$1/archived/$ar_file" ]; then
+    mkdir -p "$ar_tmp/bad/archived" "$ar_tmp/good"
+    { cat "$1/archived/$ar_file"; printf x; } > "$ar_tmp/bad/archived/$ar_file"
+    cp -r "$1/archived" "$ar_tmp/good/archived"
+    ar_t() {  # name, checkouts, registry edit (python expr on s), required output
+      python3 -c "import sys; s=open('sources/registry.yaml',encoding='utf-8').read(); s=$3; open(sys.argv[1],'w',encoding='utf-8').write(s)" "$ar_tmp/reg.yaml"
+      ar_log=$(python3 -I scripts/check_excerpts.py --registry "$ar_tmp/reg.yaml" --only $ar_id "$2" 2>&1); ar_code=$?
+      { [ $ar_code = 1 ] && echo "$ar_log" | grep -qF -- "$4"; } && echo "archived source refused: $1" || { echo "  UNEXPECTED: archived source $1 not refused (exit $ar_code)"; fail=1; }
+    }
+    ar_t "archive bytes changed" "$ar_tmp/bad" "s" "differs from the pin 21674e5f"
+    ar_t "pin changed" "$ar_tmp/good" "s.replace('commit: 21674e5f','commit: 31674e5f')" "differs from the pin 31674e5f"
+    ar_t "member changed to another file" "$ar_tmp/good" "s.replace('#match051426.tex','#anc/compute_census.py')" "MISSING  $ar_id"
+    ar_t "member absent" "$ar_tmp/good" "s.replace('#match051426.tex','#absent.tex')" "ERROR    $ar_id"
+    ar_t "excerpt changed" "$ar_tmp/good" "s.replace('However, 8 is not matchable','However, 8 is matchable')" "MISSING  $ar_id: 'However, 8 is matchable"
+  else
+    echo "  UNEXPECTED: $1/archived/$ar_file absent after the excerpt check"; fail=1
+  fi
+  rm -rf "$ar_tmp"
 elif [ "${RLT_SKIP_EXCERPTS:-}" = 1 ]; then
   echo "SKIPPED (no SOURCE_CHECKOUTS_DIR; RLT_SKIP_EXCERPTS=1)"; skipped=1
 else

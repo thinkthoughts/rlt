@@ -13,5 +13,6 @@ uses:
   - matchable.divisors.8
   - matchable.partners.4
   - matchable.not.8.contradiction
-statement_records: []
+statement_records:
+  - statements/MATCHABLE-NOT-8.yaml
 history: []

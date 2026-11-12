@@ -14,8 +14,11 @@ Obligations (tests/rlt005/accept/):
   3. MPH  ∀b c d. b, c, d ∈ {1, 3} → b = c ∨ b = d ∨ c = d
   4. MC   ∀a b c d. M(a, b, c, d) → ⊥
   5. MN8  (MD8 ∧ MP4) ∧ ¬∃a b c d. M(a, b, c, d)
-with cop(m, x) := ∀k. (k ∣ m ∧ k ∣ x) → k = 1, written out with the
-registered `∣`, and M the matching condition of §1 of the review.
+with cop(m, x) := ∀k. ((0 < k ∧ k ∣ m) ∧ k ∣ x) → k = 1, written out with the
+registered `<` and `∣`, and M the matching condition of §1 of the review
+(0 < k because Q cannot refute 1 = 0 × j; docs/RLT-005-CORRESPONDENCE.md §3).
+Rejected cases (tests/rlt005/reject/, tests/rlt005/expected.tsv) are
+mutations of the accepted files; each must be refused with the reason pinned.
 Supporting closed facts: B5 (enumeration below 5), 1 ∣ 8, 4 ∣ 8, 8 ∣ 8,
 ¬(3 ∣ 5), ¬(5 ∣ 3), ¬(6 ∣ 2), ¬(7 ∣ 1); 2 ∣ 2, 2 ∣ 4, 2 ∣ 8 are cited
 from the existing library.
@@ -764,3 +767,124 @@ MN8 = AND(AND(MD8, MP4), NOT(EX))
 P.add(MN8, f"(and-intro {sets} {n})", "G")
 emit("MN8", "MN8_eight_is_not_matchable", P.text(MN8, "8 is not matchable (McNew and Pomerance, arXiv:2604.05304v2, §1)"))
 print("\n".join(f"{k}: {v}" for k, v in paths.items()))
+
+
+# ---------------------------------------------------------------------------
+# Rejected cases: mutations of the accepted files.
+
+REJ = "tests/rlt005/reject"
+os.makedirs(REJ, exist_ok=True)
+for old in os.listdir(REJ):
+    os.remove(os.path.join(REJ, old))
+
+
+def acc(name):
+    return open(f"{OUT}/{name}.rlt", encoding="utf-8").read()
+
+
+def goal_of(text):
+    return re.search(r'\(goal "(.*)"\)', text).group(1)
+
+
+def must(text, old, new, count=1):
+    assert old in text, old
+    return text.replace(old, new, count)
+
+
+def head(text, note):
+    return text.replace("(rlt-proof", f"; REJECT CASE: {note}\n(rlt-proof", 1)
+
+
+DIST = "(and (and (and (and (and (not (= pa pb)) (not (= pa pc))) (not (= pa pd))) (not (= pb pc))) (not (= pb pd))) (not (= pc pd)))"
+DISTW = "(((((¬(a = b) ∧ ¬(a = c)) ∧ ¬(a = d)) ∧ ¬(b = c)) ∧ ¬(b = d)) ∧ ¬(c = d))"
+mc, mn = acc("MC_no_assignment"), acc("MN8_eight_is_not_matchable")
+mc_cite = re.search(r'\(MC "([^"]+)" "([0-9a-f]+)"\)', mn)
+rejects = []
+
+
+def rej(name, text, code, reason):
+    with open(f"{REJ}/{name}.rlt", "w", encoding="utf-8") as fh:
+        fh.write(text)
+    rejects.append(f"{REJ}/{name}.rlt\t{code}\t{reason}")
+
+
+rr01 = mc.replace(DIST, "(= pa pa)").replace(DISTW, "a = a")
+assert rr01.count("(= pa pa)") == mc.count(DIST) > 0
+rej("RR01_duplicate_partners_allowed",
+    head(rr01, "MC with distinctness replaced by a = a throughout: duplicate partners allowed"),
+    1, "REJECT at step s37 — and-left: premise is not a conjunction: `pa = pa`")
+rej("RR02_partner_of_2_may_be_2",
+    head(must(acc("MO2_partner_of_2_is_odd"), "→ (x = 1 ∨ x = 3)\")", "→ (x = 1 ∨ x = 2)\")"),
+         "invalid coprimality claim: a partner of 2 may be 2"),
+    1, "REJECT — last step proves")
+rej("RR03_coprime_without_positive_k",
+    head(must(acc("MCO_one_is_coprime_to_all"), "((0 < k ∧ k ∣ m) ∧ k ∣ 1)", "(k ∣ m ∧ k ∣ 1)"),
+         "coprimality without 0 < k, which Q cannot establish for k = 0"),
+    1, "REJECT — last step proves")
+rej("RR04_undeclared_assumption",
+    head(must(mc, "(hyp hm)", "(hyp hq)"), "a step uses an assumption the goal does not declare"),
+    1, "REJECT at step s1 — assumption `hq` is undeclared in the goal")
+md = acc("MD8_divisors_of_eight")
+g = goal_of(md)
+rej("RR05_divisor_eight_omitted",
+    head(must(md, g, must(g, "(((d = 1 ∨ d = 2) ∨ d = 4) ∨ d = 8))", "((d = 1 ∨ d = 2) ∨ d = 4))")),
+         "wrong divisor set: 8 omitted"),
+    1, "REJECT — last step proves")
+rej("RR06_cited_hash_stale",
+    head(must(mn, mc_cite.group(2), "f" * 64), "a citation records a stale SHA-256"),
+    2, "MALFORMED — citation `MC`: tests/rlt005/accept/MC_no_assignment.rlt has SHA-256")
+rr01_sha = hashlib.sha256(open(f"{REJ}/RR01_duplicate_partners_allowed.rlt", "rb").read()).hexdigest()
+rej("RR07_cites_rejected_proof",
+    head(must(mn, mc_cite.group(0), f'(MC "{REJ}/RR01_duplicate_partners_allowed.rlt" "{rr01_sha}")'),
+         "a citation names a rejected proof"),
+    2, "MALFORMED — citation `MC`: tests/rlt005/reject/RR01_duplicate_partners_allowed.rlt is not an accepted theorem")
+
+
+def conditional(text):
+    """The same proof with Γ = {hz : 0 = 0}: the final step G is routed
+    through hz (imp-intro of an unused hypothesis, then imp-elim with hz), so
+    the kernel reports a conditional theorem with the same goal."""
+    lines = text.split("\n")
+    i = next(k for k, l in enumerate(lines) if l.startswith("    (G "))
+    line = lines[i]
+
+    def close(t, start):  # index of the paren matching t[start] == "("
+        depth = 0
+        for k in range(start, len(t)):
+            depth += {"(": 1, ")": -1}.get(t[k], 0)
+            if depth == 0:
+                return k
+        raise ValueError("unbalanced")
+
+    start = line.index("(G ")
+    end = close(line, start)
+    claim_start = start + 3
+    claim_end = close(line, claim_start) + 1
+    rule = line[claim_end:end].strip()
+    claim = line[claim_start:claim_end]
+    lines[i:i + 1] = [
+        f"    (g0 {claim} {rule})",
+        "    (z0 (= 0 0) (hyp hz))",
+        f"    (z1 (imp (= 0 0) {claim}) (imp-intro hw g0))",
+        f"    (G {claim} (imp-elim z1 z0)){line[end + 1:]}",
+    ]
+    text = "\n".join(lines)
+    return must(text, "(mode unconditional)", '(assume hz "0 = 0")\n  (mode conditional)')
+
+
+rr08a = head(conditional(mc), "MC with Γ = {hz : 0 = 0}: an accepted conditional theorem, cited by RR08")
+rej("RR08a_conditional_variant", rr08a, 0, "ACCEPT — conditional theorem")
+rr08a_sha = hashlib.sha256(rr08a.encode()).hexdigest()
+rej("RR08_cites_conditional_theorem",
+    head(must(mn, mc_cite.group(0), f'(MC "{REJ}/RR08a_conditional_variant.rlt" "{rr08a_sha}")'),
+         "a citation names a conditional theorem"),
+    2, "MALFORMED — citation `MC`: the cited theorem is conditional (Γ ≠ ∅)")
+mp = acc("MP4_partners_one_to_four")
+g = goal_of(mp)
+rej("RR09_partner_range_six",
+    head(must(mp, g, must(g, "x < 5", "x < 6")), "wrong partner range: x < 6"),
+    1, "REJECT — last step proves")
+with open("tests/rlt005/expected.tsv", "w", encoding="utf-8") as fh:
+    fh.write("# file\texit\trequired substring of the verdict (RLT-005 rejected cases)\n")
+    fh.write("\n".join(rejects) + "\n")
+print(f"{len(rejects)} rejected cases written to {REJ}/")

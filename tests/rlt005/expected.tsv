@@ -1,0 +1,11 @@
+# file	exit	required substring of the verdict (RLT-005 rejected cases)
+tests/rlt005/reject/RR01_duplicate_partners_allowed.rlt	1	REJECT at step s37 — and-left: premise is not a conjunction: `pa = pa`
+tests/rlt005/reject/RR02_partner_of_2_may_be_2.rlt	1	REJECT — last step proves
+tests/rlt005/reject/RR03_coprime_without_positive_k.rlt	1	REJECT — last step proves
+tests/rlt005/reject/RR04_undeclared_assumption.rlt	1	REJECT at step s1 — assumption `hq` is undeclared in the goal
+tests/rlt005/reject/RR05_divisor_eight_omitted.rlt	1	REJECT — last step proves
+tests/rlt005/reject/RR06_cited_hash_stale.rlt	2	MALFORMED — citation `MC`: tests/rlt005/accept/MC_no_assignment.rlt has SHA-256
+tests/rlt005/reject/RR07_cites_rejected_proof.rlt	2	MALFORMED — citation `MC`: tests/rlt005/reject/RR01_duplicate_partners_allowed.rlt is not an accepted theorem
+tests/rlt005/reject/RR08a_conditional_variant.rlt	0	ACCEPT — conditional theorem
+tests/rlt005/reject/RR08_cites_conditional_theorem.rlt	2	MALFORMED — citation `MC`: the cited theorem is conditional (Γ ≠ ∅)
+tests/rlt005/reject/RR09_partner_range_six.rlt	1	REJECT — last step proves
