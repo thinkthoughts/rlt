@@ -78,7 +78,7 @@ out.mkdir(parents=True, exist_ok=True)
 def git(*args, cwd):
     # GIT_NO_LAZY_FETCH: a presence check must not fetch the object itself
     # from the promisor remote; fetching is explicit, by SHA, below.
-    env = dict(os.environ, GIT_NO_LAZY_FETCH="1") if args[0] == "cat-file" else None
+    env = dict(os.environ, GIT_NO_LAZY_FETCH="1") if args[0] in ("cat-file", "fsck") else None
     return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, env=env)
 
 
@@ -99,6 +99,16 @@ for name, (slug, commits) in sorted(repos.items()):
         ok = r.returncode == 0 and git("cat-file", "-e", f"{c}^{{commit}}", cwd=d).returncode == 0
         print(f"{'fetched ' if ok else 'MISSING '} {name} {c[:12]}{'' if ok else ': ' + r.stderr.strip()[:200]}")
         bad += 0 if ok else 1
+
+# Audit S5: a repository restored from a cache may hold objects whose bytes
+# do not match their names (git does not re-hash on read). `git fsck --full`
+# re-hashes every object present; a mismatch fails the run.
+for name in sorted(repos):
+    r = git("fsck", "--full", "--no-dangling", "--no-progress", cwd=out / name)
+    if r.returncode != 0:
+        print(f"CORRUPT  {name}: git fsck --full failed: {(r.stdout + r.stderr).strip()[:300]}")
+        bad += 1
+print(f"git fsck --full: every object present in {len(repos)} repositories re-hashed")
 
 arch = out / "archived"
 arch.mkdir(exist_ok=True)
@@ -129,5 +139,5 @@ for s in reg["sources"]:
     except Exception as e:  # noqa: BLE001
         print(f"MISSING  archived/{f.name}: {e}")
         bad += 1
-print(f"{len(repos)} repositories, {sum(len(c) for _, c in repos.values())} pinned commits; {bad} missing")
+print(f"{len(repos)} repositories, {sum(len(c) for _, c in repos.values())} pinned commits; {bad} missing or corrupt")
 sys.exit(0 if bad == 0 else 1)

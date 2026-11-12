@@ -1,5 +1,5 @@
 RLT-001 verification
-commit   6cd9336600ea0769c266c4b92e7e6a400cb1199f
+commit   87366834746f6a3ded0f26014fdcdffe5e850370
 rustc    rustc 1.97.0 (2d8144b78 2026-07-07)
 
 == format and lints
@@ -10,21 +10,21 @@ clippy   ok
 ok
 
 == RLT-006 generated certificates (materialized before any check; tests/rlt006/manifest.sha256)
-630 of 630 certificates generated in 0.7 s, each equal to its manifest hash; 57528 KB on disk (630 files)
+630 of 630 certificates generated in 0.9 s, each equal to its manifest hash; 57528 KB on disk (630 files)
 
 == cargo test (unit + golden)
-test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 173.00s
-test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 13.89s
-test result: ok. 69 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.22s
-test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.85s
-test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.11s
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 27.78s
-test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s
-test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.07s
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.72s
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.83s
-test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.44s
-test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 291.39s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 169.54s
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.39s
+test result: ok. 69 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.36s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.00s
+test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.80s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 27.72s
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.78s
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.33s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.74s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.28s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.45s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 286.28s
 test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
@@ -132,16 +132,16 @@ spec/robinson-q.rlt sha256 4ad55192222576e3901abc4ee7ea5a6760b64ff212e8c55796ab9
 spec/definitions.rlt sha256 122e37fc627b136023a1a5ffac0344162ed77ae95312248a9f6a76c2b639ecda
 
 == H45 residue certificates, RLT-006 (tests/rlt006, certificates/h45)
-scripts/gen-rlt006.py reproduces every committed output and all 630 certificates (0.9 s)
-1. element certificates: 630 of 630 ACCEPT as unconditional theorems under ROBINSON-Q (42.6 s)
-2. per-prime theorems: 14 of 14 ACCEPT, each citing its 45 certificates (45 of 64 cited-file checks) (41.5 s)
+scripts/gen-rlt006.py reproduces every committed output and all 630 certificates (0.8 s)
+1. element certificates: 630 of 630 ACCEPT as unconditional theorems under ROBINSON-Q (42.3 s)
+2. per-prime theorems: 14 of 14 ACCEPT, each citing its 45 certificates (45 of 64 cited-file checks) (41.2 s)
 tests/rlt006/reject: 6 of 6 give the required exit code and reason
 refused: a generated certificate missing (rlt check MALFORMED, rlt deps exit 2, manifest mismatch)
 refused: a generated certificate modified (rlt check MALFORMED, rlt deps exit 2, manifest mismatch)
 refused: an altered manifest hash (the certificates no longer match it)
 restored: all 630 certificates equal to the manifest again
 tests/explain-rlt006: 6 of 6 record fixtures give the required exit code and line
-3. residue profile (computed evidence, not kernel-checked): 630 rows with h = p*q + s and s != r_p; nu_2=1, nu_3=2, nu_5=4, nu_7=6, nu_11=10, nu_13=12, nu_17=16, nu_19=18, nu_23=22, nu_29=27, nu_31=29, nu_37=34, nu_41=34, nu_43=36; checked against the transcription by scripts/check-h45-profile.py; self-test: 15 of 15 altered tables refused
+3. residue profile (computed evidence, not kernel-checked): 630 rows with h = p*q + s and s != r_p; nu_2=1, nu_3=2, nu_5=4, nu_7=6, nu_11=10, nu_13=12, nu_17=16, nu_19=18, nu_23=22, nu_29=27, nu_31=29, nu_37=34, nu_41=34, nu_43=36; checked against the transcription by scripts/check-h45-profile.py; self-test: 21 of 21 altered tables refused
 
 == statement records and rlt explain, RLT-004b (statements/, tests/explain)
 scripts/gen-explain-tests.py reproduces tests/explain and tests/explain-rlt006
@@ -347,6 +347,7 @@ Generated.lean is current
 
 == source excerpts
 sources/commit-pins.tsv: 2 abbreviated registry commit(s) resolved to full SHAs; 10 pinned commit(s) in 10 repositories, no branch named
+scripts/fetch-sources.py fetches lean-bgp212 at 7898eb4, the commit the vendored blocks are compared with
 0 problem(s)
 archived source refused: archive bytes changed
 archived source refused: pin changed
