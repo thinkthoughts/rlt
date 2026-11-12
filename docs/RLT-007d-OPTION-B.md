@@ -1,6 +1,6 @@
 # RLT-007d — Option B: composition architecture review
 
-**Status:** architecture specification for review, 2026-11-12. Nothing is implemented. The composition checker will be built only after this document is separately approved.
+**Status:** architecture specification for review, 2026-11-12. **Revised the same day** (§4a–§6) for the formula-size limit; §6 supersedes the depth-one rule of §3.5 where they differ. Nothing is implemented. The composition checker will be built only after this revised architecture is reviewed and approved.
 
 **Unchanged by this design:**
 - the kernel and its 20 inference rules plus `cite`;
@@ -183,25 +183,190 @@ This is the semantic form of the cut rule. Inside one file, the kernel's `cite` 
 - Composition re-checks every component once: about 2,230 kernel file checks for Lemma 12.1. These are separate roots, so they parallelize with RLT-007a's scheduling. Estimated 6–10 minutes of CPU time on top of the stages, which already check the same files.
 - The record is small. The checker is estimated at a few hundred lines plus tests.
 
-## 4a. A measured constraint the implementation review must resolve
+## 4a. The formula-size limit (measured constraint)
 
-Stage 1 prototyping found that the existing parser limits each written formula to a numeral total of 200,000 (`MAX_NUMERAL_TOTAL`, `syntax/src/elab.rs`). Every file is also limited to 1,000,000 term nodes.
+Two existing limits bound what one file can state. Neither is changed.
 
-**What it affects.** The assembly file must state its conclusion and every declared assumption in full. Estimates:
-- distinctness alone, as one formula, is 221,056 in numeral total, which is why stage 1 splits it into four groups;
-- the 47 per-prime omission statements together come to roughly 0.5 million nodes;
-- the conclusion Lemma 12.1 restates all of them.
+| Limit | Value | Where |
+|---|---|---|
+| Numeral total in one written formula | 200,000 | `MAX_NUMERAL_TOTAL`, `syntax/src/elab.rs` |
+| Term nodes in one file, counted over the whole proof text | 1,000,000 | `MAX_FILE_NODES`, `syntax/src/proof.rs` |
 
-So **a single assembly file is likely to exceed the existing limits.** It must be measured before the detailed implementation review.
+**Measured and estimated sizes of the statements involved.**
 
-**Options within this architecture, with no limit changes:**
-- **Layered assembly.** Several conditional assemblies, each discharged by composition. For example, Adm(p) for each range of primes, then L12.1 from those. This needs composition depth greater than one, with the same cycle rules applied level by level: a composed result could discharge only assumptions of a higher layer, never its own.
-- **A more compact final statement.** L12.1 as a conjunction of named sub-results whose statements stay within the limits.
+| Statement | Size |
+|---|---|
+| Distinctness of all 990 pairs as one formula | 221,056 in numeral total: **above the formula limit** (measured, stage-1 prototype). Stage 1 therefore states it as four grouped theorems, at most 71,676 each |
+| One per-prime omission statement OM_p (45 conjuncts) | 6,000–15,500 nodes; 482,000 for all 47 primes together (estimated from the statement shape) |
+| Adm(p) with p a variable: ∃r. (r < p ∧ ⋀_h ¬∃k. h = (p × k) + r) | about 5,900 nodes |
+| Assembling Adm over all 47 primes in one file | every prime branch restates its OM statement in about 6 steps, about 2.9 million nodes: **above the file limit** |
 
-The detailed implementation review will choose between them with measurements. Both keep every rule in §3.
+So no single assembly file can work. The options differ in how the work is divided.
 
-## 5. Decisions requested
+## 5. Layered assembly compared with a compact final statement
 
-- **B-D1.** Approve this specification, for implementation after the component stages (RLT-007b/c) have merged.
-- **B-D2.** Confirm the reporting vocabulary in §3.8, especially "COMPOSED" and "discharged by composition".
-- **B-D3.** Confirm that unused declared assumptions are refused unless marked (§3.5).
+| | Layered assembly | Compact final statement |
+|---|---|---|
+| Idea | Several conditional theorems, each within the limits. Each layer's assumptions are discharged by components or by lower layers | One top theorem whose statement is small enough, assumptions discharged in one step |
+| Can it carry the admissibility part (∀p. Prime(p) → Adm(p))? | **Yes.** Six range assemblies (about 450,000–510,000 nodes each, estimated), then one small top assembly | **No.** The per-prime case split alone needs about 2.9 million nodes, so this part needs layers whatever the statement |
+| Can it carry distinctness? | Yes, as four group statements | Only by replacing pairwise distinctness with a smaller equivalent. For example "strictly increasing", ⋀ hᵢ < hᵢ₊₁, about 9,400 in numeral total. That equivalence over ℕ would be a correspondence reading, not a kernel-checked step |
+| Statement fidelity | Each statement stays in the source's own terms | The final statement is a reformulation, and needs its own correspondence review |
+| New trusted logic | Composition across more than one layer (§6) | Depth one would suffice for the top, but the admissibility layers are needed regardless |
+
+**Selected: layered assembly,** for every part of the lemma. The compact form cannot avoid layering for admissibility, and it would replace the approved pairwise-distinctness statements with a reformulation.
+
+**The top-level claim.** Lemma 12.1 is reported as **one named result made of six top-level statements**, each established exactly as stated:
+- distinctness groups g0–g3;
+- the bounds theorem;
+- Adm-all.
+
+There is no single conjunction formula, because the four distinctness groups together exceed the formula limit. The record lists the six statements and their status. The source-correspondence review records that, together with the transcription checks (45 listed elements, both endpoints 0 and 212 listed), they are exactly the content of "an admissible 45-tuple of diameter 212".
+
+## 6. The layered architecture
+
+### 6.1 The dependency graph (exact)
+
+Layer 0 holds the components. Every node is an unconditional, citable library theorem checked by the kernel.
+
+| Id | Statement | Stage |
+|---|---|---|
+| `admissible.h45.distinct.g0` … `g3` | grouped pairwise distinctness | 1 |
+| `admissible.h45.bounds` | ⋀_h (∃z. z + 0 = h) ∧ (∃z. z + h = 212) | 1 |
+| `primes.below_213` | ∀p. (Prime(p) → (R₁(p) ∨ R₂(p) ∨ … ∨ R₆(p) ∨ 212 < p)), where each Rᵢ(p) is the disjunction p = q₁ ∨ … ∨ p = qₖ over the primes of range i | 2 |
+| `admissible.h45.omits.tail_1` | ∀p. (212 < p → ⋀_h ¬(∃k. h = (p × k) + 1)) | 3 |
+| `admissible.h45.omits.P_R` (47 of them) | ⋀_h ¬(∃k. h = (P × k) + R): 14 from RLT-006, 33 from stage 4 | RLT-006, 4 |
+
+**Planned prime ranges** (balanced by estimated size; to be confirmed by measurement):
+
+| Range | Primes | Count |
+|---|---|---|
+| R₁ | 2–37 | 12 |
+| R₂ | 41–73 | 9 |
+| R₃ | 79–109 | 8 |
+| R₄ | 113–151 | 7 |
+| R₅ | 157–181 | 6 |
+| R₆ | 191–211 | 5 |
+
+The disjunction in `primes.below_213` is grouped by these ranges, so that each range assembly matches one disjunct exactly. This decision is fixed in stage 2's statement.
+
+**Layer 1:** conditional assembly theorems, each checked by the kernel.
+
+| Id | Assumptions Γ | Conclusion |
+|---|---|---|
+| `admissible.h45.adm.range_i` (i = 1…6) | the OM_q statements for the primes q of range i | ∀p. (Rᵢ(p) → Adm(p)) |
+| `admissible.h45.adm.tail` | `tail_1` | ∀p. (212 < p → Adm(p)) |
+
+**Layer 2:** one conditional assembly theorem.
+
+| Id | Assumptions Γ | Conclusion |
+|---|---|---|
+| `admissible.h45.adm.all` | `primes.below_213`, `adm.range_1` … `adm.range_6`, `adm.tail` (8 assumptions, each a few thousand nodes) | ∀p. (Prime(p) → Adm(p)) |
+
+**The named result `admissible.h45.lemma_12_1`** is a composition record, not a formula. It lists the six top-level statements:
+- `distinct.g0` … `g3` (layer 0, kernel-checked);
+- `bounds` (layer 0, kernel-checked);
+- `adm.all` (layer 2, discharged by composition).
+
+**Edge count.**
+- 47 + 1 = 48 edges from layer 0 into layer 1.
+- 1 + 7 = 8 edges into layer 2.
+- 6 entries in the named result.
+
+### 6.2 Acyclicity and topological verification
+
+- **Layers are explicit.** Each composition record states its layer number. A component (unconditional library theorem) is layer 0. A composed result of layer n may discharge assumptions only of a record of layer greater than n. Edges therefore strictly increase the layer, and no cycle is possible.
+- **The checker also verifies acyclicity directly.** It builds the graph from the records and runs a topological sort (Kahn's algorithm). It refuses:
+  - a cycle;
+  - a self-reference;
+  - an edge that does not increase the layer;
+  - a record whose stated layer differs from 1 + the maximum layer of its dischargers.
+- **Verification runs in topological order.** A record is checked only after every record it depends on has passed in the same run. One failure fails every record above it, and the report names the first failing node.
+- **Cited-file closures are checked against the assemblies.** No component's citation closure may contain a composition record's assembly file.
+
+### 6.3 Matching at each layer
+
+The rules of §3.1–§3.5 apply unchanged at every edge.
+- **Exact matching.** The discharger's statement must equal the assumption *exactly*, as expanded kernel formulas in canonical form.
+- **What the discharger's statement is.**
+  - For a layer-0 discharger, it is the kernel-checked goal (Γ = ∅).
+  - For a composed discharger of layer n ≥ 1, it is the **conclusion** of its assembly theorem, and only once that record has itself passed in this run, with every assumption discharged. A composed result whose own record fails, or has an undischarged assumption, discharges nothing.
+- **Duplicates, unused assumptions and substitution** are refused as in §3.5. An unused declared assumption is refused unless the record marks it `unused: true` with a written justification, which is shown in the report.
+
+### 6.4 Compatibility
+
+At every edge, the following must be identical to those of the assembly being discharged:
+- the axiom set: id, file and file SHA-256;
+- the convention and its interpretation digest;
+- the definitions file and its SHA-256.
+
+The check is §3.2, applied per edge. Mixed axiom sets anywhere in the graph are refused.
+
+### 6.5 Stale, conditional and missing proofs
+
+Everything is re-checked in the same run, in topological order:
+- every layer-0 proof file;
+- every assembly file.
+
+There are no stored results and no cache.
+
+**Refusals:**
+- **Stale:** a hash, fingerprint or registered-identity mismatch, or a failed re-check.
+- **Conditional:** a layer-0 node whose kernel theorem has Γ ≠ ∅.
+- **Missing:** a record, entry or file that does not exist.
+- **Non-discharging:** a composed node whose own record did not pass.
+
+Each refusal has a negative test.
+
+### 6.6 Soundness, by induction on layers
+
+**Claim.** For every node v that passes, its statement φ_v holds in every model of Q:
+
+> ⊨_Q φ_v
+
+**Base case (layer 0).** v is an accepted unconditional kernel theorem ∅ ⊢_Q φ_v. By kernel soundness (`docs/KERNEL-SOUNDNESS.md`), ⊨_Q φ_v.
+
+**Step (layer n ≥ 1).** v's assembly is an accepted conditional theorem Γ_v ⊢_Q φ_v. Kernel soundness and G5 make it valid, so for every model M of Q:
+
+> M ⊨ Γ_v implies M ⊨ φ_v
+
+Each γ ∈ Γ_v is discharged by a node u of layer less than n that passed. By the induction hypothesis, ⊨_Q φ_u. By exact matching and compatibility (§6.3–§6.4), φ_u and γ are the same closed formula, read under the same axioms, convention and definitions. So every model M of Q satisfies all of Γ_v, and therefore satisfies φ_v. Hence ⊨_Q φ_v.
+
+**Well-foundedness.** The induction is over layer numbers, which are finite and strictly increase along edges (§6.2). The finite graph is acyclic, so every node is reached.
+
+**The named result.** Each of its six statements holds in every model of Q, and in particular in ℕ. The transcription checks, and the correspondence review's reading of those six statements as Lemma 12.1, are stated separately (§6.8). They are not part of this soundness claim.
+
+### 6.7 Trusted boundary
+
+| Component | Trust status |
+|---|---|
+| kernel, rules, axioms, limits | trusted, unchanged |
+| parser, checker, `cite`, library loader and fingerprint | trusted already, unchanged |
+| **composition checker** (`rlt compose`, outside the kernel) | **new trusted code**, limited to: loading records, the layer and topological checks (§6.2), the per-edge comparisons (§6.3–§6.4) and re-checks through the existing check function. It constructs no formula and no `Theorem` |
+| composition records | untrusted metadata, every field recomputed |
+| transcription checks (45 elements, endpoints listed, increasing order) | outside the composition claim. They are performed by the generators and verify.sh against the pinned PDF transcription, and reported separately |
+| generators, Lean files, reports | outside the trust base |
+
+**Audit requirements** are those of §3.7, plus:
+- negative tests for each refusal in §6.2 and §6.5;
+- a second implementation, independent of the first, that recomputes the topological order and every edge comparison from `rlt deps --format json`;
+- a Lean cross-check that derives the paper's Lemma 12.1 from the literal layer-0 statements, mirroring the DAG.
+
+### 6.8 Reporting terminology (fixed)
+
+| Object | Wording |
+|---|---|
+| layer-0 component | "kernel-checked: unconditional theorem under ROBINSON-Q" |
+| assembly theorem | "kernel-checked: conditional theorem Γ ⊢ φ" |
+| composed node (layer ≥ 1) that passes | "**discharged by composition** (layer n): φ holds in every model of ROBINSON-Q; its conditional theorem is kernel-checked and each of its m assumptions is discharged by a passing node of a lower layer" |
+| the named result | "Lemma 12.1 (H₄₅): 5 statements kernel-checked, 1 statement discharged by composition; transcription checks: 45 listed elements, endpoints 0 and 212 listed, strictly increasing order (pinned PDF transcription, not kernel-checked)" |
+
+Nothing composed is ever labelled "unconditional theorem". `citable` remains false for composed nodes. They discharge assumptions only through composition records, never through `cite`.
+
+## 7. Decisions requested
+
+- **B-D1′.** Approve the layered architecture (§6) for implementation after stages 1–4 have merged.
+- **B-D2′.** Approve the reporting vocabulary (§6.8).
+- **B-D3′.** Confirm the six prime ranges as the grouping of stage 2's statement. They will be re-balanced only if measurement requires it, and before stage 2 merges.
+- **B-D4′.** Confirm that the top-level claim is a named set of six statements, not one conjunction.
+
+Option A (a larger citation budget) remains a deferred alternative. The limit is unchanged.

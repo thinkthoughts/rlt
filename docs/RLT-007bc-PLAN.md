@@ -40,7 +40,7 @@
 
 | | |
 |---|---|
-| **Statement** | `primes.below_213`: ∀p. (Prime(p) → (p = 2 ∨ p = 3 ∨ … ∨ p = 211 ∨ 212 < p)), with Prime written inline: 1 < p ∧ ∀d. ((∃e. p = d × e) → (d = 1 ∨ d = p)), using `lt` |
+| **Statement** | `primes.below_213`: ∀p. (Prime(p) → (R₁(p) ∨ … ∨ R₆(p) ∨ 212 < p)), each Rᵢ(p) the disjunction of p = q over the primes q of range i (ranges as in `docs/RLT-007d-OPTION-B.md` §6.1, so that the layered assembly matches exactly), with Prime written inline: 1 < p ∧ ∀d. ((∃e. p = d × e) → (d = 1 ∨ d = p)), using `lt` |
 | **Method** | 213 nested Q3 case splits. A listed prime branch introduces its disjunct. 0 and 1 are refuted from 1 < p. A composite m is refuted by its smallest prime factor e ≤ 13 and d = m/e: m = d × e is computed, Prime's second conjunct is instantiated at d, and d ∉ {1, m} is refuted. The last branch gives 212 < p |
 | **Estimated size** | about 3–7 million nodes, so 4–8 files. Range lemmas of the form ∀p. (Prime(p) ∧ a ≤ p … ) are chained so the 213-way split is spread across files within 64 checks. **To be measured first;** if the split needs more than 64 checks, the stage adds one more summary layer (chain ≤ 3) |
 | **Negative tests** | a composite listed as prime (no refutation exists: the generator refuses, and a hand-written attempt is rejected); a wrong divisor witness; a missing branch (the final or-cases does not close) |
