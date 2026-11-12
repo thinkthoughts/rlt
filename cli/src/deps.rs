@@ -145,8 +145,10 @@ pub fn statement_parts(out: &CheckOutcome, k: &KernelBlock) -> Option<StatementP
     let (_, ax_file, ax_sha) = PINNED_AXIOM_SETS
         .iter()
         .find(|(a, _, _)| *a == pf.axiom_set)?;
+    // A set: repeated assumptions state nothing more.
     let mut assumptions: Vec<String> = th.assumptions().values().map(canonical).collect();
     assumptions.sort();
+    assumptions.dedup();
     Some(StatementParts {
         convention: pf.convention.clone(),
         convention_digest: conv_digest.to_string(),
@@ -467,6 +469,8 @@ pub struct Deps {
     pub statement_records: Vec<(String, String, i32)>,
     /// The worst checker exit among alternative proofs.
     pub alt_exit: i32,
+    /// Notes that change no status (history pins whose bytes are gone).
+    pub notes: Vec<String>,
     pub state: String,
     pub exit: i32,
 }
@@ -566,8 +570,19 @@ fn compare_entry(
     // History pins: where the recorded bytes still exist, they must prove
     // the identical statement.
     for h in &e.history {
-        if let Ok((sha, out)) = check_pin(root, &h.path) {
-            if sha == h.sha256 {
+        let here = check_pin(root, &h.path)
+            .ok()
+            .filter(|(sha, _)| *sha == h.sha256);
+        if here.is_none() {
+            records.push((
+                format!("history {} {}", h.path, h.sha256),
+                "bytes no longer present; the recorded pin is reviewed metadata, not re-checked"
+                    .into(),
+                ACCEPT,
+            ));
+        }
+        if let Some((sha, out)) = here {
+            {
                 let hn = build(&out, None, &h.path, &sha, None);
                 cmp(
                     &format!("history {} fingerprint", h.path),
@@ -633,6 +648,7 @@ pub fn deps(root: &Path, target: &str) -> Deps {
         warnings: vec![],
         statement_records: vec![],
         alt_exit: ACCEPT,
+        notes: vec![],
         state: "invalid".into(),
         exit: MALFORMED,
     };
@@ -699,10 +715,10 @@ pub fn deps(root: &Path, target: &str) -> Deps {
     d.chain = citing_chain(&node);
     d.axioms = axioms.into_iter().collect();
     d.definitions = defs.into_iter().collect();
-    if d.checks * 4 > MAX_CITED_CHECKS * 3 {
+    if d.attempted * 4 > MAX_CITED_CHECKS * 3 {
         d.warnings.push(format!(
             "cited-file checks {} of {MAX_CITED_CHECKS} are above 75% of the limit",
-            d.checks
+            d.attempted
         ));
     }
     if d.chain * 4 > MAX_CITATION_DEPTH * 3 {
@@ -714,6 +730,15 @@ pub fn deps(root: &Path, target: &str) -> Deps {
     if let (Some(e), Ok(l)) = (&entry, &lib) {
         d.entry = Some(e.id.clone());
         d.alt_exit = compare_entry(root, l, e, &node, &mut d.stale, &mut d.statement_records);
+        // History notes travel in the same list; they are notes, not records.
+        let (notes, recs): (Vec<_>, Vec<_>) = std::mem::take(&mut d.statement_records)
+            .into_iter()
+            .partition(|(r, _, _)| r.starts_with("history "));
+        d.statement_records = recs;
+        d.notes = notes
+            .into_iter()
+            .map(|(r, m, _)| format!("{r}: {m}"))
+            .collect();
     }
     d.state = if lib.is_err() {
         "library invalid".into()
@@ -799,7 +824,7 @@ pub fn verify_lib(root: &Path) -> LibReport {
 fn exit_meaning(code: i32) -> &'static str {
     match code {
         ACCEPT => "0 — every node checked and accepted; the library index valid and the entry, if any, current",
-        REJECT => "1 — the checker rejects a proof in the graph",
+        REJECT => "1 — the checker rejects a proof in the graph or an alternative proof of the entry",
         STALE => "3 — the graph checks, but the library entry differs from the checked files",
         _ => "2 — invalid input, an invalid library index, or a citation or limit failure as `rlt check` reports it",
     }
@@ -982,6 +1007,9 @@ pub fn render_text(d: &Deps) -> String {
     for w in &d.warnings {
         row(&mut t, "  warning", w);
     }
+    for n in &d.notes {
+        row(&mut t, "note", n);
+    }
     for (r, s, x) in &d.statement_records {
         row(
             &mut t,
@@ -1096,6 +1124,7 @@ pub fn to_json(d: &Deps) -> Json {
                 ("axioms", strs(&d.axioms)),
                 ("definitions", strs(&d.definitions)),
                 ("warnings", strs(&d.warnings)),
+                ("notes", strs(&d.notes)),
             ]),
         ),
         (

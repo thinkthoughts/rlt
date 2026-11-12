@@ -579,6 +579,29 @@ fn a_reviewed_replacement_with_history_is_accepted() {
             &format!("history:\n  - {{path: tests/m3c/accept/CA02_two_not_divides_seven.rlt, sha256: {first_sha}, fingerprint: {fp}, replaced_on: 2026-11-11, reviewed_by: \"RLT-004c test\"}}"),
         );
     std::fs::write(r.join("lib/dvd/dvd.not.2_7.yaml"), out).unwrap();
+    let d0 = deps(&r, "dvd.not.2_7");
+    assert!(
+        d0.notes.is_empty(),
+        "the history pin's bytes exist and were re-checked"
+    );
+    // A history pin whose bytes are gone is reported as a note.
+    let s2 = std::fs::read_to_string(r.join("lib/dvd/dvd.not.2_7.yaml")).unwrap();
+    std::fs::write(
+        r.join("lib/dvd/dvd.not.2_7.yaml"),
+        s2.replace(
+            "path: tests/m3c/accept/CA02_two_not_divides_seven.rlt, sha256",
+            "path: tests/m3c/accept/CA02_gone.rlt, sha256",
+        ),
+    )
+    .unwrap();
+    let dn = deps(&r, "dvd.not.2_7");
+    assert_eq!(dn.exit, ACCEPT);
+    assert!(
+        render_text(&dn).contains("note            history tests/m3c/accept/CA02_gone.rlt"),
+        "{}",
+        render_text(&dn)
+    );
+    std::fs::write(r.join("lib/dvd/dvd.not.2_7.yaml"), s2).unwrap();
     // The entry is valid, but E_BWD cites CA02, now in history only: the
     // entry for mod30.backward names an unlisted dependency.
     let d = deps(&r, "dvd.not.2_7");
@@ -774,6 +797,30 @@ fn identity_registry_is_append_only() {
     // Removing the file is refused.
     std::fs::remove_file(dir.join("lib/identities.tsv")).unwrap();
     assert_eq!(gate(), Some(1));
+    // A branch's drafts merged with a merge commit are not main's versions:
+    // main's history is read by first parent.
+    git(&["checkout", "-q", "--", "lib/identities.tsv"]);
+    git(&["reset", "-q", "--hard", "HEAD~1"]);
+    git(&["checkout", "-q", "-b", "draft"]);
+    std::fs::write(
+        dir.join("lib/identities.tsv"),
+        format!("{grown}draft.id\t{}\t{}\n", "d".repeat(64), "e".repeat(64)),
+    )
+    .unwrap();
+    git(&["commit", "-qam", "draft"]);
+    std::fs::write(
+        dir.join("lib/identities.tsv"),
+        format!("{grown}draft.id\t{}\t{}\n", "f".repeat(64), "e".repeat(64)),
+    )
+    .unwrap();
+    git(&["commit", "-qam", "draft revised"]);
+    git(&["checkout", "-q", "-"]);
+    git(&["merge", "-q", "--no-ff", "-m", "merge draft", "draft"]);
+    assert_eq!(
+        gate(),
+        Some(0),
+        "the merged branch's earlier draft does not bind main"
+    );
 }
 
 fn scratch_file(dir: &Path, name: &str, text: &str) -> String {

@@ -4,7 +4,8 @@
 # RLT_LIB_BASE, else origin/main, fetched if absent) must be present,
 # unchanged, in the working tree. On main itself BASE is the commit under
 # test, so its whole history counts; on a branch, main's versions count and
-# the branch's own unmerged drafts are free to change. A shallow clone is
+# the branch's own unmerged drafts, and drafts merged in from a branch
+# (followed by first parent only), are free to change. A shallow clone is
 # deepened first.
 # Exit 0 if every earlier line is kept, 1 if a line was changed or removed or
 # the file is missing, 2 if the history cannot be read.
@@ -26,7 +27,9 @@ fi
 if ! git rev-parse -q --verify "$base^{commit}" >/dev/null 2>&1; then
   echo "identity registry: base $base unavailable; cannot confirm append-only"; exit 2
 fi
-commits=$(git rev-list "$base" -- lib/identities.tsv 2>/dev/null)
+# --first-parent: the versions main itself held; a merged branch's drafts
+# are not main's versions.
+commits=$(git rev-list --first-parent "$base" -- lib/identities.tsv 2>/dev/null)
 n=0; bad=""
 for c in $commits; do
   old=$(git show "$c:lib/identities.tsv" 2>/dev/null) || continue
