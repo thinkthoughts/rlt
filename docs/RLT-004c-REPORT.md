@@ -82,7 +82,7 @@ assumption <canonical form>   (one per distinct assumption, sorted) | assumption
 | `scripts/verify.sh /home/claude/src` | `RESULT   all checks hold`; library section: 68 of 68 entries current and accepted; `deps mod30.classification` JSON exit 0, 50 theorems, 49 checks, chain 2; identity registry kept |
 | `scripts/check-manual.py` | 25 of 25 examples match |
 | `scripts/compare-reports.sh` against main 45c94b5 | 443 proof reports and 10 record commands byte-identical, `differences: 0`; the usage text gains the two `deps` lines |
-| Protected paths vs 45c94b5 | kernel/, spec/, conventions/, readingpoints/, residues/, sources/, lean/, points/, statements/ and every tests/ directory unchanged |
+| Protected paths vs 45c94b5 | kernel/, spec/, conventions/, readingpoints/, residues/, sources/, lean/, points/, statements/ and every proof and fixture under tests/ unchanged; the two `rlt explain` golden files gain the C5 `library` line |
 | CI | `check` and `gdt-comparison` succeed on ac331c5 and db0c8b2; final head: see PR |
 
 **Tested cases** (`cli/tests/deps.rs`):
