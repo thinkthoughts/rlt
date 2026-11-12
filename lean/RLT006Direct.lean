@@ -12,12 +12,15 @@ What this file proves, in Lean (none of it is an RLT derivation):
     `×` read as `*` on Nat; the kernel's checked goal is the written goal,
     since the statements use no `<` or `∣`).
   * omit_iff: ¬(∃k, h = p*k + r) ↔ h % p ≠ r for r < p (the residue reading).
+  * h45_size_and_diameter: obligation (a), 45 distinct elements with minimum 0
+    and maximum 212 (decided).
   * lemma_12_1_of_rlt_statements: from the 14 statements, the paper's two
-    remaining steps give Lemma 12.1's admissibility for every prime:
+    remaining steps give admissibility for every prime:
       - primes_below_47: the primes below 47 are exactly 2, 3, ..., 43;
       - large_moduli: for every p ≥ 46 some class mod p is omitted, because
         45 residues cannot cover p classes (missing_below, by induction on n).
     Those two steps are proved here in Lean, not in RLT.
+  * lemma_12_1: the whole lemma in Lean, (a) together with admissibility.
 -/
 
 namespace RLT006Direct
@@ -29,7 +32,8 @@ def H45 : List Nat := [0, 2, 12, 14, 24, 26, 30, 36, 44, 50, 54, 56, 60, 66, 72,
 def table : List (Nat × Nat) := [(2, 1), (3, 1), (5, 3), (7, 6), (11, 9), (13, 3), (17, 1), (19, 13), (23, 17), (29, 4), (31, 11), (37, 4), (41, 4), (43, 3)]
 
 /-- Section 2's definition, for a list of naturals: for every prime p some class
-r < p is omitted. Primes as in lean-bgp212's BGP212.Basic. -/
+r < p is omitted. Primes as in lean-bgp212's BGP212.Basic. Section 2 also asks
+for distinct elements; for H45 that is obligation (a), h45_size_and_diameter. -/
 def IsPrime (p : Nat) : Prop := 2 ≤ p ∧ ∀ d : Nat, d ∣ p → d = 1 ∨ d = p
 def Admissible (H : List Nat) : Prop := ∀ p, IsPrime p → ∃ r, r < p ∧ ∀ h ∈ H, h % p ≠ r
 
@@ -198,9 +202,19 @@ theorem lemma_12_1_of_rlt_statements (hrlt : ∀ q ∈ table, OM q.1 q.2) : Admi
     exact ⟨q.2, (table_omits q hq).1, residues_of_om q.1 q.2 (table_omits q hq).1 (hrlt q hq)⟩
   · exact large_moduli p (by omega)
 
-/-- The 14 statements hold (in Lean), so Lemma 12.1 holds in Lean. -/
-theorem lemma_12_1 : Admissible H45 :=
+/-- Obligation (a): 45 distinct elements, minimum 0, maximum 212. -/
+theorem h45_size_and_diameter :
+    (H45.length = 45 ∧ H45.Nodup) ∧ (0 ∈ H45 ∧ 212 ∈ H45 ∧ ∀ h ∈ H45, h ≤ 212) := by
+  decide
+
+/-- The 14 statements hold (in Lean), so H45 is admissible (in Lean). -/
+theorem admissible_h45 : Admissible H45 :=
   lemma_12_1_of_rlt_statements (fun q hq => om_of_residues q.1 q.2 (table_omits q hq).1 (table_omits q hq).2)
+
+/-- Lemma 12.1, in Lean: an admissible 45-tuple of diameter 212. -/
+theorem lemma_12_1 :
+    ((H45.length = 45 ∧ H45.Nodup) ∧ (0 ∈ H45 ∧ 212 ∈ H45 ∧ ∀ h ∈ H45, h ≤ 212)) ∧ Admissible H45 :=
+  ⟨h45_size_and_diameter, admissible_h45⟩
 
 end RLT006Direct
 
@@ -230,4 +244,6 @@ end RLT006Direct
 #print axioms RLT006Direct.large_moduli
 #print axioms RLT006Direct.primes_below_47
 #print axioms RLT006Direct.lemma_12_1_of_rlt_statements
+#print axioms RLT006Direct.h45_size_and_diameter
+#print axioms RLT006Direct.admissible_h45
 #print axioms RLT006Direct.lemma_12_1

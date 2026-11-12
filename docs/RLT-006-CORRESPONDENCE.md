@@ -39,7 +39,7 @@ For each item it records the page, the section, the text exactly as extracted, a
 |---|---|---|
 | **RLT kernel** (Robinson's Q, NAT-DEF, Γ = ∅) | **630 element certificates.** `¬(∃k. h = (p × k) + r)` for each listed (p, r) and each h ∈ H₄₅. They are generated, pinned by SHA-256 in `tests/rlt006/manifest.sha256` and in the citations | Kernel-checked |
 | **RLT kernel** | **14 per-prime theorems** `admissible.h45.omits.P_R`. Each is the left-nested conjunction of its 45 certificates, cited (45 of 64 cited-file checks) | Kernel-checked |
-| Lean comparison 1 (`lean/RLT006Direct.lean`, generated from the transcription) | `om_P`: the 14 statements, symbol for symbol. `omit_iff`: ¬(∃ k, h = p·k + r) ↔ h % p ≠ r for r < p. `lemma_12_1_of_rlt_statements`: the 14 statements, together with `primes_below_47` and `large_moduli` (the paper's counting argument), give admissibility for every prime. `lemma_12_1` | Lean-checked |
+| Lean comparison 1 (`lean/RLT006Direct.lean`, generated from the transcription) | `om_P`: the 14 statements, symbol for symbol. `omit_iff`: ¬(∃ k, h = p·k + r) ↔ h % p ≠ r for r < p. `lemma_12_1_of_rlt_statements`: the 14 statements, together with `primes_below_47` and `large_moduli` (the paper's counting argument), give admissibility for every prime. `h45_size_and_diameter`: obligation (a). `lemma_12_1`: (a) together with admissibility | Lean-checked |
 | Lean comparison 2 (`lean/RLT006BGP212.lean`) | lean-bgp212's H45 and omittedTable equal the transcription (`same_tuple`, `same_table`). Its table result gives RLT's element form (`omits_rlt_form`). Its own Lemma 12.1, re-checked from the vendored text | Lean-checked |
 | Generator (Python) | `certificates/h45/residues.tsv`: q and s with h = p·q + s, for all 630 pairs. `certificates/h45/profile.tsv`: the occupied and omitted classes mod each listed prime | Computed evidence; not kernel-checked |
 
@@ -51,9 +51,9 @@ Lemma 12.1: "The set H₄₅ is an admissible 45-tuple of diameter 212." Its pro
 
 | Obligation | Where it is established |
 |---|---|
-| (a) The list has 45 distinct elements, with minimum 0 and maximum 212 | Lean (lean-bgp212 `h45_card` and `h45_diameter`, re-checked in comparison 2). **RLT: not stated** |
+| (a) The list has 45 distinct elements, with minimum 0 and maximum 212 | Lean (`h45_size_and_diameter` in comparison 1; lean-bgp212's `h45_card` and `h45_diameter`, re-checked in comparison 2). **RLT: not stated** |
 | (b) For p = 2, 3, …, 43, the reductions omit the classes 1, 1, 3, …, 3 | **RLT: the 14 per-prime theorems.** Also in Lean (both comparisons) |
-| (c) These 14 numbers are all the primes ≤ 43 (so "every prime p ≤ 43" is covered) | Lean (`primes_below_47`). **RLT: not stated** |
+| (c) The primes below 47 are exactly 2, 3, …, 43, so every prime below 47 is one of the 14. The paper leaves this step implicit | Lean (`primes_below_47`). **RLT: not stated** |
 | (d) For p ≥ 47, 45 elements cannot cover p classes | Lean (`missing_below` and `large_moduli`, the paper's argument, for every p ≥ 46). **RLT: not proved** |
 
 **Reading over ℕ.** H₄₅ consists of nonnegative integers and 0 ≤ r_p < p. So "h lies in the class r_p mod p" is exactly ∃k ∈ ℕ, h = p·k + r_p, and each RLT statement is the paper's "h avoids the class r_p" (Lean `omit_iff`). The paper speaks of integers; for these elements the natural-number reading is faithful.
@@ -63,7 +63,7 @@ Lemma 12.1: "The set H₄₅ is an admissible 45-tuple of diameter 212." Its pro
 - Obligations (a) and (c) are finite and expressible in RLT, but not stated here.
 - Obligation (d) quantifies over every prime p ≥ 47. The paper's counting argument for it is a pigeonhole principle over an arbitrary modulus, which RLT has not proved.
 
-Lean proves the whole lemma from the 14 statements plus (c) and (d), by the paper's route (comparison 1), and also by lean-bgp212's route (comparison 2).
+In comparison 1, Lean proves admissibility from the 14 statements together with (c) and (d), by the paper's route (`lemma_12_1_of_rlt_statements`). With (a), decided there as `h45_size_and_diameter`, it proves the whole lemma (`lemma_12_1`). Comparison 2 re-checks lean-bgp212's proof of the whole lemma, by its own route.
 
 ## 4. The large-prime argument
 
@@ -80,12 +80,14 @@ Comparison 1 also shows that the primes below 47 are exactly the table's primes 
 
 One route that stays within Robinson's Q is noted for a later decision; it is not done here. It is lean-bgp212's alternative:
 
-- Finite certificates, of the kind built here, for the moduli 44 … 212.
-- For every p ≥ 213, the class 1 is omitted. From h = p·k + 1:
-  - k = 0 gives h = 1, and 1 ∉ H₄₅;
-  - k ≥ 1 makes the right side exceed 212.
+- **Below 44:** RLT would first need a primality statement, written inline as 1 < p ∧ ∀d. ((0 < d ∧ d ∣ p) → d = 1 ∨ d = p). It would then refute primality for 0, 1 and the composites below 44 by divisor witnesses, as in docs/RLT-006-REVIEW.md §9.1, or give omitted-class certificates for them.
+- **Moduli 44 … 212:** finite certificates of the kind built here.
+- **For every p ≥ 213:** the class 1 is omitted. With 213 ≤ p written as p = S^213(z), suppose h = p·k + 1.
+  - Q3 splits k = 0 from k = S(k′).
+  - k = 0: mul_zero and add_zero give h = 1, and 1 ∉ H₄₅.
+  - k = S(k′): mul_succ, then add_succ applied 214 times with add_zero, gives h = S^214(p·k′ + z). Peeling h ≤ 212 successors (Q1) contradicts Q2.
 
-  This needs only add_succ, mul_succ, Q1 and Q2 at numerals, so no induction.
+  These steps instantiate add_zero, add_succ, mul_zero, mul_succ, Q1, Q2 and Q3 at numerals or variables, so no induction is needed.
 
 That route differs from the paper's argument. A record of it would state "same statement, different proof".
 

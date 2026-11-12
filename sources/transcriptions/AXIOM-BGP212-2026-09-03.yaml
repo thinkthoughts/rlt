@@ -26,7 +26,7 @@ reviewed_by:
 items:
   - id: admissible-definition
     page: 3
-    location: "§2 Notation (heading on page 2), third paragraph"
+    location: "§2 Notation (heading on page 2), second paragraph (the first indented paragraph on page 3)"
     extracted: "A finite set H = {h1 , . . . , hk } of distinct integers is called admissible if, for every prime p, the elements of H omit at least one residue class modulo p."
     text: "A finite set H = {h₁, …, h_k} of distinct integers is called admissible if, for every prime p, the elements of H omit at least one residue class modulo p."
   - id: h45-tuple

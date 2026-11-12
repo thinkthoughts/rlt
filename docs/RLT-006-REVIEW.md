@@ -2,6 +2,12 @@
 
 **Status:** documentation-only review, 2026-11-11, against main at 9c8a66d.
 
+*Superseded by the implementation (2026-11-12): see docs/RLT-006-REPORT.md and docs/RLT-006-CORRESPONDENCE.md.*
+
+- The library indexes the 14 per-prime theorems only. The 630 certificates are named `(unlisted …)` in their `uses`.
+- The residue table is `certificates/h45/residues.tsv`.
+- §9 is corrected in place: 33 primes in 47 … 211 (not 34). Items 1–3 there, combined, still need a primality statement below 44.
+
 - Nothing is implemented in the repository.
 - The kernel, inference rules and axiom sets are unchanged.
 - No induction, new axioms or new rules are proposed.
@@ -166,14 +172,14 @@ With P1 the excerpts would be the §2 definition sentence, the H₄₅ display, 
 1. **"These are the primes up to 43."** This is expressible inline, with no new definition: ∀p. (p < 44 ∧ 1 < p ∧ ∀d. ((0 < d ∧ d ∣ p) → d = 1 ∨ d = p)) → p ∈ {2, …, 43}.
    - The proof would combine an M3d-style enumeration below 44 with one divisor witness for each of the 28 non-primes below 44.
    - Not measured; by the M3d and M3c scheme sizes, roughly 10⁴–10⁵ steps.
-2. **Moduli 47 … 211.** These are finite, using the same certificates. 34 primes × 45 elements, each about 1,200–1,300 steps by the measured trend for p ≥ 23, gives about 2 M steps and 3 minutes. Not measured.
+2. **Moduli 47 … 211.** These are finite, using the same certificates. 33 primes × 45 elements, each about 1,200–1,300 steps by the measured trend for p ≥ 23, gives about 2 M steps and 3 minutes. Not measured.
 3. **Moduli p ≥ 213, for every p (the lean-bgp212 route).** Claim: ∀p. 213 ≤ p → ∀ listed h. ¬∃k. h = p·k + 1.
    - Sketch:
      - Write p = S^213(z). Case k = 0 gives h = 1, refuted because h ≠ 1.
      - Case k = S(k′) gives h = S^214(p·k′ + z), by mul_succ and add_succ applied 213 times. Peeling h ≤ 212 successors then contradicts Q2.
    - Every step instantiates the axioms at numerals or variables, with no induction.
    - Not measured; estimated at about 45 × 1,000 steps.
-   - Together with items 1 and 2, RLT could then prove admissibility for every modulus p ≥ 2 without a primality predicate. That route differs from the paper's counting argument for p ≥ 47, so a record would say "same statement, different proof".
+   - Together with items 1 and 2, RLT could then prove admissibility for every prime. That uses item 1's inline primality statement below 44, plus certificates for the moduli 44 … 212 (item 2 covers only the primes among them). That route differs from the paper's counting argument for p ≥ 47, so a record would say "same statement, different proof".
 4. **The paper's counting argument for p ≥ 47** (45 elements cannot cover p classes, for arbitrary p) needs a pigeonhole argument over an arbitrary finite set. That is outside RLT without induction.
 
 ## 10. Decisions for approval
