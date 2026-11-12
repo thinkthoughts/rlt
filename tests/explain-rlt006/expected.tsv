@@ -1,0 +1,7 @@
+# file	exit	a line (or line fragment) the text report contains
+XH01-PDF-PIN-MODIFIED.yaml	2	differs from the registry's 2b307ae26046dffd2153fe7466e5a9a302976dc3ba5142151a8a8104a37b3d80
+XH02-EXCERPT-ALTERED.yaml	2	is not a whole unit of any registered excerpt
+XH03-PROOF-SHA.yaml	3	  stale         proof sha256: record ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+XH04-LEAN-THEOREM-ABSENT.yaml	2	is not declared in lean/RLT006Direct.lean
+XH05-REJECTED-PROOF.yaml	1	1 KERNEL ACCEPTANCE: REJECT
+XH06-BASIS-CHANGED.yaml	0	3 SEMANTIC CORRESPONDENCE: partial · assessment stale

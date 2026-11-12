@@ -81,7 +81,7 @@ pub struct AxiomSet {
     pub axioms: Vec<Axiom>,
 }
 
-fn sha256_hex(bytes: &[u8]) -> String {
+pub fn sha256_hex(bytes: &[u8]) -> String {
     use sha2::{Digest, Sha256};
     Sha256::digest(bytes)
         .iter()

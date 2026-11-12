@@ -52,6 +52,33 @@ clippy_log=$(cargo clippy -q --all-targets -- -D warnings 2>&1); clippy_code=$?
 echo; echo "== build"
 cargo build --release -q && echo "ok" || { echo "FAILED"; fail=1; finish; }
 
+echo; echo "== RLT-006 generated certificates (materialized before any check; tests/rlt006/manifest.sha256)"
+g6_t0=$(date +%s.%N)
+python3 -I scripts/gen-rlt006.py "$rlt" --materialize-only >/dev/null || { echo "  UNEXPECTED: scripts/gen-rlt006.py --materialize-only failed"; fail=1; }
+g6_t1=$(date +%s.%N)
+g6_check() {  # manifest file → prints mismatches; exit 0 only if all 630 present and equal
+  python3 -I - "$1" <<'PY'
+import hashlib, sys
+bad = n = 0
+for line in open(sys.argv[1], encoding="utf-8"):
+    s, p = line.rstrip("\n").split("  ", 1)
+    n += 1
+    try:
+        got = hashlib.sha256(open(p, "rb").read()).hexdigest()
+    except OSError:
+        got = "(missing)"
+    if got != s:
+        bad += 1
+        print(f"  MANIFEST MISMATCH {p}: {got}")
+sys.exit(0 if n == 630 and bad == 0 else 1)
+PY
+}
+if g6_check tests/rlt006/manifest.sha256; then
+  echo "630 of 630 certificates generated in $(printf %.1f "$(echo "$g6_t1 - $g6_t0" | bc)") s, each equal to its manifest hash; $(du -sk tests/rlt006/gen | cut -f1) KB on disk ($(ls tests/rlt006/gen | wc -l) files)"
+else
+  echo "  UNEXPECTED: tests/rlt006/gen differs from tests/rlt006/manifest.sha256"; fail=1
+fi
+
 echo; echo "== cargo test (unit + golden)"
 tests_log=$(cargo test --release -q 2>&1); tests_code=$?
 echo "$tests_log" | grep -E "^test result" | grep -v " 0 passed"
@@ -267,13 +294,97 @@ if [ -n "${RLT_REFERENCE:-}" ]; then
   scripts/compare-reports.sh "${RLT_REFERENCE%%:*}" "${RLT_REFERENCE#*:}" "$rlt" . | grep -E '^(DIFF|proof files|differences)'
 fi
 
+echo; echo "== H45 residue certificates, RLT-006 (tests/rlt006, certificates/h45)"
+r6_tmp=$(mktemp -d)
+r6_out="tests/rlt006/accept tests/rlt006/reject tests/rlt006/expected.tsv tests/rlt006/manifest.sha256 certificates/h45 lean/RLT006Direct.lean"
+for x in $r6_out; do mkdir -p "$r6_tmp/before/$(dirname "$x")"; cp -r "$x" "$r6_tmp/before/$x"; done
+mkdir -p "$r6_tmp/before/statements"; cp statements/H45-OMITS-*.yaml "$r6_tmp/before/statements/"
+g6_t0=$(date +%s.%N)
+if python3 -I scripts/gen-rlt006.py "$rlt" >/dev/null; then
+  g6_t1=$(date +%s.%N); r6_same=1
+  for x in $r6_out; do diff -r "$r6_tmp/before/$x" "$x" >/dev/null || r6_same=0; done
+  for f in "$r6_tmp"/before/statements/*.yaml; do cmp -s "$f" "statements/$(basename "$f")" || r6_same=0; done
+  [ "$(ls statements/H45-OMITS-*.yaml | wc -l)" = 14 ] || r6_same=0
+  if [ $r6_same = 1 ] && g6_check tests/rlt006/manifest.sha256 >/dev/null; then
+    echo "scripts/gen-rlt006.py reproduces every committed output and all 630 certificates ($(printf %.1f "$(echo "$g6_t1 - $g6_t0" | bc)") s)"
+  else
+    echo "  UNEXPECTED: scripts/gen-rlt006.py output differs from the committed files"; fail=1
+    for x in $r6_out; do rm -rf "$x"; cp -r "$r6_tmp/before/$x" "$x"; done
+  fi
+else
+  echo "  UNEXPECTED: scripts/gen-rlt006.py failed"; fail=1
+fi
+rm -rf "$r6_tmp"
+r6_t0=$(date +%s.%N); r6_ok=0
+for f in tests/rlt006/gen/*.rlt; do
+  "$rlt" check "$f" | grep -qE '^verdict         ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q' && r6_ok=$((r6_ok + 1)) || { echo "  UNEXPECTED: $f"; fail=1; }
+done
+r6_t1=$(date +%s.%N)
+[ $r6_ok = 630 ] || fail=1
+echo "1. element certificates: $r6_ok of 630 ACCEPT as unconditional theorems under ROBINSON-Q ($(printf %.1f "$(echo "$r6_t1 - $r6_t0" | bc)") s)"
+r6_t0=$(date +%s.%N); r6_ok=0
+for f in tests/rlt006/accept/OM_*.rlt; do
+  r6_d=$("$rlt" deps "$f")
+  { echo "$r6_d" | grep -q '^budget          cited-file checks 45 of 64 · citing-file chain 1 of 8' && echo "$r6_d" | grep -q '^exit            0'; } && r6_ok=$((r6_ok + 1)) || { echo "  UNEXPECTED: $f: $(echo "$r6_d" | grep -E '^(budget|exit)')"; fail=1; }
+done
+r6_t1=$(date +%s.%N)
+[ $r6_ok = 14 ] || fail=1
+echo "2. per-prime theorems: $r6_ok of 14 ACCEPT, each citing its 45 certificates (45 of 64 cited-file checks) ($(printf %.1f "$(echo "$r6_t1 - $r6_t0" | bc)") s)"
+r6_r=0; r6_rn=0
+while IFS=$'\t' read -r f want reason; do
+  case "$f" in \#*|"") continue ;; esac
+  r6_rn=$((r6_rn + 1))
+  r6_log=$("$rlt" check "$f"); r6_code=$?
+  { [ "$r6_code" = "$want" ] && echo "$r6_log" | grep '^verdict' | grep -qF -- "$reason"; } && r6_r=$((r6_r + 1)) || { echo "  UNEXPECTED: $f exit $r6_code (want $want): $(echo "$r6_log" | grep '^verdict')"; fail=1; }
+done < tests/rlt006/expected.tsv
+{ [ "$r6_rn" -gt 0 ] && [ "$r6_rn" = "$(ls tests/rlt006/reject/*.rlt | wc -l)" ]; } || { echo "  UNEXPECTED: tests/rlt006/expected.tsv lists $r6_rn cases"; fail=1; }
+echo "tests/rlt006/reject: $r6_r of $r6_rn give the required exit code and reason"
+# Tamper tests on the generated files (restored by regeneration afterwards).
+r6_t() {  # name, required verdict substring
+  r6_log=$("$rlt" check tests/rlt006/accept/OM_43.rlt); r6_code=$?
+  r6_dc=$("$rlt" deps admissible.h45.omits.43_3 >/dev/null; echo $?)
+  { [ $r6_code = 2 ] && [ "$r6_dc" != 0 ] && echo "$r6_log" | grep '^verdict' | grep -qF -- "$2" && ! g6_check tests/rlt006/manifest.sha256 >/dev/null; } \
+    && echo "refused: $1 (rlt check MALFORMED, rlt deps exit $r6_dc, manifest mismatch)" || { echo "  UNEXPECTED: $1 not refused"; fail=1; }
+}
+mv tests/rlt006/gen/O_43_212.rlt tests/rlt006/gen/O_43_212.rlt.away
+r6_t "a generated certificate missing" "cited path \`tests/rlt006/gen/O_43_212.rlt\`: entity not found"
+mv tests/rlt006/gen/O_43_212.rlt.away tests/rlt006/gen/O_43_212.rlt
+sed -i '1s/^; RLT-006/; rlt-006/' tests/rlt006/gen/O_43_000.rlt
+r6_t "a generated certificate modified" "citation \`E0\`: tests/rlt006/gen/O_43_000.rlt has SHA-256"
+python3 -I scripts/gen-rlt006.py "$rlt" --materialize-only >/dev/null
+r6_m=$(mktemp); sed '1s/^./0/' tests/rlt006/manifest.sha256 > "$r6_m"; head -1 tests/rlt006/manifest.sha256 | grep -q '^0' && sed -i '1s/^./1/' "$r6_m"
+g6_check "$r6_m" >/dev/null && { echo "  UNEXPECTED: an altered manifest hash was accepted"; fail=1; } || echo "refused: an altered manifest hash (the certificates no longer match it)"
+rm -f "$r6_m"
+g6_check tests/rlt006/manifest.sha256 >/dev/null && echo "restored: all 630 certificates equal to the manifest again" || { echo "  UNEXPECTED: certificates not restored"; fail=1; }
+x6_ok=0; x6_n=0
+while IFS=$'\t' read -r f want frag; do
+  case "$f" in \#*|"") continue ;; esac
+  x6_n=$((x6_n + 1))
+  x6_log=$("$rlt" explain "tests/explain-rlt006/$f"); x6_code=$?
+  { [ "$x6_code" = "$want" ] && echo "$x6_log" | grep -qF -- "$frag"; } && x6_ok=$((x6_ok + 1)) || { echo "  UNEXPECTED: tests/explain-rlt006/$f exit $x6_code (want $want)"; fail=1; }
+done < tests/explain-rlt006/expected.tsv
+[ "$x6_n" = 6 ] || fail=1
+echo "tests/explain-rlt006: $x6_ok of $x6_n record fixtures give the required exit code and line"
+# 3. The residue profile: computed evidence, checked here by plain arithmetic.
+python3 -I - <<'PY' || fail=1
+import sys
+rows = [l.rstrip("\n").split("\t") for l in open("certificates/h45/residues.tsv") if not l.startswith("#")]
+ok = len(rows) == 630 and all(int(h) == int(p) * int(q) + int(s) and 0 <= int(s) < int(p) and (int(s) != int(r)) == (o == "yes") and o == "yes" for p, r, h, q, s, o in rows)
+prof = [l.rstrip("\n").split("\t") for l in open("certificates/h45/profile.tsv") if not l.startswith("#")]
+occ = {(int(p)): set(map(int, oc.split(","))) for p, r, n, oc, om in prof}
+ok = ok and len(prof) == 14 and all(int(n) == len(occ[int(p)]) and int(r) in set(map(int, om.split(","))) for p, r, n, oc, om in prof)
+ok = ok and all(occ[int(p)] == {int(s) for pp, r, h, q, s, o in rows if pp == p} for p in occ)
+print(("3. residue profile (computed evidence, not kernel-checked): 630 rows with h = p*q + s and s != r_p; " + ", ".join(f"nu_{p}={len(occ[int(p)])}" for p, *_ in prof)) if ok else "  UNEXPECTED: certificates/h45 arithmetic fails")
+sys.exit(0 if ok else 1)
+PY
+
 echo; echo "== statement records and rlt explain, RLT-004b (statements/, tests/explain)"
 ex_tmp=$(mktemp -d)
-cp -r tests/explain "$ex_tmp/before"
-if python3 scripts/gen-explain-tests.py >/dev/null && diff -r -q "$ex_tmp/before" tests/explain >/dev/null; then
-  echo "scripts/gen-explain-tests.py reproduces tests/explain"
+cp -r tests/explain "$ex_tmp/before"; cp -r tests/explain-rlt006 "$ex_tmp/before6"
+if python3 scripts/gen-explain-tests.py >/dev/null && diff -r -q "$ex_tmp/before" tests/explain >/dev/null && diff -r -q "$ex_tmp/before6" tests/explain-rlt006 >/dev/null; then
+  echo "scripts/gen-explain-tests.py reproduces tests/explain and tests/explain-rlt006"
 else
-  echo "  UNEXPECTED: tests/explain differs from scripts/gen-explain-tests.py output"; rm -rf tests/explain; cp -r "$ex_tmp/before" tests/explain; fail=1
+  echo "  UNEXPECTED: tests/explain or tests/explain-rlt006 differs from scripts/gen-explain-tests.py output"; rm -rf tests/explain tests/explain-rlt006; cp -r "$ex_tmp/before" tests/explain; cp -r "$ex_tmp/before6" tests/explain-rlt006; fail=1
 fi
 rm -rf "$ex_tmp"
 for f in statements/*.yaml; do
@@ -296,19 +407,22 @@ while i < len(s):
     for l in ((d.get("semantic") or {}).get("lean") or []): out.add((l["file"], l["theorem"]))
 print("\n".join(f"{a} {b}" for a, b in sorted(out)))')
 if [ -n "$ex_lean" ]; then
-  while read -r lf th; do
-    [ -z "$lf" ] && continue
+  # One Lean run per referenced file, with every referenced theorem's
+  # `#print axioms` appended (RLT-006: 16 references, two files).
+  for lf in $(echo "$ex_refs" | cut -d' ' -f1 | sort -u); do
     ex_gate=$(mktemp -d)/Gate.lean
-    { cat "$lf"; echo; echo "#print axioms $th"; } > "$ex_gate"
+    { cat "$lf"; echo; echo "$ex_refs" | awk -v f="$lf" '$1 == f { print "#print axioms " $2 }'; } > "$ex_gate"
     ex_glog=$(cd lean && "$ex_lean" "$ex_gate" 2>&1); ex_gcode=$?
-    ex_line=$(echo "$ex_glog" | grep -E "^'$th' (depends on axioms|does not depend on any axioms)")
-    ex_bad=$(echo "$ex_line" | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound')
-    if [ $ex_gcode = 0 ] && [ -n "$ex_line" ] && [ -z "$ex_bad" ] && ! echo "$ex_glog" | grep -qiE "warning|error|sorry"; then
-      echo "Lean reference $th ($lf): checked, standard axioms only"
-    else
-      echo "  UNEXPECTED: Lean reference $th ($lf) is not a Lean-checked theorem with standard axioms"; fail=1
-    fi
-  done <<< "$ex_refs"
+    for th in $(echo "$ex_refs" | awk -v f="$lf" '$1 == f { print $2 }'); do
+      ex_line=$(echo "$ex_glog" | grep -E "^'$th' (depends on axioms|does not depend on any axioms)" | tail -1)
+      ex_bad=$(echo "$ex_line" | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound')
+      if [ $ex_gcode = 0 ] && [ -n "$ex_line" ] && [ -z "$ex_bad" ] && ! echo "$ex_glog" | grep -qiE "warning|error|sorry"; then
+        echo "Lean reference $th ($lf): checked, standard axioms only"
+      else
+        echo "  UNEXPECTED: Lean reference $th ($lf) is not a Lean-checked theorem with standard axioms"; fail=1
+      fi
+    done
+  done
 elif [ "${RLT_ALLOW_NO_LEAN:-}" = 1 ]; then
   echo "SKIPPED: Lean references in statement records (lean unavailable; RLT_ALLOW_NO_LEAN=1)"; skipped=1
 else
@@ -357,7 +471,7 @@ lean_bin=$(command -v lean || { [ -x "$HOME/.elan/bin/lean" ] && echo "$HOME/.el
 if [ -n "$lean_bin" ]; then
   # Run inside lean/ so elan selects lean/lean-toolchain. Any Lean message
   # other than the #print axioms lines (a warning, `sorry`, an error) fails.
-  lean_log=$(cd lean && "$lean_bin" --version && "$lean_bin" RLT001.lean && "$lean_bin" Generated.lean && "$lean_bin" M2Generated.lean && "$lean_bin" M2Readings.lean && "$lean_bin" M3aGenerated.lean && "$lean_bin" M3bGenerated.lean && "$lean_bin" M3bReadings.lean && "$lean_bin" M3cGenerated.lean && "$lean_bin" M3cReadings.lean && "$lean_bin" M3dGenerated.lean && "$lean_bin" M3dReadings.lean && "$lean_bin" M3eGenerated.lean && "$lean_bin" M3eReadings.lean && "$lean_bin" RLT005Direct.lean && "$lean_bin" RLT005Readings.lean 2>&1); lean_code=$?
+  lean_log=$(cd lean && "$lean_bin" --version && "$lean_bin" RLT001.lean && "$lean_bin" Generated.lean && "$lean_bin" M2Generated.lean && "$lean_bin" M2Readings.lean && "$lean_bin" M3aGenerated.lean && "$lean_bin" M3bGenerated.lean && "$lean_bin" M3bReadings.lean && "$lean_bin" M3cGenerated.lean && "$lean_bin" M3cReadings.lean && "$lean_bin" M3dGenerated.lean && "$lean_bin" M3dReadings.lean && "$lean_bin" M3eGenerated.lean && "$lean_bin" M3eReadings.lean && "$lean_bin" RLT005Direct.lean && "$lean_bin" RLT005Readings.lean && "$lean_bin" RLT006Direct.lean && "$lean_bin" RLT006BGP212.lean 2>&1); lean_code=$?
   echo "$lean_log"
   if [ $lean_code != 0 ] || echo "$lean_log" | grep -qiE "warning|error|sorry"; then
     echo "FAILED"; fail=1
@@ -403,6 +517,34 @@ if [ -n "$lean_bin" ]; then
     r5_bad=$(echo "$lean_log" | grep "^'$rf\." | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound' | sort -u)
     { [ "$r5_n" = "$r5_want" ] && [ "$r5_listed" = "$r5_n" ] && [ -z "$r5_bad" ]; } && echo "$rf.lean: $r5_n statements, standard axioms only (RLT-005 Lean comparison; not RLT theorems)" || { echo "$rf.lean: axiom gate FAILED ($r5_listed of $r5_n listed, $r5_want pinned; non-standard: $r5_bad)"; fail=1; }
   done
+  # RLT-006: theorem counts pinned; every #print axioms line standard; the
+  # vendored lean-bgp212 blocks byte-identical to the pinned upstream lines.
+  for rf_pin in RLT006Direct:27 RLT006BGP212:12; do
+    rf=${rf_pin%%:*}; r6_want=${rf_pin#*:}
+    r6_n=$(grep -cE '^[[:space:]]*(theorem|lemma) ' "lean/$rf.lean")
+    r6_p=$(grep -c '^#print axioms ' "lean/$rf.lean")
+    case $rf in RLT006Direct) r6_ns="RLT006Direct" ;; *) r6_ns="RLT006BGP212|BGP212\.Challenge" ;; esac
+    r6_bad=$(echo "$lean_log" | grep -E "^'($r6_ns)\." | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound' | sort -u)
+    r6_listed=$(echo "$lean_log" | grep -cE "^'($r6_ns)\.[^']*' (depends on axioms|does not depend on any axioms)")
+    { [ "$r6_n" = "$r6_want" ] && [ "$r6_p" = "$r6_n" ] && [ "$r6_listed" = "$r6_n" ] && [ -z "$r6_bad" ]; } && echo "$rf.lean: $r6_n statements, each printed, standard axioms only (RLT-006 Lean comparison; not RLT theorems)" || { echo "$rf.lean: axiom gate FAILED ($r6_n theorems, $r6_want pinned, $r6_p printed; non-standard: $r6_bad)"; fail=1; }
+  done
+  [ "$(echo "$lean_log" | grep -cE "^'(RLT006Direct|RLT006BGP212|BGP212\.Challenge)\.")" = 39 ] || { echo "RLT-006 Lean: expected 39 axiom lines"; fail=1; }
+  r6_lit() { grep -E "^def ($2) : List" "lean/$1.lean" | sed 's/^def [A-Za-z0-9]* : //'; }
+  { [ "$(r6_lit RLT006Direct H45)" = "$(r6_lit RLT006BGP212 rltH45)" ] && [ "$(r6_lit RLT006Direct table)" = "$(r6_lit RLT006BGP212 rltTable)" ] && [ -n "$(r6_lit RLT006Direct H45)" ]; } \
+    && echo "RLT006BGP212.lean: rltH45 and rltTable equal the generated transcription literals" || { echo "RLT006BGP212.lean: transcription literals DIFFER from lean/RLT006Direct.lean"; fail=1; }
+  if [ $# -ge 1 ] && [ -d "$1/lean-bgp212/.git" ]; then
+    v6_ok=1
+    for blk in "BGP212/Basic.lean 25 47" "Solution/Lemma12_1.lean 20 64"; do
+      set -- "$1" $blk
+      v6_up=$(git -C "$1/lean-bgp212" show "7898eb4665197ab418a62b9bb657dab3f31bb262:$2" 2>/dev/null | sed -n "$3,$4p")
+      v6_here=$(sed -n "/^-- BEGIN VENDORED lean-bgp212 $(echo "$2" | sed 's|/|\\/|g') $3-$4\$/,/^-- END VENDORED lean-bgp212/p" lean/RLT006BGP212.lean | sed '1d;$d')
+      [ -n "$v6_up" ] && [ "$v6_up" = "$v6_here" ] || v6_ok=0
+      set -- "$1"
+    done
+    [ $v6_ok = 1 ] && echo "RLT006BGP212.lean: vendored blocks byte-identical to lean-bgp212 @ 7898eb4 (BGP212/Basic.lean 25-47, Solution/Lemma12_1.lean 20-64)" || { echo "RLT006BGP212.lean: vendored blocks DIFFER from lean-bgp212 @ 7898eb4"; fail=1; }
+  else
+    echo "  UNEXPECTED: no clone of lean-bgp212 in the source checkouts; the vendored blocks are unverified"; fail=1
+  fi
   r5_block() { sed -n '/^-- BEGIN SHARED RLT-005 BLOCK/,/^-- END SHARED RLT-005 BLOCK/p' "$1"; }
   { [ -n "$(r5_block lean/RLT005Direct.lean)" ] && [ "$(r5_block lean/RLT005Direct.lean)" = "$(r5_block lean/RLT005Readings.lean)" ]; } && echo "RLT005 shared definitions: byte-identical in both files" || { echo "RLT005 shared definitions DIFFER between RLT005Direct.lean and RLT005Readings.lean"; fail=1; }
   for gen in M3eGenerated:RLTGeneratedM3e M3dGenerated:RLTGeneratedM3d M3cGenerated:RLTGeneratedM3c M3aGenerated:RLTGeneratedM3a; do
@@ -464,6 +606,34 @@ if [ $# -ge 1 ]; then
     echo "  UNEXPECTED: $1/archived/$ar_file absent after the excerpt check"; fail=1
   fi
   rm -rf "$ar_tmp"
+  # RLT-006: the transcribed PDF source is refused when the PDF, the pin, the
+  # tool, a page extraction, an item or an excerpt is tampered with. Scratch
+  # copies: a temporary transcription file and a temporary registry.
+  tr_id=AXIOM-BGP212-2026-09-03; tr_file=sources/transcriptions/$tr_id.yaml; tr_tmp=$(mktemp -d)
+  tr_scratch=sources/transcriptions/_verify_tamper.yaml
+  if [ -f "$1/archived/bgp212.pdf" ]; then
+    mkdir -p "$tr_tmp/bad/archived" "$tr_tmp/good"
+    { cat "$1/archived/bgp212.pdf"; printf x; } > "$tr_tmp/bad/archived/bgp212.pdf"
+    cp -r "$1/archived" "$tr_tmp/good/archived"
+    tr_t() {  # name, checkouts, transcription edit (python expr on t), registry edit (python expr on s), required output
+      python3 -c "import sys; t=open('$tr_file',encoding='utf-8').read(); t=$3; open('$tr_scratch','w',encoding='utf-8').write(t)"
+      python3 -c "import sys; s=open('sources/registry.yaml',encoding='utf-8').read(); s=s.replace('url: $tr_file','url: $tr_scratch'); s=$4; open(sys.argv[1],'w',encoding='utf-8').write(s)" "$tr_tmp/reg.yaml"
+      tr_log=$(python3 -I scripts/check_excerpts.py --registry "$tr_tmp/reg.yaml" --only $tr_id "$2" 2>&1); tr_code=$?
+      { [ $tr_code = 1 ] && echo "$tr_log" | grep -qF -- "$5"; } && echo "transcribed source refused: $1" || { echo "  UNEXPECTED: transcribed source $1 not refused (exit $tr_code): $(echo "$tr_log" | grep -vE '^ok' | head -2)"; fail=1; }
+    }
+    tr_t "PDF bytes changed" "$tr_tmp/bad" "t" "s" "differs from the pin 2b307ae2"
+    tr_t "registry pin changed" "$tr_tmp/good" "t" "s.replace('commit: 2b307ae2','commit: 3b307ae2')" "differs from the registry pin"
+    tr_t "page extraction hash changed" "$tr_tmp/good" "t.replace('extraction_sha256: 8107','extraction_sha256: 9107')" "s" "page 43: extraction SHA-256"
+    tr_t "extracted text altered" "$tr_tmp/good" "t.replace('206, 210, 212}.\"','206, 210, 213}.\"',1)" "s" "h45-tuple: extracted text not on page 43"
+    tr_t "transcribed numbers altered" "$tr_tmp/good" "t.replace('206, 210, 212]','206, 210, 213]',1)" "s" "h45-tuple: numbers"
+    tr_t "omitted class altered" "$tr_tmp/good" "t.replace('numbers: [1, 1, 3, 6, 9, 3, 1, 13, 17, 4, 11, 4, 4, 3]','numbers: [1, 1, 3, 6, 9, 3, 1, 13, 17, 4, 11, 4, 4, 2]')" "s" "omitted-classes: numbers"
+    tr_t "reviewer removed" "$tr_tmp/good" "t.replace('reviewer: \"Claude (RLT-006 implementation)\"','reviewer: \"\"')" "s" "reviewed_by must name each reviewer"
+    tr_t "tool version changed" "$tr_tmp/good" "t.replace('version: \"24.02.0\"','version: \"24.02.1\"')" "s" "the transcription pins 'pdftotext version 24.02.1'"
+    tr_t "excerpt not a reviewed item" "$tr_tmp/good" "t" "s.replace('Lemma 12.1. The set H₄₅ is an admissible 45-tuple of diameter 212.','Lemma 12.1. The set H₄₅ is an admissible 45-tuple of diameter 210.')" "excerpt is not a reviewed item text"
+  else
+    echo "  UNEXPECTED: $1/archived/bgp212.pdf absent after the excerpt check"; fail=1
+  fi
+  rm -rf "$tr_tmp" "$tr_scratch"
 elif [ "${RLT_SKIP_EXCERPTS:-}" = 1 ]; then
   echo "SKIPPED (no SOURCE_CHECKOUTS_DIR; RLT_SKIP_EXCERPTS=1)"; skipped=1
 else

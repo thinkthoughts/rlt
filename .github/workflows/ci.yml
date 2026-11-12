@@ -35,6 +35,14 @@ jobs:
           # A gzip archive starts with 1f 8b; anything else (an HTML error or
           # rate-limit page) is a failed download, not a tampered source.
           [ "$(head -c 2 /tmp/src/archived/2604.05304v2 | od -An -tx1 | tr -d ' ')" = 1f8b ] || { echo "download failed: export.arxiv.org did not return a gzip archive"; exit 1; }
+          # RLT-006 transcribed source: Axiom Math's PDF (pinned by SHA-256 in the
+          # registry) and pdftotext (poppler 24.02.0 on ubuntu-24.04, pinned by the
+          # transcription); lean-bgp212 for the vendored-block comparison.
+          sudo apt-get install -y -qq poppler-utils >/dev/null
+          pdftotext -v 2>&1 | head -1
+          curl -fsSL -A "rlt-ci" -o /tmp/src/archived/bgp212.pdf https://primegaps.axiommath.ai/bgp212.pdf
+          [ "$(head -c 5 /tmp/src/archived/bgp212.pdf)" = "%PDF-" ] || { echo "download failed: primegaps.axiommath.ai did not return a PDF"; exit 1; }
+          git clone -q https://github.com/thinkthoughts/lean-bgp212 /tmp/src/lean-bgp212
       - run: scripts/verify.sh /tmp/src
       - uses: actions/upload-artifact@v4
         if: always()

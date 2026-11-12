@@ -104,6 +104,48 @@ out = "tests/explain"
 shutil.rmtree(out, ignore_errors=True)
 os.makedirs(out)
 rows = []
+# RLT-006: fixtures for the H45 records, which cite generated certificates;
+# written to tests/explain-rlt006/ and run after the certificates are
+# materialized (cli/tests/rlt006.rs, scripts/verify.sh).
+BASE["H"] = open("statements/H45-OMITS-43.yaml", encoding="utf-8").read()
+H_SHA = re.search(r"^  sha256: ([0-9a-f]{64})$", BASE["H"], re.M).group(1)
+FILES["@RX04"] = "tests/rlt006/reject/RX04_summary_cites_other_prime.rlt"
+CASES6 = [
+    ("XH01-PDF-PIN-MODIFIED", "H", [("commit: 2b307ae2", "commit: 3b307ae2")], 2, "differs from the registry's 2b307ae26046dffd2153fe7466e5a9a302976dc3ba5142151a8a8104a37b3d80"),
+    ("XH02-EXCERPT-ALTERED", "H", [("H₄₅ = {0, 2, 12,", "H₄₅ = {0, 2, 13,")], 2, "is not a whole unit of any registered excerpt"),
+    ("XH03-PROOF-SHA", "H", [("sha256: " + H_SHA, "sha256: " + OTHER_SHA)], 3, "  stale         proof sha256: record " + OTHER_SHA),
+    ("XH04-LEAN-THEOREM-ABSENT", "H", [("RLT006Direct.om_43}", "RLT006Direct.om_47}")], 2, "is not declared in lean/RLT006Direct.lean"),
+    ("XH05-REJECTED-PROOF", "H", [("proof: tests/rlt006/accept/OM_43.rlt", "proof: tests/rlt006/reject/RX04_summary_cites_other_prime.rlt"), ("sha256: " + H_SHA, "sha256: @RX04")], 1, "1 KERNEL ACCEPTANCE: REJECT"),
+    ("XH06-BASIS-CHANGED", "H", [(re.compile(r"basis: \{path: docs/RLT-006-CORRESPONDENCE.md, sha256: [0-9a-f]{8}"), "basis: {path: docs/RLT-006-CORRESPONDENCE.md, sha256: 00000000")], 0, "3 SEMANTIC CORRESPONDENCE: partial · assessment stale"),
+]
+
+
+def emit(cases, out):
+    shutil.rmtree(out, ignore_errors=True)
+    os.makedirs(out)
+    rows = []
+    for name, base, edits, code, line in cases:
+        text = BASE[base]
+        text = re.sub(r"^id: .*$", "id: " + name, text, count=1, flags=re.M)
+        for old, new in edits:
+            if isinstance(old, re.Pattern):
+                assert old.search(text), old.pattern
+                text = old.sub(new, text, count=1)
+            else:
+                text = sub(text, old, new)
+        for tag, path in FILES.items():
+            text = text.replace("sha256: " + tag, "sha256: " + sha(path))
+        with open(os.path.join(out, name + ".yaml"), "w", encoding="utf-8") as f:
+            f.write(text)
+        rows.append(f"{name}.yaml\t{code}\t{line}")
+    with open(os.path.join(out, "expected.tsv"), "w", encoding="utf-8") as f:
+        f.write("# file\texit\ta line (or line fragment) the text report contains\n")
+        f.write("\n".join(rows) + "\n")
+    print(f"{len(cases)} fixtures written to {out}/")
+
+
+emit(CASES6, "tests/explain-rlt006")
+
 for name, base, edits, code, line in CASES:
     text = BASE[base]
     text = re.sub(r"^id: .*$", "id: " + name, text, count=1, flags=re.M)

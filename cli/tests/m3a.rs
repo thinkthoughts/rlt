@@ -15,6 +15,11 @@ fn root() -> PathBuf {
 fn rlt_files(dir: &Path, out: &mut Vec<PathBuf>) {
     for e in std::fs::read_dir(dir).unwrap() {
         let p = e.unwrap().path();
+        // RLT-006 (generated certificates and summaries citing them) is
+        // swept by cli/tests/rlt006.rs after materialization.
+        if p.ends_with("tests/rlt006") {
+            continue;
+        }
         if p.is_dir() {
             rlt_files(&p, out);
         } else if p.extension().is_some_and(|x| x == "rlt") {
@@ -93,6 +98,10 @@ fn copy_dir(src: &Path, dst: &Path) {
     std::fs::create_dir_all(dst).unwrap();
     for e in std::fs::read_dir(src).unwrap() {
         let p = e.unwrap().path();
+        // RLT-006 generated certificates are never copied into scratch trees.
+        if p.ends_with("tests/rlt006/gen") {
+            continue;
+        }
         let to = dst.join(p.file_name().unwrap());
         if p.is_dir() {
             copy_dir(&p, &to);
