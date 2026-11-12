@@ -162,6 +162,27 @@ Required because P1–P3 change proof-check scheduling and reuse. An independent
 - They are tidied in the next commit: `objects/info` is always replaced by an empty directory before any cached objects are adopted.
 - Self-tested; the auditor has not yet re-checked this tidy-up.
 
+**Final targeted audit of `9b3ae7c`** (a new, independent auditor, cached Git checkouts only):
+- **No command execution.** No way was found for an untrusted cached checkout to make Git execute attacker commands in the CI flow.
+- **Tested and sound:**
+  - about 20 executable-config vectors;
+  - `.git` as a file, symlink or FIFO;
+  - alternates and external stores;
+  - replace refs, grafts and shallow files;
+  - swapped packs and a tampered multi-pack-index.
+- **Three should-fix problems and three notes,** none affecting integrity, all addressed in the next commit:
+
+| Finding | Fix |
+|---|---|
+| 1. The archive download wrote through a planted `.part` symlink, so the pinned bytes could land in any writable file | `archived` must be a plain directory. A present file is kept only as a regular file equal to its SHA-256 pin, and otherwise removed. Downloads go to a fresh `mkstemp` file and are renamed. Re-tested: the victim file is untouched |
+| 2. Symlinks and FIFOs inside the adopted `objects` directory survived: packs could be written outside the cache, and a FIFO hung `fsck` | Nothing cached is moved any more. Only regular files at loose-object or pack paths are copied, each opened with `O_NOFOLLOW` and `O_NONBLOCK` and checked with `fstat`. Every git call has a time limit, and the CI job a 90-minute limit. Re-tested: a symlinked `pack/` and a FIFO pack index are both left behind |
+| 3. Abbreviated registry SHAs in `check_excerpts.py` could be made ambiguous by a planted genuine object | resolved through `sources/commit-pins.tsv`; readers use full SHAs only |
+| Note 4. The readers were safe only after `fetch-sources.py` had run | a new `scripts/pinned_read.py` is used by `check_excerpts.py` and by verify.sh's vendored-block comparison (details below) |
+| Note 5. Unchecked `git init`, `remote` and `config` return codes, and Git's parent-directory discovery | return codes are checked; `GIT_CEILING_DIRECTORIES`; no system or global config; `GIT_*` variables are not inherited |
+| Note 6. `actions/cache` restores with absolute paths, so whoever writes an entry can write files | the gate only restores (`actions/cache/restore`); entries are saved only by the source-provenance job on `main`, from an empty directory, after every excerpt is checked |
+
+**How `scripts/pinned_read.py` reads a file.** It uses a fresh temporary repository whose alternates point at the checkout's object store. None of the checkout's config, hooks, refs, grafts or attributes is read. Lazy fetch, replace objects, and system and global config are all off. Every object on the path commit → tree → blob is re-hashed and must equal its name. It is safe on any checkout, whether `fetch-sources.py` has run or not. `fetch-sources.py` now materializes every file the readers need, so they never fetch.
+
 The fixes were then re-tested:
 - the interrupts and supervisor cases in §1;
 - a partial-backup restore (nothing deleted);

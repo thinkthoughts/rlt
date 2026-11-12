@@ -704,7 +704,7 @@ $(cat "$lean_p/$lean_i.out")"
     v6_ok=1
     for blk in "BGP212/Basic.lean 25 47" "Solution/Lemma12_1.lean 20 64"; do
       set -- "$1" $blk
-      v6_up=$(git --no-replace-objects -C "$1/lean-bgp212" show "7898eb4665197ab418a62b9bb657dab3f31bb262:$2" 2>/dev/null | sed -n "$3,$4p")
+      v6_up=$(python3 -I scripts/pinned_read.py "$1/lean-bgp212" 7898eb4665197ab418a62b9bb657dab3f31bb262 "$2" 2>/dev/null | sed -n "$3,$4p")
       v6_here=$(sed -n "/^-- BEGIN VENDORED lean-bgp212 $(echo "$2" | sed 's|/|\\/|g') $3-$4\$/,/^-- END VENDORED lean-bgp212/p" lean/RLT006BGP212.lean | sed '1d;$d')
       [ -n "$v6_up" ] && [ "$v6_up" = "$v6_here" ] || v6_ok=0
       set -- "$1"
