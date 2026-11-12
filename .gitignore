@@ -1,1 +1,4 @@
 target/
+
+# RLT-006: generated element certificates (scripts/gen-rlt006.py; pinned by tests/rlt006/manifest.sha256)
+tests/rlt006/gen/

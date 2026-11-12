@@ -7,6 +7,13 @@
 #   available     file at a recorded commit; excerpts are checked against it by
 #                 scripts/check_excerpts.py (an available source must have
 #                 a GitHub file location and excerpts)
+#   transcribed   (RLT-006) a PDF read through a reviewed transcription:
+#                 `commit` is the PDF's SHA-256, `location` its URL, `url` the
+#                 repository path of the transcription file
+#                 (sources/transcriptions/*.yaml), which records the reviewer,
+#                 page, section, the pinned pdftotext version and per-page
+#                 extraction hashes; every excerpt must be a reviewed item
+#                 text, checked against the PDF by scripts/check_excerpts.py
 #   archived      (RLT-005) a file inside a versioned, immutable archive, such
 #                 as an arXiv e-print: `url` is the archive and, after '#',
 #                 the member file; `commit` holds the archive's SHA-256; the
@@ -333,3 +340,18 @@ sources:
       - "We say an integer $n$ is \\textit{matchable} if there is a coprime matching between $\\{1,2,\\dots,\\tau(n)\\}$ and $D(n)$."
       - "However, 8 is not matchable, nor is any subsequent multiple of 4."
       - "Since even divisors must be mapped to odd numbers in a coprime matching, proper multiples of 4 are seen to be not matchable."
+
+  - id: AXIOM-BGP212-2026-09-03
+    title: "F. Charton, L. Hong, K. Lau, K. Ono, G. Remy, H. C. Siu, A. A. Swaminathan, J. Thorner, Y. Xie (Axiom Math), A New Bound for Small Gaps Between Primes, Preliminary Draft: September 3, 2026"
+    location: https://primegaps.axiommath.ai/bgp212.pdf
+    url: sources/transcriptions/AXIOM-BGP212-2026-09-03.yaml
+    commit: 2b307ae26046dffd2153fe7466e5a9a302976dc3ba5142151a8a8104a37b3d80
+    status: transcribed
+    note: "Read 2026-11-12 for RLT-006. A 46-page PDF of 734,121 bytes with no version number beyond its date; pages 3 (section 2, the definition of admissible) and 43 (section 12, the tuple H45 and Lemma 12.1 with its residue table). Excerpts are the reviewed transcription texts; the transcription file records the extracted text, the pinned pdftotext version and the page extraction hashes."
+    excerpts:
+      - "A finite set H = {h₁, …, h_k} of distinct integers is called admissible if, for every prime p, the elements of H omit at least one residue class modulo p."
+      - "H₄₅ = {0, 2, 12, 14, 24, 26, 30, 36, 44, 50, 54, 56, 60, 66, 72, 74, 80, 84, 92, 96, 102, 110, 114, 116, 122, 126, 134, 140, 144, 150, 156, 162, 164, 170, 176, 180, 182, 186, 192, 194, 200, 204, 206, 210, 212}."
+      - "Lemma 12.1. The set H₄₅ is an admissible 45-tuple of diameter 212."
+      - "For 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, respectively, its reductions omit the residue classes"
+      - "1, 1, 3, 6, 9, 3, 1, 13, 17, 4, 11, 4, 4, 3. Thus the tuple does not cover every residue class for any prime p ≤ 43."
+      - "If p ≥ 47, its 45 elements cannot cover all p residue classes. Hence H₄₅ is admissible."

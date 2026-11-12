@@ -1576,6 +1576,13 @@ pub fn load_lib_entry(path: &Path) -> Result<LibEntry, String> {
     }
     let mut uses = Vec::new();
     for u in str_list(&y, "uses", ctx)? {
+        // RLT-006: `(unlisted PATH)` names a cited proof outside the library
+        // (a generated certificate); `rlt deps --verify-lib` checks the path
+        // and re-checks the file through the kernel.
+        if u.starts_with("(unlisted ") && u.ends_with(')') {
+            uses.push(u);
+            continue;
+        }
         uses.push(lib_id(&u, "uses")?);
     }
     let entry = LibEntry {

@@ -1,0 +1,7 @@
+# file	exit	required substring of the verdict (RLT-006 rejected cases)
+tests/rlt006/reject/RX01_altered_member_46_mod_43.rlt	1	REJECT at step L1_z_q2 — step claims `¬(0 = 0)`, rule `inst` yields `¬(0 = 1)`
+tests/rlt006/reject/RX02_altered_class_0_mod_3_at_12.rlt	1	REJECT at step L4_z_q2 — step claims `¬(0 = 0)`, rule `inst` yields `¬(0 = 1)`
+tests/rlt006/reject/RX03_summary_altered_member_213.rlt	1	REJECT at step f44 — step claims `¬(∃k. 213 = (43 × k) + 3)`, the cited theorem `E44` proves `¬(∃k. 212 = (43 × k) + 3)`
+tests/rlt006/reject/RX04_summary_cites_other_prime.rlt	1	REJECT at step f44 — step claims `¬(∃k. 212 = (43 × k) + 3)`, the cited theorem `E44` proves `¬(∃k. 212 = (41 × k) + 4)`
+tests/rlt006/reject/RX05_summary_stale_certificate_hash.rlt	2	MALFORMED — citation `E0`: tests/rlt006/gen/O_43_000.rlt has SHA-256
+tests/rlt006/reject/RX06_summary_missing_certificate.rlt	2	MALFORMED — citation `E0`: cited path `tests/rlt006/gen/O_43_999.rlt`: entity not found

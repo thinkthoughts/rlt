@@ -80,17 +80,13 @@ def gzip_fname(data):
     return data[i:j].decode("latin-1")
 
 
-def archived_text(s):
-    """RLT-005: an archived source is a versioned archive file (e.g. an arXiv
-    e-print) pinned by the SHA-256 in `commit`; `url` names the archive and,
-    after '#', the member file. The archive is read from CHECKOUTS/archived/
-    if present there (never through a symlink), else downloaded (at most
-    MAX_ARCHIVE bytes); its SHA-256 must equal the pin. A tar archive must
-    contain the member; a single gzipped file must name it in its header."""
-    import gzip, hashlib, io, os, tarfile, tempfile, urllib.request
-    url, _, member = s["url"].partition("#")
-    if not member_ok(member):
-        raise ValueError(f"member {member!r} must be a relative path without '.' or '..' components")
+def fetch_pinned(url, sha256):
+    """The bytes at `url`, read from CHECKOUTS/archived/ if present there
+    (never through a symlink), else downloaded (at most MAX_ARCHIVE bytes);
+    refused unless their SHA-256 equals `sha256`. Downloaded bytes are cached
+    only after that check, atomically."""
+    import hashlib, os, tempfile, urllib.request
+    s = {"commit": sha256}
     cached = checkouts / "archived" / url.rstrip("/").rsplit("/", 1)[-1]
     if cached.is_symlink():
         raise ValueError(f"{cached} is a symlink; refusing to read or write through it")
@@ -112,6 +108,21 @@ def archived_text(s):
         with os.fdopen(fd, "wb") as fh:
             fh.write(data)
         os.replace(tmp, cached)
+    return data
+
+
+def archived_text(s):
+    """RLT-005: an archived source is a versioned archive file (e.g. an arXiv
+    e-print) pinned by the SHA-256 in `commit`; `url` names the archive and,
+    after '#', the member file. The archive is read from CHECKOUTS/archived/
+    if present there (never through a symlink), else downloaded (at most
+    MAX_ARCHIVE bytes); its SHA-256 must equal the pin. A tar archive must
+    contain the member; a single gzipped file must name it in its header."""
+    import gzip, io, tarfile
+    url, _, member = s["url"].partition("#")
+    if not member_ok(member):
+        raise ValueError(f"member {member!r} must be a relative path without '.' or '..' components")
+    data = fetch_pinned(url, s["commit"])
     try:
         t = tarfile.open(fileobj=io.BytesIO(data))
     except tarfile.ReadError:
@@ -143,8 +154,79 @@ def at_word_boundaries(hay, x):
         start = i + 1
     return False
 
+def transcribed(s):
+    """RLT-006: a source read through a reviewed transcription. `url` is the
+    repository path of the transcription file; `commit` is the SHA-256 of the
+    PDF. Yields (status, message) pairs; any status but 'ok' is a problem."""
+    import hashlib, re as _re, subprocess, tempfile
+    rel = s["url"]
+    if not rel.startswith("sources/transcriptions/") or ".." in rel.split("/") or not rel.endswith(".yaml"):
+        yield "ERROR", f"transcription path {rel!r} must be sources/transcriptions/*.yaml"
+        return
+    t = yaml.safe_load((root / rel).read_text(encoding="utf-8"))
+    if t.get("format") != "rlt-transcription/1" or t.get("source") != s["id"]:
+        yield "ERROR", f"{rel}: format must be rlt-transcription/1 and source {s['id']}"
+        return
+    if t["pdf"]["sha256"] != s["commit"]:
+        yield "ERROR", f"{rel}: PDF SHA-256 {t['pdf']['sha256']} differs from the registry pin {s['commit']}"
+        return
+    if not t.get("reviewed_by") or not all(r.get("reviewer") and r.get("date") for r in t["reviewed_by"]):
+        yield "ERROR", f"{rel}: reviewed_by must name each reviewer and date"
+        return
+    data = fetch_pinned(t["pdf"]["url"], s["commit"])
+    try:
+        ver = subprocess.run(["pdftotext", "-v"], capture_output=True, text=True).stderr
+    except FileNotFoundError:
+        yield "ERROR", "pdftotext is not installed (poppler-utils); the transcription cannot be checked"
+        return
+    want = f"pdftotext version {t['tool']['version']}"
+    if (ver.splitlines() or [""])[0].strip() != want:
+        yield "ERROR", f"pdftotext reports {ver.splitlines()[0] if ver else '?'!r}; the transcription pins {want!r}"
+        return
+    pages = {}
+    with tempfile.NamedTemporaryFile(suffix=".pdf") as fh:
+        fh.write(data)
+        fh.flush()
+        for pg in t["pages"]:
+            out = subprocess.run(["pdftotext", "-layout", "-f", str(pg["page"]), "-l", str(pg["page"]), fh.name, "-"],
+                                 capture_output=True).stdout
+            got = hashlib.sha256(out).hexdigest()
+            if got != pg["extraction_sha256"]:
+                yield "ERROR", f"page {pg['page']}: extraction SHA-256 {got} differs from the pinned {pg['extraction_sha256']}"
+                return
+            pages[pg["page"]] = out.decode("utf-8")
+    texts = set()
+    for it in t["items"]:
+        texts.add(it["text"])
+        if it["page"] not in pages:
+            yield "ERROR", f"{it['id']}: page {it['page']} has no pinned extraction"
+            continue
+        if not at_word_boundaries(pages[it["page"]], it["extracted"]):
+            yield "MISSING", f"{it['id']}: extracted text not on page {it['page']}: {it['extracted'][:60]!r}"
+            continue
+        if "numbers" in it:
+            run = _re.search(r"\d+(?:, \d+)+", " ".join(it["extracted"].split()))
+            nums = [int(x) for x in run.group(0).split(", ")] if run else []
+            if nums != it["numbers"]:
+                yield "MISSING", f"{it['id']}: numbers {it['numbers']} differ from the extracted list {nums}"
+                continue
+        yield "ok", f"{it['id']} (page {it['page']}, {it['location']})"
+    for e in s.get("excerpts", []):
+        x = e["text"] if isinstance(e, dict) else e
+        yield ("ok", f"excerpt {x[:60]!r}") if x in texts else ("MISSING", f"excerpt is not a reviewed item text: {x[:60]!r}")
+
+
 bad = 0
 for s in reg["sources"]:
+    if s["status"] == "transcribed":
+        try:
+            results = list(transcribed(s))
+        except Exception as e:
+            results = [("ERROR", str(e))]
+        for st, msg in results:
+            print(f"{st:8} {s['id']}: {msg}")
+            bad += 0 if st == "ok" else 1
+        continue
     if s["status"] == "archived":
         try:
             text = archived_text(s)

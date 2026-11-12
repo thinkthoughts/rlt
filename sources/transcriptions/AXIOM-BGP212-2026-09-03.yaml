@@ -1,0 +1,59 @@
+# Reviewed transcription (RLT-006): the parts of Axiom Math's draft that
+# RLT-006 uses. The PDF is pinned by SHA-256; each item records its PDF page
+# (1-based page index of the 46-page file) and section, the extracted text
+# exactly as `pdftotext -layout -f PAGE -l PAGE` (poppler 24.02.0) prints it,
+# whitespace runs compared as one space, and the reviewed transcription.
+# scripts/check_excerpts.py checks every item against the PDF: the hash, the
+# tool version, the SHA-256 of each page's extraction, the extracted text, and
+# the numbers. scripts/gen-rlt006.py reads the tuple and the table from here.
+format: rlt-transcription/1
+source: AXIOM-BGP212-2026-09-03
+pdf:
+  url: https://primegaps.axiommath.ai/bgp212.pdf
+  sha256: 2b307ae26046dffd2153fe7466e5a9a302976dc3ba5142151a8a8104a37b3d80
+  bytes: 734121
+  pages: 46
+  title_page: "A New Bound for Small Gaps Between Primes; Preliminary Draft: September 3, 2026"
+tool:
+  name: pdftotext
+  version: "24.02.0"
+  args: "-layout -f PAGE -l PAGE"
+pages:
+  - {page: 3, extraction_sha256: c6769e1dc060c67a2fc250998c7d9f2525c274597af524cb2deabf6a334e4dba}
+  - {page: 43, extraction_sha256: 8107cbd125a77f42bdbbac3b751b91802309164e566bb77d2ce7b07baae165e4}
+reviewed_by:
+  - {reviewer: "Claude (RLT-006 implementation)", date: 2026-11-12, method: "read against the extracted page text and the rendered page"}
+items:
+  - id: admissible-definition
+    page: 3
+    location: "§2 Notation (heading on page 2), third paragraph"
+    extracted: "A finite set H = {h1 , . . . , hk } of distinct integers is called admissible if, for every prime p, the elements of H omit at least one residue class modulo p."
+    text: "A finite set H = {h₁, …, h_k} of distinct integers is called admissible if, for every prime p, the elements of H omit at least one residue class modulo p."
+  - id: h45-tuple
+    page: 43
+    location: "§12 Completion of the proof, displayed set"
+    extracted: "H45 = {0, 2, 12, 14, 24, 26, 30, 36, 44, 50, 54, 56, 60, 66, 72, 74, 80, 84, 92, 96, 102, 110, 114, 116, 122, 126, 134, 140, 144, 150, 156, 162, 164, 170, 176, 180, 182, 186, 192, 194, 200, 204, 206, 210, 212}."
+    text: "H₄₅ = {0, 2, 12, 14, 24, 26, 30, 36, 44, 50, 54, 56, 60, 66, 72, 74, 80, 84, 92, 96, 102, 110, 114, 116, 122, 126, 134, 140, 144, 150, 156, 162, 164, 170, 176, 180, 182, 186, 192, 194, 200, 204, 206, 210, 212}."
+    numbers: [0, 2, 12, 14, 24, 26, 30, 36, 44, 50, 54, 56, 60, 66, 72, 74, 80, 84, 92, 96, 102, 110, 114, 116, 122, 126, 134, 140, 144, 150, 156, 162, 164, 170, 176, 180, 182, 186, 192, 194, 200, 204, 206, 210, 212]
+  - id: lemma-12-1
+    page: 43
+    location: "§12, Lemma 12.1, statement"
+    extracted: "Lemma 12.1. The set H45 is an admissible 45-tuple of diameter 212."
+    text: "Lemma 12.1. The set H₄₅ is an admissible 45-tuple of diameter 212."
+  - id: omitted-primes
+    page: 43
+    location: "§12, proof of Lemma 12.1, first displayed list"
+    extracted: "For 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, respectively, its reductions omit the residue classes"
+    text: "For 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, respectively, its reductions omit the residue classes"
+    numbers: [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43]
+  - id: omitted-classes
+    page: 43
+    location: "§12, proof of Lemma 12.1, second displayed list"
+    extracted: "1, 1, 3, 6, 9, 3, 1, 13, 17, 4, 11, 4, 4, 3. Thus the tuple does not cover every residue class for any prime p ≤ 43."
+    text: "1, 1, 3, 6, 9, 3, 1, 13, 17, 4, 11, 4, 4, 3. Thus the tuple does not cover every residue class for any prime p ≤ 43."
+    numbers: [1, 1, 3, 6, 9, 3, 1, 13, 17, 4, 11, 4, 4, 3]
+  - id: large-primes
+    page: 43
+    location: "§12, proof of Lemma 12.1, last sentences"
+    extracted: "If p ≥ 47, its 45 elements cannot cover all p residue classes. Hence H45 is admissible."
+    text: "If p ≥ 47, its 45 elements cannot cover all p residue classes. Hence H₄₅ is admissible."
