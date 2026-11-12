@@ -38,7 +38,7 @@ All changes are in scheduling: which independent processes run at the same time,
 
 ## 3. Measurements against `e5850d9`
 
-**Setup.** The RLT-007a column is the run with the audit fixes (§7); the run before them took 1,066 s. Same machine (2 processors), same pinned sources (`/tmp/srcfetch`), binaries and test executables prebuilt in both trees, nothing else running. Each run: `scripts/verify.sh` timed by bash `time`.
+**Setup.** The RLT-007a column is the run with the audit fixes (§7); the run before them took 1,066 s, and the run after the re-audit fixes took 1,032 s (user 1,488 s, system 54 s) with the same report lines. Same machine (2 processors), same pinned sources (`/tmp/srcfetch`), binaries and test executables prebuilt in both trees, nothing else running. Each run: `scripts/verify.sh` timed by bash `time`.
 
 | | main `e5850d9` | RLT-007a | Change |
 |---|---|---|---|
@@ -137,6 +137,16 @@ Required because P1–P3 change proof-check scheduling and reuse. An independent
 - CI always runs the gate on push and pull request.
 - The archived files are re-hashed on every run.
 - The measurements add up.
+
+**Re-audit of `974a98a`** (same auditor):
+- S1–S4, S6 and notes 1, 3, 4, 5, 10 and 11 are confirmed fixed.
+- Two further issues were found and fixed in the next commit:
+
+| Finding | Fix |
+|---|---|
+| N1 (S5 only partly fixed) a cache could add a `refs/replace` ref, which `git fsck` accepts and `git show` follows | every repository restored from a cache keeps only its objects; config, hooks, refs, grafts and alternates are rebuilt on every run. `check_excerpts.py` and the vendored-block comparison read with `--no-replace-objects`. Re-tested: a replace ref planted in a cached repository is removed, and the original text is read |
+| N2 under `set -m` the checks ran as a background job on a terminal and stopped there with `tostop` (outside CI) | the child reads `/dev/null` and writes through a relay in the supervisor's foreground group. Re-tested under a pty with `stty tostop`: runs, and TERM stops it cleanly |
+| N3, N4 (notes) | documented in the supervisor's header: signals already ignored by the starting shell, Ctrl-Z, and the microsecond window before the child's pid is known |
 
 The fixes were then re-tested:
 - the interrupts and supervisor cases in §1;

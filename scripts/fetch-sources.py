@@ -21,6 +21,7 @@ in sources/commit-pins.tsv that extends it, and every row is used.
 """
 import hashlib
 import os
+import shutil
 import re
 import subprocess
 import sys
@@ -78,19 +79,35 @@ out.mkdir(parents=True, exist_ok=True)
 def git(*args, cwd):
     # GIT_NO_LAZY_FETCH: a presence check must not fetch the object itself
     # from the promisor remote; fetching is explicit, by SHA, below.
-    env = dict(os.environ, GIT_NO_LAZY_FETCH="1") if args[0] in ("cat-file", "fsck") else None
+    env = dict(os.environ, GIT_NO_REPLACE_OBJECTS="1")
+    if args[0] in ("cat-file", "fsck"):
+        env["GIT_NO_LAZY_FETCH"] = "1"
     return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, env=env)
 
 
 bad = 0
 for name, (slug, commits) in sorted(repos.items()):
     d = out / name
+    # Audit N1: a repository restored from a cache keeps only its objects.
+    # Everything else in .git (config, hooks, refs including refs/replace,
+    # info/grafts, objects/info/alternates) is untrusted and rebuilt here.
+    if (d / ".git").is_dir():
+        objs = d / ".git" / "objects"
+        keep = d.parent / f".{name}.objects"
+        shutil.rmtree(keep, ignore_errors=True)
+        os.replace(objs, keep)
+        shutil.rmtree(keep / "info", ignore_errors=True)
+        shutil.rmtree(d)
     if not (d / ".git").is_dir():
         d.mkdir(parents=True, exist_ok=True)
         git("init", "-q", cwd=d)
         git("remote", "add", "origin", f"https://github.com/{slug}", cwd=d)
         git("config", "remote.origin.promisor", "true", cwd=d)
         git("config", "remote.origin.partialclonefilter", "blob:none", cwd=d)
+        if (d.parent / f".{name}.objects").is_dir():
+            shutil.rmtree(d / ".git" / "objects")
+            os.replace(d.parent / f".{name}.objects", d / ".git" / "objects")
+            (d / ".git" / "objects" / "info").mkdir(exist_ok=True)
     for c in sorted(commits):
         if git("cat-file", "-e", f"{c}^{{commit}}", cwd=d).returncode == 0:
             print(f"present  {name} {c[:12]}")

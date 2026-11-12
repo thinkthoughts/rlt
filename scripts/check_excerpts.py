@@ -269,7 +269,8 @@ for s in reg["sources"]:
     repo, commit, path = m.groups()
     try:
         text = subprocess.run(
-            ["git", "-C", str(checkouts / repo), "show", f"{commit}:{path}"],
+            # RLT-007a audit N1: replace refs never redirect what is read.
+            ["git", "--no-replace-objects", "-C", str(checkouts / repo), "show", f"{commit}:{path}"],
             check=True, capture_output=True, text=True,
         ).stdout
     except subprocess.CalledProcessError as e:

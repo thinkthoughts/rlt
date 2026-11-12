@@ -26,10 +26,13 @@ cd "$(dirname "$rlt_self")/.."
 # INTERRUPTED line and no RESULT line. HUP and QUIT are handled like TERM
 # (exit 129, 131). The child is a job of its own (`set -m`), so its process
 # group is its pid; the run stops if that does not hold. Not covered: a
-# supervisor killed by SIGKILL, and SIGINT when the shell that started
-# verify.sh had already set it to be ignored (bash cannot trap it then).
+# supervisor killed by SIGKILL; SIGINT and SIGQUIT when the shell that
+# started verify.sh had already set them to be ignored (bash cannot trap them
+# then; the run completes normally); Ctrl-Z, which stops only the supervisor;
+# and a signal in the microseconds between starting the child and recording
+# its pid.
 if [ -z "${RLT_VERIFY_CHILD:-}" ]; then
-  rlt_child=""
+  rlt_child=""; rlt_relay=""
   RLT_RUN_TMP=$(mktemp -d); export RLT_RUN_TMP
   rlt_restore() {
     [ -f tests/rlt006/gen/O_43_212.rlt.away ] && mv tests/rlt006/gen/O_43_212.rlt.away tests/rlt006/gen/O_43_212.rlt
@@ -47,6 +50,7 @@ if [ -z "${RLT_VERIFY_CHILD:-}" ]; then
       kill -TERM -- "-$rlt_child" 2>/dev/null; sleep 1; kill -KILL -- "-$rlt_child" 2>/dev/null
       wait "$rlt_child" 2>/dev/null
     fi
+    exec 5>&- 2>/dev/null; [ -n "${rlt_relay:-}" ] && wait "$rlt_relay" 2>/dev/null
     rlt_restore
     rm -rf tests/rlt006/gen "$RLT_RUN_TMP"
     echo; echo "INTERRUPTED ($2): verification stopped before completion; altered files restored; generated certificates removed; no RESULT" | tee -a verification/RLT-001-results.txt
@@ -56,16 +60,23 @@ if [ -z "${RLT_VERIFY_CHILD:-}" ]; then
   trap 'rlt_stop 143 TERM' TERM
   trap 'rlt_stop 129 HUP' HUP
   trap 'rlt_stop 131 QUIT' QUIT
+  # Audit N2: the child reads nothing from a terminal and writes through a
+  # relay in the supervisor's own (foreground) process group, so a terminal
+  # with `tostop` never stops it.
+  exec 5> >(cat)
+  rlt_relay=$!
   set -m
-  RLT_VERIFY_CHILD=1 bash "$rlt_self" "$@" &
+  RLT_VERIFY_CHILD=1 bash "$rlt_self" "$@" </dev/null >&5 2>&5 &
   rlt_child=$!
   set +m
   rlt_pgid=$(ps -o pgid= -p "$rlt_child" 2>/dev/null | tr -d ' ')
+  [ -n "$rlt_pgid" ] || echo "verify.sh: ps unavailable; the child's process group was not checked" >&2
   if [ -n "$rlt_pgid" ] && [ "$rlt_pgid" != "$rlt_child" ]; then
     echo "verify.sh: the checks did not get a process group of their own (pgid $rlt_pgid, pid $rlt_child); stopping" >&2
     rlt_stop 2 SETUP
   fi
   wait "$rlt_child"; rlt_code=$?
+  exec 5>&-; wait "$rlt_relay" 2>/dev/null
   rm -rf "$RLT_RUN_TMP"
   exit $rlt_code
 fi
@@ -693,7 +704,7 @@ $(cat "$lean_p/$lean_i.out")"
     v6_ok=1
     for blk in "BGP212/Basic.lean 25 47" "Solution/Lemma12_1.lean 20 64"; do
       set -- "$1" $blk
-      v6_up=$(git -C "$1/lean-bgp212" show "7898eb4665197ab418a62b9bb657dab3f31bb262:$2" 2>/dev/null | sed -n "$3,$4p")
+      v6_up=$(git --no-replace-objects -C "$1/lean-bgp212" show "7898eb4665197ab418a62b9bb657dab3f31bb262:$2" 2>/dev/null | sed -n "$3,$4p")
       v6_here=$(sed -n "/^-- BEGIN VENDORED lean-bgp212 $(echo "$2" | sed 's|/|\\/|g') $3-$4\$/,/^-- END VENDORED lean-bgp212/p" lean/RLT006BGP212.lean | sed '1d;$d')
       [ -n "$v6_up" ] && [ "$v6_up" = "$v6_here" ] || v6_ok=0
       set -- "$1"
