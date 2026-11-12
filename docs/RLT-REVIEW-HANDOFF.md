@@ -69,3 +69,25 @@ The broader review began on the same day: docs/RLT-004-REVIEW.md.
 - **Deviations:** none.
 
 RLT-004b (statement records and `rlt explain`) review: docs/RLT-004b-REVIEW.md.
+
+## Merge record, 2026-11-11 (RLT-004b)
+
+- **Gate before merge:**
+  - PR #11 head was exactly 80f954d.
+  - Its diff against main held only the reviewed implementation:
+    - `cli/src/explain.rs`, `cli/src/lib.rs`, `cli/src/main.rs` and `syntax/src/records.rs`;
+    - `cli/tests/explain.rs`;
+    - `statements/`, `tests/explain/` and `tests/explain-golden/`;
+    - scripts and docs.
+  - Kernel, inference rules, axiom sets, conventions, definitions and reading points were unchanged, as was every earlier proof and fixture directory.
+  - CI `check` and `gdt-comparison` were green on 80f954d.
+  - All audit corrections were present, including the single-read proof bytes: `rlt explain` reads the proof once and checks those bytes through `check_bytes_outcome`.
+- **PR #11 merged:** marked ready, then merged as merge commit **45c94b5**, with parents 58838c9 and 80f954d. The merge tree a71e4a23 equals 80f954d's tree.
+- **Fresh clone of main at 45c94b5:**
+  - `cargo test --release` passes 248 of 248;
+  - `scripts/verify.sh` prints `RESULT all checks hold`, with 44 of 44 explain fixtures;
+  - `scripts/check-manual.py` reports 24 of 24 examples.
+- **CI on 45c94b5:** `check` and `gdt-comparison` both succeed.
+- **Deviations:** none in the merge. One stale doc comment at the top of `cli/src/explain.rs` still names `check_preread_outcome`; the code calls `check_bytes_outcome`. It is a comment-only correction, listed for RLT-004c implementation.
+
+RLT-004c (theorem library and `rlt deps`) review: docs/RLT-004c-REVIEW.md.

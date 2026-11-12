@@ -1386,6 +1386,224 @@ pub fn load_statement(path: &Path) -> Result<StatementRecord, String> {
     })
 }
 
+// ---------------------------------------------------------------------------
+// RLT-004c: theorem-library entries (`lib/<area>/<id>.yaml`). An entry names
+// a checked theorem; every field is compared with the checked files by
+// `rlt deps`, so an entry is metadata, never evidence.
+
+/// The format tag every library entry carries.
+pub const LIB_FORMAT: &str = "rlt-lib/1";
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ProofPin {
+    pub path: String,
+    pub sha256: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HistoryPin {
+    pub path: String,
+    pub sha256: String,
+    pub fingerprint: String,
+    pub replaced_on: String,
+    pub reviewed_by: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LibEntry {
+    pub id: String,
+    pub title: String,
+    pub fingerprint: String,
+    pub proof: ProofPin,
+    pub proof_id: String,
+    /// Further accepted proofs of exactly the same statement.
+    pub alternatives: Vec<ProofPin>,
+    pub axiom_set: String,
+    pub convention: String,
+    pub checked_goal: String,
+    pub assumptions: Vec<(String, String)>,
+    pub citable: bool,
+    pub uses: Vec<String>,
+    pub statement_records: Vec<String>,
+    pub history: Vec<HistoryPin>,
+}
+
+/// Library identifiers: two or more lower-case segments of ASCII letters,
+/// digits and `_`, joined by `.`; the first segment is the area.
+pub fn lib_id(id: &str, ctx: &str) -> Result<String, String> {
+    let seg_ok = |s: &str| {
+        !s.is_empty()
+            && s.chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+    };
+    let segs: Vec<&str> = id.split('.').collect();
+    // A last segment `rlt` would read as a proof path to `rlt deps`.
+    if segs.len() >= 2 && segs.iter().all(|s| seg_ok(s)) && segs.last() != Some(&"rlt") {
+        Ok(id.to_string())
+    } else {
+        Err(format!(
+            "{ctx}: library id `{}` must be two or more lower-case segments joined by `.`",
+            id.escape_debug()
+        ))
+    }
+}
+
+fn pin(y: &Yaml, ctx: &str) -> Result<ProofPin, String> {
+    only_keys(y, &["path", "sha256"], ctx)?;
+    Ok(ProofPin {
+        path: req(y, "path", ctx)?,
+        sha256: sha_field(y, "sha256", ctx)?,
+    })
+}
+
+fn assumption_list(y: &Yaml, ctx: &str) -> Result<Vec<(String, String)>, String> {
+    let mut out: Vec<(String, String)> = Vec::new();
+    match &y["assumptions"] {
+        Yaml::Array(v) => {
+            for e in v {
+                only_keys(e, &["name", "formula"], ctx)?;
+                let name = req(e, "name", ctx)?;
+                let ident = name.chars().next().is_some_and(|c| c.is_ascii_alphabetic())
+                    && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
+                if !ident {
+                    return Err(format!(
+                        "{ctx}: assumption name `{}` must be an identifier",
+                        name.escape_debug()
+                    ));
+                }
+                if out.iter().any(|(n, _)| *n == name) {
+                    return Err(format!("{ctx}: assumption `{name}` is listed twice"));
+                }
+                out.push((name, req(e, "formula", ctx)?));
+            }
+            Ok(out)
+        }
+        Yaml::BadValue => Err(format!("{ctx}: `assumptions` is required ([] for Γ = ∅)")),
+        _ => Err(format!("{ctx}: `assumptions` must be a list")),
+    }
+}
+
+/// Read and schema-check one library entry. Comparison with the proof files
+/// is `rlt deps`'s work.
+pub fn load_lib_entry(path: &Path) -> Result<LibEntry, String> {
+    let y = load_yaml(path)?;
+    let ctx = "library entry";
+    only_keys(
+        &y,
+        &[
+            "format",
+            "id",
+            "title",
+            "fingerprint",
+            "proof",
+            "proof_id",
+            "alternatives",
+            "axiom_set",
+            "convention",
+            "checked_goal",
+            "assumptions",
+            "citable",
+            "uses",
+            "statement_records",
+            "history",
+        ],
+        ctx,
+    )?;
+    let format = req(&y, "format", ctx)?;
+    if format != LIB_FORMAT {
+        return Err(format!(
+            "{ctx}: format `{format}` is unknown (expected {LIB_FORMAT})"
+        ));
+    }
+    let id = lib_id(&req(&y, "id", ctx)?, ctx)?;
+    let stem = path
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let area = path
+        .parent()
+        .and_then(|p| p.file_name())
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_default();
+    if stem != format!("{id}.yaml") || Some(area.as_str()) != id.split('.').next() {
+        return Err(format!(
+            "{ctx}: `{id}` must live at lib/{}/{id}.yaml",
+            id.split('.').next().unwrap_or("")
+        ));
+    }
+    let citable = match &y["citable"] {
+        Yaml::Boolean(b) => *b,
+        _ => return Err(format!("{ctx}: `citable` must be true or false")),
+    };
+    let proof = pin(
+        match &y["proof"] {
+            v @ Yaml::Hash(_) => v,
+            _ => return Err(format!("{ctx}: missing mapping `proof`")),
+        },
+        "proof",
+    )?;
+    let mut alternatives = Vec::new();
+    for e in list(&y, "alternatives", ctx)? {
+        alternatives.push(pin(e, "alternatives")?);
+    }
+    let mut history = Vec::new();
+    for e in list(&y, "history", ctx)? {
+        only_keys(
+            e,
+            &[
+                "path",
+                "sha256",
+                "fingerprint",
+                "replaced_on",
+                "reviewed_by",
+            ],
+            "history",
+        )?;
+        let h = HistoryPin {
+            path: req(e, "path", "history")?,
+            sha256: sha_field(e, "sha256", "history")?,
+            fingerprint: sha_field(e, "fingerprint", "history")?,
+            replaced_on: req(e, "replaced_on", "history")?,
+            reviewed_by: req(e, "reviewed_by", "history")?,
+        };
+        if !is_date(&h.replaced_on) {
+            return Err("history: `replaced_on` must be a calendar date YYYY-MM-DD".into());
+        }
+        if h.reviewed_by.trim().is_empty() {
+            return Err("history: `reviewed_by` must name the reviewer".into());
+        }
+        history.push(h);
+    }
+    let mut uses = Vec::new();
+    for u in str_list(&y, "uses", ctx)? {
+        uses.push(lib_id(&u, "uses")?);
+    }
+    let entry = LibEntry {
+        title: req(&y, "title", ctx)?,
+        fingerprint: sha_field(&y, "fingerprint", ctx)?,
+        proof_id: req(&y, "proof_id", ctx)?,
+        axiom_set: req(&y, "axiom_set", ctx)?,
+        convention: req(&y, "convention", ctx)?,
+        checked_goal: req(&y, "checked_goal", ctx)?,
+        assumptions: assumption_list(&y, ctx)?,
+        statement_records: str_list(&y, "statement_records", ctx)?,
+        id,
+        proof,
+        alternatives,
+        citable,
+        uses,
+        history,
+    };
+    if entry.citable != entry.assumptions.is_empty() {
+        return Err(format!(
+            "{ctx}: `citable` must be {} for a theorem with {} assumptions: only unconditional theorems can be cited",
+            entry.assumptions.is_empty(),
+            entry.assumptions.len()
+        ));
+    }
+    Ok(entry)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,0 +1,17 @@
+format: rlt-lib/1
+id: mod30.classification
+title: "∀r. r < 30 → (free235(r) → (r = 1 ∨ r = 7 ∨ r = 11 ∨ r = 13 ∨ r = 17 ∨ r = 19 ∨ r = 23 ∨ r = 29)) ∧ ((r = 1 ∨ r = 7 ∨ r = 11 ∨ r = 13 ∨ r = 17 ∨ r = 19 ∨ r = 23 ∨ r = 29) → free235(r))"
+fingerprint: 4117261a4b76de8690523551d52080c9767842daca907489580bb6100f59d835
+proof: {path: tests/m3e/accept/E_T1.rlt, sha256: e11712c64baf6fcb40bc172b5d7e12607809c85b9f1cd087064a0c17ca651750}
+proof_id: M3e.E_T1
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀r. ((∃z. S(z) + r = 30) → ((((¬(∃k. r = 2 × k) ∧ ¬(∃k. r = 3 × k)) ∧ ¬(∃k. r = 5 × k)) → (((((((r = 1 ∨ r = 7) ∨ r = 11) ∨ r = 13) ∨ r = 17) ∨ r = 19) ∨ r = 23) ∨ r = 29)) ∧ ((((((((r = 1 ∨ r = 7) ∨ r = 11) ∨ r = 13) ∨ r = 17) ∨ r = 19) ∨ r = 23) ∨ r = 29) → ((¬(∃k. r = 2 × k) ∧ ¬(∃k. r = 3 × k)) ∧ ¬(∃k. r = 5 × k)))))"
+assumptions: []
+citable: true
+uses:
+  - mod30.forward
+  - mod30.backward
+statement_records:
+  - statements/MOD30-CLASSIFICATION.yaml
+history: []

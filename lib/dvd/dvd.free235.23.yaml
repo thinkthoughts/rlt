@@ -1,0 +1,17 @@
+format: rlt-lib/1
+id: dvd.free235.23
+title: "free235(23)"
+fingerprint: d8bf1aa6c7a81b5e5fde1d46bab7f335ddb88b9911ba3995192fefaeee66e95e
+proof: {path: tests/m3e/accept/F_23.rlt, sha256: 815c8de676b86ee0e90ba9a14cae00aedaed53df42bf7bedeb25b4e2cda4a812}
+proof_id: M3e.F_23
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "(¬(∃k. 23 = 2 × k) ∧ ¬(∃k. 23 = 3 × k)) ∧ ¬(∃k. 23 = 5 × k)"
+assumptions: []
+citable: true
+uses:
+  - dvd.not.2_23
+  - dvd.not.3_23
+  - dvd.not.5_23
+statement_records: []
+history: []

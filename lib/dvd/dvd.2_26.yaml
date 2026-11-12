@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.2_26
+title: "2 ∣ 26"
+fingerprint: 325ef4ff441654fa1878f7197fdbdb74da3420081c15ef333c43bf8ccf37ba70
+proof: {path: tests/m3e/accept/PD_26.rlt, sha256: 06655a4ca08ac28f006d0583828ee0df692df23ef7c2e71a67243014772bfac9}
+proof_id: M3e.PD_26
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∃k. 26 = 2 × k"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

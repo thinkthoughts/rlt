@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.2_10
+title: "2 ∣ 10"
+fingerprint: 967ba07784e366ce0fb6509f718a123c6fd954d6c64ffd312be5955e1383d4fa
+proof: {path: tests/m3e/accept/PD_10.rlt, sha256: 63707cff68f19be5b3ccff7b6926a9c263afceb0f26eb1ecaba00da7f4766d0a}
+proof_id: M3e.PD_10
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∃k. 10 = 2 × k"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

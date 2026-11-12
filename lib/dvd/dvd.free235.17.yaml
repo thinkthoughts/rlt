@@ -1,0 +1,17 @@
+format: rlt-lib/1
+id: dvd.free235.17
+title: "free235(17)"
+fingerprint: 89c762045207c303b93a8105a25b82951d352885826413317b8732167101b0e0
+proof: {path: tests/m3e/accept/F_17.rlt, sha256: 3742cd2a981790bc33d551698e71f42d6bce2262420017c939c57b4e06a679e5}
+proof_id: M3e.F_17
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "(¬(∃k. 17 = 2 × k) ∧ ¬(∃k. 17 = 3 × k)) ∧ ¬(∃k. 17 = 5 × k)"
+assumptions: []
+citable: true
+uses:
+  - dvd.not.2_17
+  - dvd.not.3_17
+  - dvd.not.5_17
+statement_records: []
+history: []

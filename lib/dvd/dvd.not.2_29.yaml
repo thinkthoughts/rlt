@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.not.2_29
+title: "¬(2 ∣ 29)"
+fingerprint: 122b0a4bf06ff76039a14cdcae30151ac8c4cf2c65a8cb9ec5d4b936488e45db
+proof: {path: tests/m3e/accept/ND_2_29.rlt, sha256: 2d29f559471c576e3b85f306e6657c4a91874d133116939e30724cb10af06ee4}
+proof_id: M3e.ND_2_29
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "¬(∃k. 29 = 2 × k)"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

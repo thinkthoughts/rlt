@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.5_25
+title: "5 ∣ 25"
+fingerprint: 6881ce4c210c3e4b3e6efacac61d13d3aa5fbab8039e83bf3fa8ddae13667c87
+proof: {path: tests/m3e/accept/PD_25.rlt, sha256: a7517181687d787a88dda4c5066c4190126f4b2c17183f11c72b849aecdaba4a}
+proof_id: M3e.PD_25
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∃k. 25 = 5 × k"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

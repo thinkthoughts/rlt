@@ -17,6 +17,8 @@ usage:
   rlt residues FILE                      closed quotient–remainder witnesses and their registered readings
   rlt explain RECORD [--format text|json] a statement record: kernel, source, semantic, physical
                                          (exit 0 current+accept, 1 reject, 2 invalid/malformed, 3 stale)
+  rlt deps ID|FILE [--format text|json]  a theorem's dependency graph and library entry (same exits)
+  rlt deps --verify-lib [--format text|json]  every lib/ entry against its checked proof
 options:
   --root DIR                             repository root (default: current directory)";
 
@@ -104,6 +106,33 @@ fn run() -> i32 {
                 }
             }
             x.exit
+        }
+        Some("deps") if args.len() == 2 || (args.len() == 4 && args[2] == "--format") => {
+            let json = match args.get(3).map(|s| s.as_str()) {
+                None | Some("text") => false,
+                Some("json") => true,
+                Some(_) => {
+                    eprintln!("{USAGE}");
+                    return MALFORMED;
+                }
+            };
+            if args[1] == "--verify-lib" {
+                let r = rlt_cli::deps::verify_lib(&root);
+                if json {
+                    print!("{}", rlt_cli::deps::render_lib_json(&r));
+                } else {
+                    print!("{}", rlt_cli::deps::render_lib_text(&r));
+                }
+                r.exit
+            } else {
+                let d = rlt_cli::deps::deps(&root, &args[1]);
+                if json {
+                    print!("{}", rlt_cli::deps::render_json(&d));
+                } else {
+                    print!("{}", rlt_cli::deps::render_text(&d));
+                }
+                d.exit
+            }
         }
         Some("validate") if args.len() == 1 => {
             let r = validate(&root);

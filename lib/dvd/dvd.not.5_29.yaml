@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.not.5_29
+title: "¬(5 ∣ 29)"
+fingerprint: 0b825f486bdadf9110bba94ac0787c88dcbf57b16429290fbc5dd306c03f2c69
+proof: {path: tests/m3e/accept/ND_5_29.rlt, sha256: bbce1608d73a3bfff54841750c80ca4348c5f14ee1ab3731c450272c40f7e124}
+proof_id: M3e.ND_5_29
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "¬(∃k. 29 = 5 × k)"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

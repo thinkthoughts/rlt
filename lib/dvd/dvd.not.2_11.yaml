@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.not.2_11
+title: "¬(2 ∣ 11)"
+fingerprint: e9dce4607c3f6eb023db865d53baba75554b4c56cdb1a31f0fc07cf1afd4bf7d
+proof: {path: tests/m3e/accept/ND_2_11.rlt, sha256: 016f12fb24854372b3713cba46796cc12adf69e3604a066d459ee1819a56b0e3}
+proof_id: M3e.ND_2_11
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "¬(∃k. 11 = 2 × k)"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

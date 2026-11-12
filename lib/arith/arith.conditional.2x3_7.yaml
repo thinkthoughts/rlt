@@ -1,0 +1,16 @@
+format: rlt-lib/1
+id: arith.conditional.2x3_7
+title: "2 × 3 + 1 = 8"
+fingerprint: cf1f50c49c38209355a7399a9c945b2ac9f582f3832d2761a62bd188bea52a81
+proof: {path: tests/accept/M1_conditional.rlt, sha256: de8dee325db954b8bc0ade312d441a3e4be340d1a21c340b17166e377b418c42}
+proof_id: M1.conditional
+axiom_set: PEANO-ARITH
+convention: NAT-DEC
+checked_goal: "(2 × 3) + 1 = 8"
+assumptions:
+  - {name: h, formula: "2 × 3 = 7"}
+citable: false
+uses: []
+statement_records:
+  - statements/CONDITIONAL-2X3.yaml
+history: []

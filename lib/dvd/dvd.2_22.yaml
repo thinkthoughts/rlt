@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.2_22
+title: "2 ∣ 22"
+fingerprint: 3aa80789b87cad73258ea125809478505434b98eca287757494c60adfc7d7e47
+proof: {path: tests/m3e/accept/PD_22.rlt, sha256: 61f30214e01c21a887de9be6deab654205f43370651082555106ebb8626b5d05}
+proof_id: M3e.PD_22
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∃k. 22 = 2 × k"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

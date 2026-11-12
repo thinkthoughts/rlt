@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.2_24
+title: "2 ∣ 24"
+fingerprint: 5f4968449f6aa53e92733769e233cafaf813ccb78b93dc7bd0762833f1a1f979
+proof: {path: tests/m3e/accept/PD_24.rlt, sha256: 44bc2d355a660412ab75023c4d58ca9bc0f229200eb081585d76d405c3b4677f}
+proof_id: M3e.PD_24
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∃k. 24 = 2 × k"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

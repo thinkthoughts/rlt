@@ -1,0 +1,15 @@
+format: rlt-lib/1
+id: arith.add.29_1_30
+title: "29 + 1 = 30"
+fingerprint: d3f112d0352ea8e459d2002037f78e4c1ad45dbf9e9363decf64ee4edc637d99
+proof: {path: tests/accept/R_math29_pairing.rlt, sha256: 76975f0a2a7d560c92aab0c6a846f1dc5f7280e63a3b5564ff7bf535848fddb3}
+proof_id: R.math29.pairing
+axiom_set: PEANO-ADD
+convention: NAT-DEC
+checked_goal: "29 + 1 = 30"
+assumptions: []
+citable: true
+uses: []
+statement_records:
+  - statements/MATH29-PAIRING.yaml
+history: []

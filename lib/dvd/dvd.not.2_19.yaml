@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.not.2_19
+title: "¬(2 ∣ 19)"
+fingerprint: 0eb9b7361e6caaa30d15a0b763c28da9c987bf529c26bb3c5a336368d4245ae1
+proof: {path: tests/m3e/accept/ND_2_19.rlt, sha256: 4006bef4ca2caabed929a84d4af51468be1f9b1dfddd83c12dde6534d72fcccf}
+proof_id: M3e.ND_2_19
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "¬(∃k. 19 = 2 × k)"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

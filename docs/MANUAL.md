@@ -421,6 +421,27 @@ verdict         MALFORMED — citation `T2`: tests/m3c/accept/CA02_two_not_divid
 exit 2
 ```
 
+**Tracing dependencies: `rlt deps`.** Every checked theorem has an entry in the library (`lib/`), named by a stable id. `rlt deps` checks the theorem once, with the same function as `rlt check`, and prints its complete dependency graph. Each node shows its proof file, hash, assumptions, axioms and definitions:
+
+```console
+$ rlt deps dvd.free235.7; echo "exit $?"
+RLT deps        dvd.free235.7
+library         lib/ index valid (68 entries)
+proof           tests/m3c/accept/CA05_free235_seven.rlt (M3c.CA05)
+…
+library entry   dvd.free235.7 · current
+…
+├─ T2  dvd.not.2_7  (M3c.CA02)  tests/m3c/accept/CA02_two_not_divides_seven.rlt
+…
+theorems        4 distinct · 3 cited-file checks
+…
+budget          cited-file checks 3 of 64 · citing-file chain 1 of 8
+exit            0 — every node checked and accepted; the library index valid and the entry, if any, current
+exit 0
+```
+
+A library id is bound to its statement's *fingerprint*: a hash of the convention, the axiom set and its content, the definitions, the checked formula and the assumptions. `rlt deps` prints the fingerprinted text. A changed proof file makes its entry stale (exit 3). A different statement can never take over an existing id, because `lib/identities.tsv` only grows. `rlt deps --verify-lib` checks every entry.
+
 | | |
 |---|---|
 | **You write** | `(cite T2)` steps plus a `(cites …)` block with paths and hashes |

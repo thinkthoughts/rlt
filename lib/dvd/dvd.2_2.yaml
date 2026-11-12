@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.2_2
+title: "2 ∣ 2"
+fingerprint: fde4dbd1c0fea6fe56356fce908df301fba736fbeb1bae484ff24f5977a3e5c8
+proof: {path: tests/m3e/accept/PD_02.rlt, sha256: 3e4870803429ec99a9ee4382e5ed0aaee59e3e3f091e0dc12463167a0e8b30b1}
+proof_id: M3e.PD_02
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∃k. 2 = 2 × k"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

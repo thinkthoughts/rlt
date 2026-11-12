@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.not.2_13
+title: "¬(2 ∣ 13)"
+fingerprint: 558c10d3d53832e212ce5cc3b6a9a1455699eb46384a02f70e71336a1cc74538
+proof: {path: tests/m3e/accept/ND_2_13.rlt, sha256: 6faf4a0a2e4917173e224211de9ca6c904a5e947815868b5295675249fc97a75}
+proof_id: M3e.ND_2_13
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "¬(∃k. 13 = 2 × k)"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

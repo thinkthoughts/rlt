@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.not.5_17
+title: "¬(5 ∣ 17)"
+fingerprint: 49ba2279075359468514b428d1ccaf661af5b7b1d14c8d21fcad00e882eddc61
+proof: {path: tests/m3e/accept/ND_5_17.rlt, sha256: b172bde10aed0b173ecfc3dfed95932f980784a0f2e425412067748944999351}
+proof_id: M3e.ND_5_17
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "¬(∃k. 17 = 5 × k)"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

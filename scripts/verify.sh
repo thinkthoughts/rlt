@@ -302,6 +302,17 @@ for g in txt json; do
     && echo "golden $g output reproduced" || { echo "  UNEXPECTED: golden $g output differs"; fail=1; }
 done
 
+echo; echo "== theorem library and rlt deps, RLT-004c (lib/)"
+dl_log=$("$rlt" deps --verify-lib); dl_code=$?
+echo "$dl_log" | grep -E '^entries'
+[ $dl_code = 0 ] || { echo "$dl_log" | grep -vE '^entry .* exit 0 '; fail=1; }
+dl_json=$("$rlt" deps mod30.classification --format json); dl_jcode=$?
+dl_parsed=$(printf '%s' "$dl_json" | python3 -c 'import json,sys; d=json.load(sys.stdin); s=d["summary"]; print(d["exit"], s["distinct_theorems"], s["cited_file_checks"], s["citing_file_chain"])')
+echo "rlt deps mod30.classification: exit $dl_jcode; json exit, distinct theorems, cited-file checks, chain: $dl_parsed"
+[ "$dl_jcode" = 0 ] && [ "${dl_parsed%% *}" = 0 ] || fail=1
+scripts/check-identities.sh; dl_icode=$?
+[ $dl_icode = 0 ] || fail=1
+
 echo; echo "== chemical notation (rlt chem; 0 interpreted, 1 uninterpreted)"
 for case in "CO₂:0" "O₂:0" "COO:1" "CO2:1" "O2:1"; do
   w=${case%:*}; want=${case##*:}

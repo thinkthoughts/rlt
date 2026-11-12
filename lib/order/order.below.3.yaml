@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: order.below.3
+title: "∀x. x < 3 → x = 0 ∨ x = 1 ∨ x = 2"
+fingerprint: 9dc4bff4bea3fd3d67b9206789ab7ed1814d8fc7c49f8092275d2ca426fd9919
+proof: {path: tests/m3d/accept/DA02_below_three.rlt, sha256: 1dbf437fc7f1e84d85a8fe7659889c3fb47da242aabe7c8e2843273765bc3ba7}
+proof_id: M3d.DA02
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀x. ((∃z. S(z) + x = 3) → ((x = 0 ∨ x = 1) ∨ x = 2))"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

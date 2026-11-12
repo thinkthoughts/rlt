@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.not.2_23
+title: "¬(2 ∣ 23)"
+fingerprint: 23ba1870da40185ca75b9b4b3abc59a6fbdd5df2c60e15713398de736b0da9ec
+proof: {path: tests/m3e/accept/ND_2_23.rlt, sha256: 687169a32441e75b10829faa61b55848547bed5a6ea1c67e532436cf9e8549db}
+proof_id: M3e.ND_2_23
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "¬(∃k. 23 = 2 × k)"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []
