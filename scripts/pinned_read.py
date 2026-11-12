@@ -3,8 +3,10 @@
 checkout that may be untrusted (for example restored from a CI cache), using
 none of the checkout's own Git metadata.
 
-  * Only the checkout's object store is used, through a fresh temporary bare
-    repository whose `objects/info/alternates` points at it. The checkout's
+  * Only the checkout's plain object files are used: regular files at
+    loose-object and pack paths are hard-linked (or copied) into a fresh
+    temporary bare repository; the checkout's objects/info (alternates and
+    the like) is never followed. The checkout's
     config, hooks, refs (replace refs included), grafts, shallow file,
     attributes and worktree metadata are never read, so nothing in them can
     run a program or redirect a read.
@@ -30,7 +32,10 @@ import re
 import stat
 import subprocess
 import sys
+import shutil
+import signal
 import tempfile
+import threading
 
 FULL = re.compile(r"[0-9a-f]{40}")
 LIMIT = 50 * 1024 * 1024  # bytes per object
@@ -63,6 +68,41 @@ def _git_env(home):
     }
 
 
+LOOSE = re.compile(r"[0-9a-f]{2}/[0-9a-f]{38}")
+PACK = re.compile(r"pack/pack-[0-9a-f]{40}\.(pack|idx|rev)")
+
+
+def _stage_objects(src, dst):
+    """Link (or copy) the plain object files of `src` into `dst`: only
+    regular files at loose-object or pack paths; directories are walked
+    without following symlinks; everything else is ignored."""
+    for dirpath, dirnames, filenames in os.walk(src, followlinks=False):
+        dirnames[:] = [d for d in dirnames if not os.path.islink(os.path.join(dirpath, d))]
+        for fn in filenames:
+            full = os.path.join(dirpath, fn)
+            rel = os.path.relpath(full, src)
+            if not (LOOSE.fullmatch(rel) or PACK.fullmatch(rel)):
+                continue
+            try:
+                if not stat.S_ISREG(os.lstat(full).st_mode):
+                    continue
+            except OSError:
+                continue
+            out = os.path.join(dst, rel)
+            os.makedirs(os.path.dirname(out), exist_ok=True)
+            try:
+                os.link(full, out, follow_symlinks=False)
+            except OSError:
+                fd = os.open(full, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+                try:
+                    if not stat.S_ISREG(os.fstat(fd).st_mode):
+                        continue
+                    with os.fdopen(os.dup(fd), "rb") as r, open(out, "xb") as w:
+                        shutil.copyfileobj(r, w)
+                finally:
+                    os.close(fd)
+
+
 def read_pinned(checkout, commit, path):
     if not FULL.fullmatch(commit):
         raise PinnedReadError(f"commit {commit!r} is not a full 40-hex SHA")
@@ -88,38 +128,62 @@ def read_pinned(checkout, commit, path):
                            capture_output=True, timeout=60, stdin=subprocess.DEVNULL)
         if r.returncode != 0:
             raise PinnedReadError(f"git init: {r.stderr.decode('utf-8', 'replace').strip()}")
-        with open(os.path.join(repo, "objects", "info", "alternates"), "w") as f:
-            f.write(objects + "\n")
+        # Final audit: no alternates file. The checkout's plain object files
+        # (regular files at loose-object or pack paths, checked with lstat)
+        # are hard-linked (or, across filesystems, copied) into the fresh
+        # repository; the checkout's own objects/info (alternates,
+        # http-alternates, commit-graph, multi-pack-index) is never used.
+        _stage_objects(objects, os.path.join(repo, "objects"))
 
         def capped(*args, limit):
             """Run git, reading at most `limit` bytes of its output; more is a
             refusal and git is stopped (final audit: a header can understate
-            the size, so the cap is enforced on the bytes themselves)."""
-            pr = subprocess.Popen(["git", "--git-dir", repo, *args], env=env, cwd=tmp,
-                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL)
-            chunks, n = [], 0
-            try:
-                while True:
-                    b = pr.stdout.read(1 << 20)
-                    if not b:
-                        break
-                    n += len(b)
-                    if n > limit:
-                        pr.kill()
-                        raise PinnedReadError(f"git {' '.join(args)}: more than {limit} bytes; refused")
-                    chunks.append(b)
-                err = pr.stderr.read()
-                code = pr.wait(timeout=120)
-            except subprocess.TimeoutExpired:
-                pr.kill()
-                raise PinnedReadError(f"git {' '.join(args)}: no answer within 120 s")
-            finally:
-                if pr.poll() is None:
-                    pr.kill()
+            the size, so the cap is enforced on the bytes themselves). Its
+            stderr goes to a file, so it can never fill a pipe, and git is
+            killed at a 120 s deadline whatever it is doing."""
+            with tempfile.TemporaryFile(dir=tmp) as errf:
+                # Its own process group, so the deadline stops git and anything
+                # it started, and the output pipe closes.
+                pr = subprocess.Popen(["git", "--git-dir", repo, *args], env=env, cwd=tmp,
+                                      stdout=subprocess.PIPE, stderr=errf, stdin=subprocess.DEVNULL,
+                                      start_new_session=True)
+                expired = threading.Event()
+
+                def kill_group():
+                    try:
+                        os.killpg(pr.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+
+                def stop():
+                    expired.set()
+                    kill_group()
+
+                timer = threading.Timer(120, stop)
+                timer.start()
+                chunks, n = [], 0
+                try:
+                    while True:
+                        b = pr.stdout.read(1 << 20)
+                        if not b:
+                            break
+                        n += len(b)
+                        if n > limit:
+                            raise PinnedReadError(f"git {' '.join(args)}: more than {limit} bytes; refused")
+                        chunks.append(b)
+                    code = pr.wait()
+                finally:
+                    timer.cancel()
+                    if pr.poll() is None:
+                        kill_group()
                     pr.wait()
-            if code != 0:
-                raise PinnedReadError(f"git {' '.join(args)}: {err.decode('utf-8', 'replace').strip()[:300]}")
-            return b"".join(chunks)
+                    pr.stdout.close()
+                if expired.is_set():
+                    raise PinnedReadError(f"git {' '.join(args)}: no answer within 120 s")
+                if code != 0:
+                    errf.seek(0)
+                    raise PinnedReadError(f"git {' '.join(args)}: {errf.read(4096).decode('utf-8', 'replace').strip()[:300]}")
+                return b"".join(chunks)
 
         def obj(kind, sha):
             # The stored type must be the expected one, so `cat-file <type>`
