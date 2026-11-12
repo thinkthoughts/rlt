@@ -5,8 +5,9 @@ usage: python3 -I scripts/check_excerpts.py CHECKOUTS_DIR
 
 CHECKOUTS_DIR holds clones named after the GitHub repositories, including
 rlt itself: news, rlt, translatepi, antiviolence, residue-manifold-learning,
-specification-grammar, and (RLT-003 M3b) OpenLogic and lean4. Each excerpt is read with `git show COMMIT:PATH`, so the
-clones may be at any revision as long as they contain the recorded commits.
+specification-grammar, and (RLT-003 M3b) OpenLogic and lean4. Each excerpt is read from the recorded commit by
+scripts/pinned_read.py (object store only, every object re-hashed; RLT-007a),
+so the clones may be at any revision as long as they hold the recorded objects.
 Sources without a GitHub file location (conversation records, foundational
 references, missing sources) are listed as skipped. An archived source
 (RLT-005) is read from CHECKOUTS_DIR/archived/ or downloaded, and refused
@@ -46,6 +47,7 @@ pat = re.compile(r"https://github\.com/[^/]+/([^/]+)/blob/([0-9a-f]{7,40})/(.+)$
 # pins are resolved through sources/commit-pins.tsv (a full SHA only).
 import importlib.util  # noqa: E402
 
+sys.dont_write_bytecode = True  # no scripts/__pycache__ in the working tree
 _spec = importlib.util.spec_from_file_location("pinned_read", root / "scripts/pinned_read.py")
 pinned_read = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(pinned_read)

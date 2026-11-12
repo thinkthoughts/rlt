@@ -87,6 +87,11 @@ def read_pinned(checkout, commit, path):
             f.write(objects + "\n")
 
         def obj(kind, sha):
+            # Audit note: size first, so an oversized object is refused
+            # before it is read into memory (50 MB, as for archived files).
+            size = git("cat-file", "-s", sha).strip()
+            if not size.isdigit() or int(size) > 50 * 1024 * 1024:
+                raise PinnedReadError(f"{kind} {sha}: size {size.decode('ascii', 'replace')!r} refused (limit 50 MB)")
             data = git("cat-file", kind, sha)
             got = hashlib.sha1(f"{kind} {len(data)}\0".encode() + data).hexdigest()
             if got != sha:
@@ -98,7 +103,9 @@ def read_pinned(checkout, commit, path):
         if not m:
             raise PinnedReadError(f"commit {commit}: no tree line")
         sha, kind = m.group(1).decode(), "tree"
-        parts = [x for x in path.split("/") if x]
+        parts = path.split("/")
+        if any(x in ("", ".", "..") for x in parts):
+            raise PinnedReadError(f"{path!r}: an empty, `.` or `..` path segment")
         for i, name in enumerate(parts):
             if kind != "tree":
                 raise PinnedReadError(f"{'/'.join(parts[:i])}: not a directory at {commit[:12]}")
