@@ -1,0 +1,17 @@
+format: rlt-lib/1
+id: matchable.not.8
+title: "((∀d. ((0 < d ∧ d ∣ 8) → (((d = 1 ∨ d = 2) ∨ d = 4) ∨ d = 8)) ∧ ((((d = 1 ∨ d = 2) ∨ d = 4) ∨ d = 8) → (0 < d ∧ d ∣ 8))) ∧ (∀x. ((0 < x ∧ x < 5) → (((x = 1 ∨ x = 2) ∨ x = 3) ∨ x = 4)) ∧ ((((x = 1 ∨ x = 2) ∨ x = 3) ∨ x = 4) → (0 < x ∧ x < 5)))) ∧ ¬(∃a. ∃b. ∃c. ∃d. (((((0 < a ∧ a < 5) ∧ (0 < b ∧ b < 5)) ∧ (0 < c ∧ c < 5)) ∧ (0 < d ∧ d < 5)) ∧ (((((¬(a = b) ∧ ¬(a = c)) ∧ ¬(a = d)) ∧ ¬(b = c)) ∧ ¬(b = d)) ∧ ¬(c = d))) ∧ ((((∀k. ((0 < k ∧ k ∣ 1) ∧ k ∣ a) → k = 1) ∧ (∀k. ((0 < k ∧ k ∣ 2) ∧ k ∣ b) → k = 1)) ∧ (∀k. ((0 < k ∧ k ∣ 4) ∧ k ∣ c) → k = 1)) ∧ (∀k. ((0 < k ∧ k ∣ 8) ∧ k ∣ d) → k = 1)))"
+fingerprint: e7b8fec51abac64cc83e5a6bdbea2065cd2ec456af37f909eb1cad31e7acdefd
+proof: {path: tests/rlt005/accept/MN8_eight_is_not_matchable.rlt, sha256: e1704268aa4e906e20f3b94d9597409126e797338054adf3bb8cfe003916a9a3}
+proof_id: RLT005.MN8
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "((∀d. ((((∃z. S(z) + 0 = d) ∧ (∃k. 8 = d × k)) → (((d = 1 ∨ d = 2) ∨ d = 4) ∨ d = 8)) ∧ ((((d = 1 ∨ d = 2) ∨ d = 4) ∨ d = 8) → ((∃z. S(z) + 0 = d) ∧ (∃k. 8 = d × k))))) ∧ (∀x. ((((∃z. S(z) + 0 = x) ∧ (∃z. S(z) + x = 5)) → (((x = 1 ∨ x = 2) ∨ x = 3) ∨ x = 4)) ∧ ((((x = 1 ∨ x = 2) ∨ x = 3) ∨ x = 4) → ((∃z. S(z) + 0 = x) ∧ (∃z. S(z) + x = 5)))))) ∧ ¬(∃a. ∃b. ∃c. ∃d. (((((((∃z. S(z) + 0 = a) ∧ (∃z. S(z) + a = 5)) ∧ ((∃z. S(z) + 0 = b) ∧ (∃z. S(z) + b = 5))) ∧ ((∃z. S(z) + 0 = c) ∧ (∃z. S(z) + c = 5))) ∧ ((∃z. S(z) + 0 = d) ∧ (∃z. S(z) + d = 5))) ∧ (((((¬(a = b) ∧ ¬(a = c)) ∧ ¬(a = d)) ∧ ¬(b = c)) ∧ ¬(b = d)) ∧ ¬(c = d))) ∧ ((((∀k. ((((∃z. S(z) + 0 = k) ∧ (∃k′. 1 = k × k′)) ∧ (∃k′. a = k × k′)) → k = 1)) ∧ (∀k. ((((∃z. S(z) + 0 = k) ∧ (∃k′. 2 = k × k′)) ∧ (∃k′. b = k × k′)) → k = 1))) ∧ (∀k. ((((∃z. S(z) + 0 = k) ∧ (∃k′. 4 = k × k′)) ∧ (∃k′. c = k × k′)) → k = 1))) ∧ (∀k. ((((∃z. S(z) + 0 = k) ∧ (∃k′. 8 = k × k′)) ∧ (∃k′. d = k × k′)) → k = 1)))))"
+assumptions: []
+citable: true
+uses:
+  - matchable.divisors.8
+  - matchable.partners.4
+  - matchable.not.8.contradiction
+statement_records: []
+history: []

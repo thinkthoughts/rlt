@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.not.7_1
+title: "¬(7 ∣ 1)"
+fingerprint: cd089a17f38e97317fc92d3d239898299fe3997861b30d975fff4c93d41d04d8
+proof: {path: tests/rlt005/accept/ND_7_1.rlt, sha256: 766a6e8620d5015ffbbb4b533290c8ef941bc4a7fd3cda4f1bcf23f88c46b28c}
+proof_id: RLT005.ND_7_1
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "¬(∃k. 1 = 7 × k)"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

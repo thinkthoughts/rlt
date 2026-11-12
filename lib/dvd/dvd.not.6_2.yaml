@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.not.6_2
+title: "¬(6 ∣ 2)"
+fingerprint: a1329445c6f6e7e30000717274c764bcbbda612429cabbf682e596edf079acf7
+proof: {path: tests/rlt005/accept/ND_6_2.rlt, sha256: fe11604ddefe41ee9c43128762e06b4ed4aa27d20edeb0bfc26fb12739c15f20}
+proof_id: RLT005.ND_6_2
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "¬(∃k. 2 = 6 × k)"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

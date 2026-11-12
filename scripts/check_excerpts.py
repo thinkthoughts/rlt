@@ -46,8 +46,44 @@ def bounded(text, x):
     return False
 
 
+def archived_text(s):
+    """RLT-005: an archived source is a versioned archive file (e.g. an arXiv
+    e-print) pinned by the SHA-256 in `commit`; `url` names the archive and,
+    after '#', the member file. The archive is read from CHECKOUTS/archived/
+    if present there, else downloaded; its SHA-256 must equal the pin."""
+    import gzip, hashlib, io, tarfile, urllib.request
+    url, _, member = s["url"].partition("#")
+    cached = checkouts / "archived" / url.rstrip("/").rsplit("/", 1)[-1]
+    if cached.exists():
+        data = cached.read_bytes()
+    else:
+        with urllib.request.urlopen(url, timeout=60) as r:
+            data = r.read()
+    got = hashlib.sha256(data).hexdigest()
+    if got != s["commit"]:
+        raise ValueError(f"archive SHA-256 {got} differs from the pin {s['commit']}")
+    try:
+        with tarfile.open(fileobj=io.BytesIO(data)) as t:
+            return t.extractfile(member).read().decode("utf-8")
+    except tarfile.ReadError:
+        return gzip.decompress(data).decode("utf-8")
+
+
 bad = 0
 for s in reg["sources"]:
+    if s["status"] == "archived":
+        try:
+            text = archived_text(s)
+        except Exception as e:
+            print(f"ERROR    {s['id']}: {e}")
+            bad += 1
+            continue
+        for e in s.get("excerpts", []):
+            x = e["text"] if isinstance(e, dict) else e
+            ok = x in text or " ".join(x.split()) in " ".join(text.split())
+            print(f"{'ok' if ok else 'MISSING':8} {s['id']}: {x[:70]!r}")
+            bad += 0 if ok else 1
+        continue
     m = pat.match(s.get("location", ""))
     if s["status"] == "available" and s.get("excerpts") and not m:
         print(f"ERROR    {s['id']}: status available requires a GitHub file location at a commit")

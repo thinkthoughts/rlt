@@ -1,0 +1,15 @@
+format: rlt-lib/1
+id: matchable.not.8.nonvacuous
+title: "∃a. ∃b. ∃c. ∃d. ((((0 < a ∧ a < 5) ∧ (0 < b ∧ b < 5)) ∧ (0 < c ∧ c < 5)) ∧ (0 < d ∧ d < 5)) ∧ ((((∀k. ((0 < k ∧ k ∣ 1) ∧ k ∣ a) → k = 1) ∧ (∀k. ((0 < k ∧ k ∣ 2) ∧ k ∣ b) → k = 1)) ∧ (∀k. ((0 < k ∧ k ∣ 4) ∧ k ∣ c) → k = 1)) ∧ (∀k. ((0 < k ∧ k ∣ 8) ∧ k ∣ d) → k = 1))"
+fingerprint: c6cc6182554d342109264ce2ea2b88a599da4c8b5b7b44a3f9891f52fcdf0872
+proof: {path: tests/rlt005/accept/MNV_conditions_without_distinctness.rlt, sha256: c62d8bf847311e61f1dae2f043d142d212aac2c636f8a5a21029666af99a753b}
+proof_id: RLT005.MNV
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∃a. ∃b. ∃c. ∃d. ((((((∃z. S(z) + 0 = a) ∧ (∃z. S(z) + a = 5)) ∧ ((∃z. S(z) + 0 = b) ∧ (∃z. S(z) + b = 5))) ∧ ((∃z. S(z) + 0 = c) ∧ (∃z. S(z) + c = 5))) ∧ ((∃z. S(z) + 0 = d) ∧ (∃z. S(z) + d = 5))) ∧ ((((∀k. ((((∃z. S(z) + 0 = k) ∧ (∃k′. 1 = k × k′)) ∧ (∃k′. a = k × k′)) → k = 1)) ∧ (∀k. ((((∃z. S(z) + 0 = k) ∧ (∃k′. 2 = k × k′)) ∧ (∃k′. b = k × k′)) → k = 1))) ∧ (∀k. ((((∃z. S(z) + 0 = k) ∧ (∃k′. 4 = k × k′)) ∧ (∃k′. c = k × k′)) → k = 1))) ∧ (∀k. ((((∃z. S(z) + 0 = k) ∧ (∃k′. 8 = k × k′)) ∧ (∃k′. d = k × k′)) → k = 1))))"
+assumptions: []
+citable: true
+uses:
+  - matchable.coprime_one
+statement_records: []
+history: []

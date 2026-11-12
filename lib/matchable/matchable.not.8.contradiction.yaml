@@ -1,0 +1,18 @@
+format: rlt-lib/1
+id: matchable.not.8.contradiction
+title: "∀a. ∀b. ∀c. ∀d. ((((((0 < a ∧ a < 5) ∧ (0 < b ∧ b < 5)) ∧ (0 < c ∧ c < 5)) ∧ (0 < d ∧ d < 5)) ∧ (((((¬(a = b) ∧ ¬(a = c)) ∧ ¬(a = d)) ∧ ¬(b = c)) ∧ ¬(b = d)) ∧ ¬(c = d))) ∧ ((((∀k. ((0 < k ∧ k ∣ 1) ∧ k ∣ a) → k = 1) ∧ (∀k. ((0 < k ∧ k ∣ 2) ∧ k ∣ b) → k = 1)) ∧ (∀k. ((0 < k ∧ k ∣ 4) ∧ k ∣ c) → k = 1)) ∧ (∀k. ((0 < k ∧ k ∣ 8) ∧ k ∣ d) → k = 1))) → ⊥"
+fingerprint: 318878d1a8f459f694f1912ec9cc2a20d12c53f90cf351372d91057a4b506a96
+proof: {path: tests/rlt005/accept/MC_no_assignment.rlt, sha256: c93fdd2f24c622167b82fdf59eb01720ba551d59e59faedcc4e858e86dbcac0a}
+proof_id: RLT005.MC
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀a. ∀b. ∀c. ∀d. ¬(((((((∃z. S(z) + 0 = a) ∧ (∃z. S(z) + a = 5)) ∧ ((∃z. S(z) + 0 = b) ∧ (∃z. S(z) + b = 5))) ∧ ((∃z. S(z) + 0 = c) ∧ (∃z. S(z) + c = 5))) ∧ ((∃z. S(z) + 0 = d) ∧ (∃z. S(z) + d = 5))) ∧ (((((¬(a = b) ∧ ¬(a = c)) ∧ ¬(a = d)) ∧ ¬(b = c)) ∧ ¬(b = d)) ∧ ¬(c = d))) ∧ ((((∀k. ((((∃z. S(z) + 0 = k) ∧ (∃k′. 1 = k × k′)) ∧ (∃k′. a = k × k′)) → k = 1)) ∧ (∀k. ((((∃z. S(z) + 0 = k) ∧ (∃k′. 2 = k × k′)) ∧ (∃k′. b = k × k′)) → k = 1))) ∧ (∀k. ((((∃z. S(z) + 0 = k) ∧ (∃k′. 4 = k × k′)) ∧ (∃k′. c = k × k′)) → k = 1))) ∧ (∀k. ((((∃z. S(z) + 0 = k) ∧ (∃k′. 8 = k × k′)) ∧ (∃k′. d = k × k′)) → k = 1))))"
+assumptions: []
+citable: true
+uses:
+  - matchable.odd_partner.2
+  - matchable.odd_partner.4
+  - matchable.odd_partner.8
+  - matchable.pigeonhole.1_3
+statement_records: []
+history: []

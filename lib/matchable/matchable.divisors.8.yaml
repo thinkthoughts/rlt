@@ -1,0 +1,22 @@
+format: rlt-lib/1
+id: matchable.divisors.8
+title: "∀d. ((0 < d ∧ d ∣ 8) → (((d = 1 ∨ d = 2) ∨ d = 4) ∨ d = 8)) ∧ ((((d = 1 ∨ d = 2) ∨ d = 4) ∨ d = 8) → (0 < d ∧ d ∣ 8))"
+fingerprint: 34cc8926b98716acc1db50b1c204db988e53cb686e624bdaacf902d5288febe2
+proof: {path: tests/rlt005/accept/MD8_divisors_of_eight.rlt, sha256: 2d0a6ac3215359ad8ace96a6b04c15dc4224d235bf5abe789986d6bc810f2b70}
+proof_id: RLT005.MD8
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀d. ((((∃z. S(z) + 0 = d) ∧ (∃k. 8 = d × k)) → (((d = 1 ∨ d = 2) ∨ d = 4) ∨ d = 8)) ∧ ((((d = 1 ∨ d = 2) ∨ d = 4) ∨ d = 8) → ((∃z. S(z) + 0 = d) ∧ (∃k. 8 = d × k))))"
+assumptions: []
+citable: true
+uses:
+  - dvd.not.3_5
+  - dvd.not.5_3
+  - dvd.not.6_2
+  - dvd.not.7_1
+  - dvd.1_8
+  - dvd.2_8
+  - dvd.4_8
+  - dvd.8_8
+statement_records: []
+history: []

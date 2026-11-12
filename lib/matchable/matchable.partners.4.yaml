@@ -1,0 +1,15 @@
+format: rlt-lib/1
+id: matchable.partners.4
+title: "∀x. ((0 < x ∧ x < 5) → (((x = 1 ∨ x = 2) ∨ x = 3) ∨ x = 4)) ∧ ((((x = 1 ∨ x = 2) ∨ x = 3) ∨ x = 4) → (0 < x ∧ x < 5))"
+fingerprint: e116838d6d3e42e4873fa1dcaf44738f77adc9b095e5d69c2fb5971768eba9f9
+proof: {path: tests/rlt005/accept/MP4_partners_one_to_four.rlt, sha256: 07b33ec91df8111a12e02df31cecb598e14debf2b8128bfa78c60075cc0576f0}
+proof_id: RLT005.MP4
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀x. ((((∃z. S(z) + 0 = x) ∧ (∃z. S(z) + x = 5)) → (((x = 1 ∨ x = 2) ∨ x = 3) ∨ x = 4)) ∧ ((((x = 1 ∨ x = 2) ∨ x = 3) ∨ x = 4) → ((∃z. S(z) + 0 = x) ∧ (∃z. S(z) + x = 5))))"
+assumptions: []
+citable: true
+uses:
+  - order.below.5
+statement_records: []
+history: []

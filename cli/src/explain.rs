@@ -513,7 +513,10 @@ fn resolve(root: &Path, rec: &StatementRecord) -> Result<Resolved, String> {
         "source: `{}` is not in sources/registry.yaml",
         rec.source.registry.escape_debug()
     ))?;
-    let pinned = src.status == "available";
+    // `available`: a file at a git commit; `archived` (RLT-005): a member of
+    // an immutable archive whose SHA-256 is the registry's `commit`. Either
+    // way the record must state the same pin.
+    let pinned = src.status == "available" || src.status == "archived";
     match (&rec.source.commit, pinned) {
         (Some(c), true) if *c == src.commit => {}
         (Some(c), true) => {

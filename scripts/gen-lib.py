@@ -25,6 +25,7 @@ FILES = (
     + sorted(glob.glob("tests/m3c/accept/*.rlt"))
     + sorted(glob.glob("tests/m3d/accept/*.rlt"))
     + sorted(glob.glob("tests/m3e/accept/*.rlt"))
+    + sorted(glob.glob("tests/rlt005/accept/*.rlt"))
 )
 NAMED = {
     "tests/accept/R_math29_pairing.rlt": "arith.add.29_1_30",
@@ -38,6 +39,18 @@ NAMED = {
     "tests/m3e/accept/E_FWD.rlt": "mod30.forward",
     "tests/m3e/accept/E_BWD.rlt": "mod30.backward",
     "tests/m3e/accept/E_T1.rlt": "mod30.classification",
+    # RLT-005: McNew-Pomerance, 8 is not matchable.
+    "tests/rlt005/accept/B5_below_five.rlt": "order.below.5",
+    "tests/rlt005/accept/MD8_divisors_of_eight.rlt": "matchable.divisors.8",
+    "tests/rlt005/accept/MP4_partners_one_to_four.rlt": "matchable.partners.4",
+    "tests/rlt005/accept/MO2_partner_of_2_is_odd.rlt": "matchable.odd_partner.2",
+    "tests/rlt005/accept/MO4_partner_of_4_is_odd.rlt": "matchable.odd_partner.4",
+    "tests/rlt005/accept/MO8_partner_of_8_is_odd.rlt": "matchable.odd_partner.8",
+    "tests/rlt005/accept/MPH_three_values_in_one_three.rlt": "matchable.pigeonhole.1_3",
+    "tests/rlt005/accept/MC_no_assignment.rlt": "matchable.not.8.contradiction",
+    "tests/rlt005/accept/MCO_one_is_coprime_to_all.rlt": "matchable.coprime_one",
+    "tests/rlt005/accept/MNV_conditions_without_distinctness.rlt": "matchable.not.8.nonvacuous",
+    "tests/rlt005/accept/MN8_eight_is_not_matchable.rlt": "matchable.not.8",
 }
 PATTERNS = [
     (r"^(\d+) ∣ (\d+)$", "dvd.{0}_{1}"),
@@ -124,8 +137,18 @@ for lid, fp, files in sorted(entries):
     with open(f"lib/{area}/{lid}.yaml", "w", encoding="utf-8") as fh:
         fh.write("\n".join(out) + "\n")
     ids.append(f"{lid}\t{fp}\t{n['sha256']}")
+# Append-only: keep the existing file's lines, in place, and add new ids at
+# the end (RLT-005). An existing id whose line would change is an error.
+old = open("lib/identities.tsv", encoding="utf-8").read().splitlines() if os.path.exists("lib/identities.tsv") else [
+    "# RLT-004c identity registry: library id, statement fingerprint, first proof sha256.",
+    "# Append-only: scripts/verify.sh refuses any change to an existing line.",
+]
+known = {l.split("\t")[0]: l for l in old if l and not l.startswith("#")}
+for line in ids:
+    lid = line.split("\t")[0]
+    if lid in known and known[lid] != line:
+        sys.exit(f"identity of {lid} would change: {known[lid]!r} -> {line!r}")
+new = [line for line in ids if line.split("\t")[0] not in known]
 with open("lib/identities.tsv", "w", encoding="utf-8") as fh:
-    fh.write("# RLT-004c identity registry: library id, statement fingerprint, first proof sha256.\n")
-    fh.write("# Append-only: scripts/verify.sh refuses any change to an existing line.\n")
-    fh.write("\n".join(ids) + "\n")
+    fh.write("\n".join(old + new) + "\n")
 print(f"{len(entries)} library entries for {len(FILES)} proofs")
