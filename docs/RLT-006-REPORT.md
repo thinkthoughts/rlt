@@ -137,14 +137,14 @@ verify.sh pins both theorem counts and compares the vendored blocks byte for byt
 
 | Gate | Result |
 |---|---|
-| `cargo test --release` | FILL |
-| `scripts/verify.sh` with the main `9c8a66d` reference | FILL |
+| `cargo test --release` | 270 tests, all pass (262 earlier, plus `cli/tests/rlt006.rs` (8)). 826 s starting with no generated certificates (it materializes them); earlier runs took about 2 min |
+| `scripts/verify.sh` with the main `9c8a66d` reference | RESULT all checks hold, exit 0, 1,694 s (it runs `cargo test` too) |
 | `scripts/compare-reports.sh` | 472 proof files compared, 0 differ. The intended difference: `rlt validate` (32 sources, `transcribed 1`) |
 | Earlier `tests/explain` fixtures (52) and library entries (87) | unchanged; `rlt deps` index size 87 → 101 |
 | Rejected cases `tests/rlt006/reject` | 6 of 6 with pinned exit codes and reasons: altered tuple member; altered class; summary with an altered member; summary citing another prime's certificate; stale certificate hash; missing certificate |
 | `tests/explain-rlt006` | 6 of 6 fixtures: modified PDF pin; altered excerpt; stale proof hash; absent Lean theorem; rejected proof; changed basis |
-| Manual | FILL (chapter 13 added) |
-| CI | FILL |
+| Manual | `scripts/check-manual.py`: 33/33 examples match from a fresh checkout (chapter 13 added; it generates the certificates first) |
+| CI | `check` and `gdt-comparison` green on `5109d68` (push and pull_request). The CI log shows pdftotext 24.02.0 and every RLT-006 stage; RESULT all checks hold. The `check` job is pinned to ubuntu-24.04 |
 
 **A latent gate bug was found and fixed.** Under `set -o pipefail`, `cmd | grep -q` fails when grep exits early and the writer takes SIGPIPE, which happens once the output exceeds the pipe buffer. The new Lean output pushed the replay log past it, and the RLT-005 axiom gate reported 10 of 11. All 29 such pipes in verify.sh now use `grep_q`, which reads its whole input.
 
@@ -161,7 +161,34 @@ verify.sh pins both theorem counts and compares the vendored blocks byte for byt
 
 The auditor's own checker confirmed every goal, citation, hash and certificate, and every Lean statement.
 
-**Implementation.** FILL
+**Implementation.** The auditor confirmed:
+
+- the kernel, specs and limits are unchanged;
+- the identities are append-only;
+- reports are byte-identical (472 proof files);
+- every refusal path for missing, modified or tampered material holds, including RLT-005's archived checks after the refactor.
+
+Findings and resolutions:
+
+1. *Blocking: the residue-profile gate compared a string with an integer and could never pass.* **Fixed.**
+2. *Blocking for CI: `ubuntu-latest` may move to a newer Ubuntu whose pdftotext is not 24.02.0.* **Fixed:** the `check` job is pinned to ubuntu-24.04.
+3. *PyYAML must be installed before `cargo test`.* **Fixed.**
+4. *The library-verifier test passed regardless.* **Fixed:** the scratch tree now holds all 630 certificates, and removing or modifying one fails exactly the affected entry.
+5. *`(unlisted …)` was looser than needed.* One item could stand for two citations, and any non-library proof could be labelled unlisted. **Fixed:**
+   - one path per item, restricted to `[A-Za-z0-9_./-]`;
+   - `uses` compared element by element;
+   - gen-lib labels only `tests/rlt006/gen/` citations as unlisted.
+6. *The tree could be left modified on failure or interruption.* **Fixed:** an EXIT/INT/TERM trap restores everything, including the statements.
+7. *Notes.* **Fixed:**
+   - duplicate transcription item ids, a symlinked transcription, and the PDF url and byte count are now checked;
+   - the missing-pdftotext case is added to the tamper tests;
+   - the Lean references are pinned (24);
+   - temporary directories are removed;
+   - the manual generates the certificates before its first example.
+
+The corrections were verified by the gates above, not re-audited by the independent auditors; a re-audit can be run on request.
+
+**Gate bug found during the work.** The first full run also failed in the RLT-005 Lean axiom gate. This was the latent `grep -q`/SIGPIPE issue described in §8, now fixed.
 
 ## 10. Presenting the results to the authors (proposal, for review)
 
@@ -184,4 +211,4 @@ It would be packaged from a tagged commit after merge, as a single archive whose
 
 ## 11. Final commit and merge recommendation
 
-The final head of `docs/rlt-006` (draft PR #14) is given in the handoff message: a file cannot contain the hash of the commit that adds it. **Recommendation:** FILL
+The final head of `docs/rlt-006` (draft PR #14) is given in the handoff message: a file cannot contain the hash of the commit that adds it. **Recommendation:** merge with a merge commit after your review, once CI on the final head is green. RLT verifies obligation (b) of Lemma 12.1 (all 14 omissions, 630 certificates, from Robinson's Q); obligations (a), (c) and (d) are Lean results, and the residue profile is computed evidence. Present the artifact of §10 to the authors only after merge and your decision.

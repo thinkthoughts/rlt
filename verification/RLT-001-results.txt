@@ -1,5 +1,5 @@
 RLT-001 verification
-commit   14f2c80b34ebf957768e402990a8d134dcfbd3a5
+commit   5109d68d5fa13c3b63206e673a0cefc8a097fc4a
 rustc    rustc 1.97.0 (2d8144b78 2026-07-07)
 
 == format and lints
@@ -9,17 +9,24 @@ clippy   ok
 == build
 ok
 
+== RLT-006 generated certificates (materialized before any check; tests/rlt006/manifest.sha256)
+630 of 630 certificates generated in 0.9 s, each equal to its manifest hash; 57528 KB on disk (630 files)
+
 == cargo test (unit + golden)
-test result: ok. 69 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.74s
-test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.34s
-test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.28s
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 16.66s
-test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.54s
-test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.48s
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.30s
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.96s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 177.84s
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.25s
+test result: ok. 69 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.46s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.03s
+test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.42s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 30.47s
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.65s
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.95s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.84s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.72s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.73s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 534.39s
 test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
-test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
 == proof files (expect accept → exit 0, reject → exit 1)
 tests/accept/M1_comm_instance.rlt                    exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ARITH
@@ -113,10 +120,85 @@ tests/m3d/reject: 16 of 16 refused with the required exit code and reason
 scripts/gen-m3e-tests.py reproduces tests/m3e
 tests/m3e/accept: 54 of 54 ACCEPT as unconditional theorems under ROBINSON-Q
 tests/m3e/reject: 16 of 16 refused with the required exit code and reason
+
+== published mathematics: 8 is not matchable, RLT-005 (tests/rlt005)
+scripts/gen-rlt005.py reproduces tests/rlt005
+tests/rlt005/accept: 19 of 19 ACCEPT as unconditional theorems under ROBINSON-Q
+tests/rlt005/reject: 10 of 10 give the required exit code and reason
+rlt deps matchable.not.8: theorems 19 distinct · 29 cited-file checks;budget cited-file checks 29 of 64 · citing-file chain 4 of 8
 spec/peano.rlt sha256 1a3f83444a06fdfbd02c9af2a5881b47137ba102a675a4e012c84be477b10a0d
 spec/peano-arith.rlt sha256 00ceffa9a60b53286f350edbf2f1a5f48a14169a9b09a82cbedc6f9956ff01e4
 spec/robinson-q.rlt sha256 4ad55192222576e3901abc4ee7ea5a6760b64ff212e8c55796ab9847e423b00c
 spec/definitions.rlt sha256 122e37fc627b136023a1a5ffac0344162ed77ae95312248a9f6a76c2b639ecda
+proof files: 472 compared, 0 differ
+DIFF: rlt validate
+differences: 1
+
+== H45 residue certificates, RLT-006 (tests/rlt006, certificates/h45)
+scripts/gen-rlt006.py reproduces every committed output and all 630 certificates (1.1 s)
+1. element certificates: 630 of 630 ACCEPT as unconditional theorems under ROBINSON-Q (84.5 s)
+2. per-prime theorems: 14 of 14 ACCEPT, each citing its 45 certificates (45 of 64 cited-file checks) (85.2 s)
+tests/rlt006/reject: 6 of 6 give the required exit code and reason
+refused: a generated certificate missing (rlt check MALFORMED, rlt deps exit 2, manifest mismatch)
+refused: a generated certificate modified (rlt check MALFORMED, rlt deps exit 2, manifest mismatch)
+refused: an altered manifest hash (the certificates no longer match it)
+restored: all 630 certificates equal to the manifest again
+tests/explain-rlt006: 6 of 6 record fixtures give the required exit code and line
+3. residue profile (computed evidence, not kernel-checked): 630 rows with h = p*q + s and s != r_p; nu_2=1, nu_3=2, nu_5=4, nu_7=6, nu_11=10, nu_13=12, nu_17=16, nu_19=18, nu_23=22, nu_29=27, nu_31=29, nu_37=34, nu_41=34, nu_43=36
+
+== statement records and rlt explain, RLT-004b (statements/, tests/explain)
+scripts/gen-explain-tests.py reproduces tests/explain and tests/explain-rlt006
+statements/CONDITIONAL-2X3.yaml            exit 0  json: 0 ACCEPT current unassessed/none not-applicable
+statements/DVD-2-8.yaml                    exit 0  json: 0 ACCEPT current unassessed/none not-applicable
+statements/H45-OMITS-02.yaml               exit 0  json: 0 ACCEPT current partial/current not-applicable
+statements/H45-OMITS-03.yaml               exit 0  json: 0 ACCEPT current partial/current not-applicable
+statements/H45-OMITS-05.yaml               exit 0  json: 0 ACCEPT current partial/current not-applicable
+statements/H45-OMITS-07.yaml               exit 0  json: 0 ACCEPT current partial/current not-applicable
+statements/H45-OMITS-11.yaml               exit 0  json: 0 ACCEPT current partial/current not-applicable
+statements/H45-OMITS-13.yaml               exit 0  json: 0 ACCEPT current partial/current not-applicable
+statements/H45-OMITS-17.yaml               exit 0  json: 0 ACCEPT current partial/current not-applicable
+statements/H45-OMITS-19.yaml               exit 0  json: 0 ACCEPT current partial/current not-applicable
+statements/H45-OMITS-23.yaml               exit 0  json: 0 ACCEPT current partial/current not-applicable
+statements/H45-OMITS-29.yaml               exit 0  json: 0 ACCEPT current partial/current not-applicable
+statements/H45-OMITS-31.yaml               exit 0  json: 0 ACCEPT current partial/current not-applicable
+statements/H45-OMITS-37.yaml               exit 0  json: 0 ACCEPT current partial/current not-applicable
+statements/H45-OMITS-41.yaml               exit 0  json: 0 ACCEPT current partial/current not-applicable
+statements/H45-OMITS-43.yaml               exit 0  json: 0 ACCEPT current partial/current not-applicable
+statements/MATCHABLE-NOT-8.yaml            exit 0  json: 0 ACCEPT current partial/current not-applicable
+statements/MATH29-PAIRING.yaml             exit 0  json: 0 ACCEPT current unassessed/none relevant
+statements/MOD30-CLASSIFICATION.yaml       exit 0  json: 0 ACCEPT current partial/current not-applicable
+Lean reference RLTM3eReadings.classification (lean/M3eReadings.lean): checked, standard axioms only
+Lean reference RLTM3eReadings.free235_iff_coprime (lean/M3eReadings.lean): checked, standard axioms only
+Lean reference RLT005Direct.matchable_not_8 (lean/RLT005Direct.lean): checked, standard axioms only
+Lean reference RLT005Direct.matchable_not_8_checked (lean/RLT005Direct.lean): checked, standard axioms only
+Lean reference RLT005Readings.explicit_iff (lean/RLT005Readings.lean): checked, standard axioms only
+Lean reference RLT005Readings.matchable'_eight_iff (lean/RLT005Readings.lean): checked, standard axioms only
+Lean reference RLT005Readings.matchable_one_to_seven (lean/RLT005Readings.lean): checked, standard axioms only
+Lean reference RLT005Readings.not_matchable_eight (lean/RLT005Readings.lean): checked, standard axioms only
+Lean reference RLT006BGP212.omits_rlt_form (lean/RLT006BGP212.lean): checked, standard axioms only
+Lean reference RLT006Direct.lemma_12_1_of_rlt_statements (lean/RLT006Direct.lean): checked, standard axioms only
+Lean reference RLT006Direct.om_11 (lean/RLT006Direct.lean): checked, standard axioms only
+Lean reference RLT006Direct.om_13 (lean/RLT006Direct.lean): checked, standard axioms only
+Lean reference RLT006Direct.om_17 (lean/RLT006Direct.lean): checked, standard axioms only
+Lean reference RLT006Direct.om_19 (lean/RLT006Direct.lean): checked, standard axioms only
+Lean reference RLT006Direct.om_2 (lean/RLT006Direct.lean): checked, standard axioms only
+Lean reference RLT006Direct.om_23 (lean/RLT006Direct.lean): checked, standard axioms only
+Lean reference RLT006Direct.om_29 (lean/RLT006Direct.lean): checked, standard axioms only
+Lean reference RLT006Direct.om_3 (lean/RLT006Direct.lean): checked, standard axioms only
+Lean reference RLT006Direct.om_31 (lean/RLT006Direct.lean): checked, standard axioms only
+Lean reference RLT006Direct.om_37 (lean/RLT006Direct.lean): checked, standard axioms only
+Lean reference RLT006Direct.om_41 (lean/RLT006Direct.lean): checked, standard axioms only
+Lean reference RLT006Direct.om_43 (lean/RLT006Direct.lean): checked, standard axioms only
+Lean reference RLT006Direct.om_5 (lean/RLT006Direct.lean): checked, standard axioms only
+Lean reference RLT006Direct.om_7 (lean/RLT006Direct.lean): checked, standard axioms only
+tests/explain: 52 of 52 fixtures give the required exit code and report line
+golden txt output reproduced
+golden json output reproduced
+
+== theorem library and rlt deps, RLT-004c (lib/)
+entries         101 of 101 current and accepted
+rlt deps mod30.classification: exit 0; json exit, distinct theorems, cited-file checks, chain: 0 50 49 2
+identity registry: every line of 2 committed version(s) is kept (101 identities)
 
 == chemical notation (rlt chem; 0 interpreted, 1 uninterpreted)
 CO₂    exit 0 (want 0)  INTERPRETED — a registered reading of notation; no kernel 
@@ -166,6 +248,80 @@ Lean (version 4.34.0-rc2, x86_64-unknown-linux-gnu, commit 6a10ac8c22beadecabdbb
 'RLTM3eReadings.classification' depends on axioms: [propext, Quot.sound]
 'RLTM3eReadings.free235_iff_coprime' depends on axioms: [propext]
 'RLTM3eReadings.representatives_count' does not depend on any axioms
+'RLT005Direct.lt_iff_rlt' depends on axioms: [propext, Quot.sound]
+'RLT005Direct.dvd_iff_rlt' does not depend on any axioms
+'RLT005Direct.cop_iff_gcd' depends on axioms: [propext, Quot.sound]
+'RLT005Direct.mem_partners' depends on axioms: [propext, Quot.sound]
+'RLT005Direct.bounded_none' does not depend on any axioms
+'RLT005Direct.no_assignment' depends on axioms: [propext, Quot.sound]
+'RLT005Direct.divisors_eight' depends on axioms: [propext]
+'RLT005Direct.partners_four' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RLT005Direct.matchable_not_8' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RLT005Direct.matchable_not_8_checked' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RLT005Direct.nonvacuous' depends on axioms: [propext, Quot.sound]
+'RLT005Readings.mem_divisors' depends on axioms: [propext, Quot.sound]
+'RLT005Readings.divisors_nodup' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RLT005Readings.matching_symm' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RLT005Readings.matchable_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RLT005Readings.M_is_Mgen' does not depend on any axioms
+'RLT005Readings.r_iff_mem' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RLT005Readings.coprime_iff_cop' depends on axioms: [propext, Quot.sound]
+'RLT005Readings.cover' does not depend on any axioms
+'RLT005Readings.explicit_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RLT005Readings.divisors_eight' depends on axioms: [propext]
+'RLT005Readings.tau_eight' depends on axioms: [propext]
+'RLT005Readings.divisors_six' depends on axioms: [propext]
+'RLT005Readings.tau_six' depends on axioms: [propext]
+'RLT005Readings.matchable'_eight_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RLT005Readings.not_matchable_eight' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RLT005Readings.six_explicit' depends on axioms: [propext, Quot.sound]
+'RLT005Readings.matchable_six' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RLT005Readings.matchable_one_to_seven' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RLT005Readings.cop_iff_gcd' depends on axioms: [propext, Quot.sound]
+'RLT005Readings.mem_partners' depends on axioms: [propext, Quot.sound]
+'RLT005Readings.bounded_none' does not depend on any axioms
+'RLT005Readings.no_assignment' depends on axioms: [propext, Quot.sound]
+'RLT006Direct.conjFrom_intro' does not depend on any axioms
+'RLT006Direct.conjFrom_elim' depends on axioms: [propext]
+'RLT006Direct.conjL_intro' does not depend on any axioms
+'RLT006Direct.conjL_elim' depends on axioms: [propext]
+'RLT006Direct.omit_iff' depends on axioms: [propext, Quot.sound]
+'RLT006Direct.om_of_residues' depends on axioms: [propext, Quot.sound]
+'RLT006Direct.residues_of_om' depends on axioms: [propext, Quot.sound]
+'RLT006Direct.table_omits' does not depend on any axioms
+'RLT006Direct.om_2' depends on axioms: [propext, Quot.sound]
+'RLT006Direct.om_3' depends on axioms: [propext, Quot.sound]
+'RLT006Direct.om_5' depends on axioms: [propext, Quot.sound]
+'RLT006Direct.om_7' depends on axioms: [propext, Quot.sound]
+'RLT006Direct.om_11' depends on axioms: [propext, Quot.sound]
+'RLT006Direct.om_13' depends on axioms: [propext, Quot.sound]
+'RLT006Direct.om_17' depends on axioms: [propext, Quot.sound]
+'RLT006Direct.om_19' depends on axioms: [propext, Quot.sound]
+'RLT006Direct.om_23' depends on axioms: [propext, Quot.sound]
+'RLT006Direct.om_29' depends on axioms: [propext, Quot.sound]
+'RLT006Direct.om_31' depends on axioms: [propext, Quot.sound]
+'RLT006Direct.om_37' depends on axioms: [propext, Quot.sound]
+'RLT006Direct.om_41' depends on axioms: [propext, Quot.sound]
+'RLT006Direct.om_43' depends on axioms: [propext, Quot.sound]
+'RLT006Direct.missing_below' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RLT006Direct.large_moduli' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RLT006Direct.primes_below_47' depends on axioms: [propext, Quot.sound]
+'RLT006Direct.lemma_12_1_of_rlt_statements' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RLT006Direct.h45_size_and_diameter' depends on axioms: [propext, Quot.sound]
+'RLT006Direct.admissible_h45' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RLT006Direct.lemma_12_1' depends on axioms: [propext, Classical.choice, Quot.sound]
+'BGP212.Challenge.h45_card' does not depend on any axioms
+'BGP212.Challenge.h45_diameter' depends on axioms: [propext, Quot.sound]
+'BGP212.Challenge.h45_omitted_table' does not depend on any axioms
+'BGP212.Challenge.h45_omits_below_213' depends on axioms: [propext, Quot.sound]
+'BGP212.Challenge.h45_omits_from_213' depends on axioms: [propext, Quot.sound]
+'BGP212.Challenge.h45_admissible' depends on axioms: [propext, Quot.sound]
+'BGP212.Challenge.lemma_12_1' depends on axioms: [propext, Quot.sound]
+'RLT006BGP212.same_tuple' does not depend on any axioms
+'RLT006BGP212.same_table' does not depend on any axioms
+'RLT006BGP212.omit_iff' depends on axioms: [propext, Quot.sound]
+'RLT006BGP212.omits_rlt_form' depends on axioms: [propext, Quot.sound]
+'RLT006BGP212.lemma_12_1_bgp212' depends on axioms: [propext, Quot.sound]
 ok
 M2Readings.lean: 6 statements, standard axioms only
 M3bReadings.lean: 10 statements, standard axioms only (tier 2; Lean-checked correspondence, not RLT theorems)
@@ -173,6 +329,13 @@ M3bGenerated.lean: 15 statements, standard axioms only
 M3cReadings.lean: 6 statements, standard axioms only (tier 2; Lean-checked correspondence, not RLT theorems)
 M3dReadings.lean: 6 statements, standard axioms only (tier 2; Lean-checked correspondence, not RLT theorems)
 M3eReadings.lean: 3 statements, standard axioms only (tier 2; Lean-checked correspondence, not RLT theorems)
+RLT005Direct.lean: 11 statements, standard axioms only (RLT-005 Lean comparison; not RLT theorems)
+RLT005Readings.lean: 22 statements, standard axioms only (RLT-005 Lean comparison; not RLT theorems)
+RLT006Direct.lean: 29 statements, each printed, standard axioms only (RLT-006 Lean comparison; not RLT theorems)
+RLT006BGP212.lean: 12 statements, each printed, standard axioms only (RLT-006 Lean comparison; not RLT theorems)
+RLT006BGP212.lean: rltH45 and rltTable equal the generated transcription literals
+RLT006BGP212.lean: vendored blocks byte-identical to lean-bgp212 @ 7898eb4 (BGP212/Basic.lean 25-47, Solution/Lemma12_1.lean 20-64)
+RLT005 shared definitions: byte-identical in both files
 M3eGenerated.lean: 54 statements, standard axioms only
 M3dGenerated.lean: 5 statements, standard axioms only
 M3cGenerated.lean: 9 statements, standard axioms only
@@ -187,5 +350,23 @@ Generated.lean is current
 
 == source excerpts
 0 problem(s)
+archived source refused: archive bytes changed
+archived source refused: pin changed
+archived source refused: member changed to another file
+archived source refused: member absent
+archived source refused: member with a .. component
+archived source refused: excerpt from a LaTeX comment
+archived source refused: excerpt starting inside a word
+archived source refused: excerpt changed
+transcribed source refused: PDF bytes changed
+transcribed source refused: registry pin changed
+transcribed source refused: page extraction hash changed
+transcribed source refused: extracted text altered
+transcribed source refused: transcribed numbers altered
+transcribed source refused: omitted class altered
+transcribed source refused: reviewer removed
+transcribed source refused: tool version changed
+transcribed source refused: pdftotext absent
+transcribed source refused: excerpt not a reviewed item
 
 RESULT   all checks hold
