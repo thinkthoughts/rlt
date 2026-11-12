@@ -334,6 +334,30 @@ pub fn load_library(root: &Path) -> Result<Library, String> {
             ));
         }
         for u in &e.uses {
+            // RLT-006: a cited proof outside the library, such as a generated
+            // certificate, is named `(unlisted PATH)`. The entry still pins it:
+            // verification compares these names with the citations of the
+            // checked proof, and the check re-reads and re-checks every cited
+            // file, so a missing or altered file is never accepted.
+            if let Some(path) = u
+                .strip_prefix("(unlisted ")
+                .and_then(|x| x.strip_suffix(')'))
+            {
+                let ok_path = path.ends_with(".rlt")
+                    && !path.starts_with('/')
+                    && path
+                        .bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || b"_./-".contains(&b))
+                    && path
+                        .split('/')
+                        .all(|c| !c.is_empty() && c != "." && c != "..");
+                if !ok_path {
+                    return Err(format!(
+                        "{rel}: `uses` names `{u}`, which is not a repository-relative proof path"
+                    ));
+                }
+                continue;
+            }
             match entries.iter().map(|(_, x)| x).find(|x| x.id == *u) {
                 None => return Err(format!("{rel}: `uses` names unknown id `{u}`")),
                 Some(x) if !x.citable => {
@@ -541,7 +565,15 @@ fn compare_entry(
                     .unwrap_or_else(|| format!("(unlisted {})", c.path))
             })
             .collect();
-        cmp("uses", &e.uses.join(", "), &uses.join(", "));
+        // Element by element: one `uses` item stands for exactly one citation.
+        if e.uses != uses {
+            cmp("uses", &e.uses.join(", "), &uses.join(", "));
+            cmp(
+                "uses (item count)",
+                &e.uses.len().to_string(),
+                &uses.len().to_string(),
+            );
+        }
     }
     for alt in &e.alternatives {
         match check_pin(root, &alt.path) {

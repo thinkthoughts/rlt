@@ -26,6 +26,7 @@ FILES = (
     + sorted(glob.glob("tests/m3d/accept/*.rlt"))
     + sorted(glob.glob("tests/m3e/accept/*.rlt"))
     + sorted(glob.glob("tests/rlt005/accept/*.rlt"))
+    + sorted(glob.glob("tests/rlt006/accept/*.rlt"))
 )
 NAMED = {
     "tests/accept/R_math29_pairing.rlt": "arith.add.29_1_30",
@@ -58,6 +59,9 @@ PATTERNS = [
     (r"^¬\((\d+) ∣ (\d+)\)$", "dvd.not.{0}_{1}"),
     (r"^free235\((\d+)\)$", "dvd.free235.{0}"),
     (r"^∀k\. ¬\((\d+) = (\d+) × k\)$", "dvd.witnesswise.{1}_{0}"),
+    # RLT-006: the 14 per-prime theorems (left-nested conjunction of the 45
+    # omissions ¬(∃k. h = (p × k) + r) over H45, first element 0).
+    (r"^\(+¬\(∃k\. 0 = \((\d+) × k\) \+ (\d+)\).* ∧ ¬\(∃k\. 212 = \(\d+ × k\) \+ \d+\)\)$", "admissible.h45.omits.{0}_{1}"),
 ]
 
 
@@ -118,7 +122,19 @@ for d in glob.glob("lib/*/"):
 ids = []
 for lid, fp, files in sorted(entries):
     n = nodes[files[0]]
-    uses = [by_pin[(c["path"], c["sha256"])] for c in n["children"]]
+    # A cited proof outside the library (RLT-006: the generated element
+    # certificates) is named `(unlisted PATH)`; `rlt deps --verify-lib`
+    # re-checks it through the kernel like any other citation.
+    # Only generated certificates may be unlisted (RLT-006); any other cited
+    # proof outside the library is an error, as before.
+    uses = []
+    for c in n["children"]:
+        if (c["path"], c["sha256"]) in by_pin:
+            uses.append(by_pin[(c["path"], c["sha256"])])
+        elif c["path"].startswith("tests/rlt006/gen/"):
+            uses.append(f"(unlisted {c['path']})")
+        else:
+            sys.exit(f"{files[0]} cites {c['path']}, which is neither in the library nor a generated certificate")
     pairs = n["assumption_pairs"] or []
     area = lid.split(".")[0]
     os.makedirs(f"lib/{area}", exist_ok=True)

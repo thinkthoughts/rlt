@@ -81,7 +81,7 @@ pub struct AxiomSet {
     pub axioms: Vec<Axiom>,
 }
 
-fn sha256_hex(bytes: &[u8]) -> String {
+pub fn sha256_hex(bytes: &[u8]) -> String {
     use sha2::{Digest, Sha256};
     Sha256::digest(bytes)
         .iter()
@@ -1416,7 +1416,7 @@ pub fn chem_report(root: &Path, written: &str, conv_id: &str) -> Report {
 /// untagged, retagged to another reading point, or newly cited only through a
 /// reviewed code change. Update it with the digest `rlt validate` prints.
 pub const PINNED_REGISTRY_SHA: &str =
-    "f85b76fb40c7243e9e4a760449c321ede6f94857ee674877181d0bfbc6c92347";
+    "f5cc1dc95f8471e065d9a7229032cdb32ad70c6f9a7e1b12598da77c770c633e";
 
 /// Canonical digest of the registry: for every source (in id order) its id,
 /// status and location, then each excerpt's text, `defines` and `split`, one
@@ -1778,6 +1778,29 @@ pub fn validate(root: &Path) -> Report {
         {
             problems.push(format!(
                 "{}: status available with excerpts requires a GitHub file location",
+                src.id
+            ));
+        }
+    }
+    for src in reg.values().filter(|s| s.status == "transcribed") {
+        let hex = src.commit.len() == 64
+            && src
+                .commit
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
+        let path = src.url.starts_with("sources/transcriptions/")
+            && src.url.ends_with(".yaml")
+            && src
+                .url
+                .split('/')
+                .all(|c| !c.is_empty() && c != "." && c != "..")
+            && root.join(&src.url).is_file()
+            && !std::fs::symlink_metadata(root.join(&src.url))
+                .map(|m| m.file_type().is_symlink())
+                .unwrap_or(true);
+        if !hex || !path || src.excerpts.is_empty() || !src.location.starts_with("https://") {
+            problems.push(format!(
+                "{}: status transcribed requires `commit` = the PDF's SHA-256 (64 lowercase hex), `location` = its https URL, `url` = an existing sources/transcriptions/*.yaml, and excerpts",
                 src.id
             ));
         }

@@ -1,0 +1,60 @@
+format: rlt-lib/1
+id: admissible.h45.omits.5_3
+title: "((((((((((((((((((((((((((((((((((((((((((((¬(∃k. 0 = (5 × k) + 3) ∧ ¬(∃k. 2 = (5 × k) + 3)) ∧ ¬(∃k. 12 = (5 × k) + 3)) ∧ ¬(∃k. 14 = (5 × k) + 3)) ∧ ¬(∃k. 24 = (5 × k) + 3)) ∧ ¬(∃k. 26 = (5 × k) + 3)) ∧ ¬(∃k. 30 = (5 × k) + 3)) ∧ ¬(∃k. 36 = (5 × k) + 3)) ∧ ¬(∃k. 44 = (5 × k) + 3)) ∧ ¬(∃k. 50 = (5 × k) + 3)) ∧ ¬(∃k. 54 = (5 × k) + 3)) ∧ ¬(∃k. 56 = (5 × k) + 3)) ∧ ¬(∃k. 60 = (5 × k) + 3)) ∧ ¬(∃k. 66 = (5 × k) + 3)) ∧ ¬(∃k. 72 = (5 × k) + 3)) ∧ ¬(∃k. 74 = (5 × k) + 3)) ∧ ¬(∃k. 80 = (5 × k) + 3)) ∧ ¬(∃k. 84 = (5 × k) + 3)) ∧ ¬(∃k. 92 = (5 × k) + 3)) ∧ ¬(∃k. 96 = (5 × k) + 3)) ∧ ¬(∃k. 102 = (5 × k) + 3)) ∧ ¬(∃k. 110 = (5 × k) + 3)) ∧ ¬(∃k. 114 = (5 × k) + 3)) ∧ ¬(∃k. 116 = (5 × k) + 3)) ∧ ¬(∃k. 122 = (5 × k) + 3)) ∧ ¬(∃k. 126 = (5 × k) + 3)) ∧ ¬(∃k. 134 = (5 × k) + 3)) ∧ ¬(∃k. 140 = (5 × k) + 3)) ∧ ¬(∃k. 144 = (5 × k) + 3)) ∧ ¬(∃k. 150 = (5 × k) + 3)) ∧ ¬(∃k. 156 = (5 × k) + 3)) ∧ ¬(∃k. 162 = (5 × k) + 3)) ∧ ¬(∃k. 164 = (5 × k) + 3)) ∧ ¬(∃k. 170 = (5 × k) + 3)) ∧ ¬(∃k. 176 = (5 × k) + 3)) ∧ ¬(∃k. 180 = (5 × k) + 3)) ∧ ¬(∃k. 182 = (5 × k) + 3)) ∧ ¬(∃k. 186 = (5 × k) + 3)) ∧ ¬(∃k. 192 = (5 × k) + 3)) ∧ ¬(∃k. 194 = (5 × k) + 3)) ∧ ¬(∃k. 200 = (5 × k) + 3)) ∧ ¬(∃k. 204 = (5 × k) + 3)) ∧ ¬(∃k. 206 = (5 × k) + 3)) ∧ ¬(∃k. 210 = (5 × k) + 3)) ∧ ¬(∃k. 212 = (5 × k) + 3))"
+fingerprint: f9f2d120c101146b96163c81360b89456eed75c859b44a4ffb51030453443f9b
+proof: {path: tests/rlt006/accept/OM_05.rlt, sha256: c97a7d6770eead74daef2f9b5915d8a947c34ea232ec0eb957cac13bc219325e}
+proof_id: RLT006.OM_05
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "(((((((((((((((((((((((((((((((((((((((((((¬(∃k. 0 = (5 × k) + 3) ∧ ¬(∃k. 2 = (5 × k) + 3)) ∧ ¬(∃k. 12 = (5 × k) + 3)) ∧ ¬(∃k. 14 = (5 × k) + 3)) ∧ ¬(∃k. 24 = (5 × k) + 3)) ∧ ¬(∃k. 26 = (5 × k) + 3)) ∧ ¬(∃k. 30 = (5 × k) + 3)) ∧ ¬(∃k. 36 = (5 × k) + 3)) ∧ ¬(∃k. 44 = (5 × k) + 3)) ∧ ¬(∃k. 50 = (5 × k) + 3)) ∧ ¬(∃k. 54 = (5 × k) + 3)) ∧ ¬(∃k. 56 = (5 × k) + 3)) ∧ ¬(∃k. 60 = (5 × k) + 3)) ∧ ¬(∃k. 66 = (5 × k) + 3)) ∧ ¬(∃k. 72 = (5 × k) + 3)) ∧ ¬(∃k. 74 = (5 × k) + 3)) ∧ ¬(∃k. 80 = (5 × k) + 3)) ∧ ¬(∃k. 84 = (5 × k) + 3)) ∧ ¬(∃k. 92 = (5 × k) + 3)) ∧ ¬(∃k. 96 = (5 × k) + 3)) ∧ ¬(∃k. 102 = (5 × k) + 3)) ∧ ¬(∃k. 110 = (5 × k) + 3)) ∧ ¬(∃k. 114 = (5 × k) + 3)) ∧ ¬(∃k. 116 = (5 × k) + 3)) ∧ ¬(∃k. 122 = (5 × k) + 3)) ∧ ¬(∃k. 126 = (5 × k) + 3)) ∧ ¬(∃k. 134 = (5 × k) + 3)) ∧ ¬(∃k. 140 = (5 × k) + 3)) ∧ ¬(∃k. 144 = (5 × k) + 3)) ∧ ¬(∃k. 150 = (5 × k) + 3)) ∧ ¬(∃k. 156 = (5 × k) + 3)) ∧ ¬(∃k. 162 = (5 × k) + 3)) ∧ ¬(∃k. 164 = (5 × k) + 3)) ∧ ¬(∃k. 170 = (5 × k) + 3)) ∧ ¬(∃k. 176 = (5 × k) + 3)) ∧ ¬(∃k. 180 = (5 × k) + 3)) ∧ ¬(∃k. 182 = (5 × k) + 3)) ∧ ¬(∃k. 186 = (5 × k) + 3)) ∧ ¬(∃k. 192 = (5 × k) + 3)) ∧ ¬(∃k. 194 = (5 × k) + 3)) ∧ ¬(∃k. 200 = (5 × k) + 3)) ∧ ¬(∃k. 204 = (5 × k) + 3)) ∧ ¬(∃k. 206 = (5 × k) + 3)) ∧ ¬(∃k. 210 = (5 × k) + 3)) ∧ ¬(∃k. 212 = (5 × k) + 3)"
+assumptions: []
+citable: true
+uses:
+  - (unlisted tests/rlt006/gen/O_05_000.rlt)
+  - (unlisted tests/rlt006/gen/O_05_002.rlt)
+  - (unlisted tests/rlt006/gen/O_05_012.rlt)
+  - (unlisted tests/rlt006/gen/O_05_014.rlt)
+  - (unlisted tests/rlt006/gen/O_05_024.rlt)
+  - (unlisted tests/rlt006/gen/O_05_026.rlt)
+  - (unlisted tests/rlt006/gen/O_05_030.rlt)
+  - (unlisted tests/rlt006/gen/O_05_036.rlt)
+  - (unlisted tests/rlt006/gen/O_05_044.rlt)
+  - (unlisted tests/rlt006/gen/O_05_050.rlt)
+  - (unlisted tests/rlt006/gen/O_05_054.rlt)
+  - (unlisted tests/rlt006/gen/O_05_056.rlt)
+  - (unlisted tests/rlt006/gen/O_05_060.rlt)
+  - (unlisted tests/rlt006/gen/O_05_066.rlt)
+  - (unlisted tests/rlt006/gen/O_05_072.rlt)
+  - (unlisted tests/rlt006/gen/O_05_074.rlt)
+  - (unlisted tests/rlt006/gen/O_05_080.rlt)
+  - (unlisted tests/rlt006/gen/O_05_084.rlt)
+  - (unlisted tests/rlt006/gen/O_05_092.rlt)
+  - (unlisted tests/rlt006/gen/O_05_096.rlt)
+  - (unlisted tests/rlt006/gen/O_05_102.rlt)
+  - (unlisted tests/rlt006/gen/O_05_110.rlt)
+  - (unlisted tests/rlt006/gen/O_05_114.rlt)
+  - (unlisted tests/rlt006/gen/O_05_116.rlt)
+  - (unlisted tests/rlt006/gen/O_05_122.rlt)
+  - (unlisted tests/rlt006/gen/O_05_126.rlt)
+  - (unlisted tests/rlt006/gen/O_05_134.rlt)
+  - (unlisted tests/rlt006/gen/O_05_140.rlt)
+  - (unlisted tests/rlt006/gen/O_05_144.rlt)
+  - (unlisted tests/rlt006/gen/O_05_150.rlt)
+  - (unlisted tests/rlt006/gen/O_05_156.rlt)
+  - (unlisted tests/rlt006/gen/O_05_162.rlt)
+  - (unlisted tests/rlt006/gen/O_05_164.rlt)
+  - (unlisted tests/rlt006/gen/O_05_170.rlt)
+  - (unlisted tests/rlt006/gen/O_05_176.rlt)
+  - (unlisted tests/rlt006/gen/O_05_180.rlt)
+  - (unlisted tests/rlt006/gen/O_05_182.rlt)
+  - (unlisted tests/rlt006/gen/O_05_186.rlt)
+  - (unlisted tests/rlt006/gen/O_05_192.rlt)
+  - (unlisted tests/rlt006/gen/O_05_194.rlt)
+  - (unlisted tests/rlt006/gen/O_05_200.rlt)
+  - (unlisted tests/rlt006/gen/O_05_204.rlt)
+  - (unlisted tests/rlt006/gen/O_05_206.rlt)
+  - (unlisted tests/rlt006/gen/O_05_210.rlt)
+  - (unlisted tests/rlt006/gen/O_05_212.rlt)
+statement_records:
+  - statements/H45-OMITS-05.yaml
+history: []

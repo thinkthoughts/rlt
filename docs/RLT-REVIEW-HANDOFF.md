@@ -15,6 +15,8 @@ Development stops after M3e. The next phase is a broader review of RLT as a usab
 | M3c | merged (73198e6) | ¬(d ∣ 7) for every witness; free235(7); theorem citation |
 | M3d | merged (3d0f8e2) | ∀x. x < 30 → x = 0 ∨ … ∨ x = 29 |
 | M3e | merged (cc01968, 2026-11-11) | the modulo-30 classification, E-T1; see docs/RLT-003-M3e.md |
+| RLT-004a/b/c | merged (58838c9, 45c94b5, c42729b) | manual; statement records and `rlt explain`; theorem library and `rlt deps` |
+| RLT-005 | merged (9c8a66d, 2026-11-11) | 8 is not matchable (McNew–Pomerance, arXiv:2604.05304v2); see docs/RLT-005-REPORT.md |
 
 **Not yet done, and held for the review:**
 - the `backed by` links (designed in the M3e review §9);
@@ -116,3 +118,27 @@ RLT-004c (theorem library and `rlt deps`) review: docs/RLT-004c-REVIEW.md.
 - **Deviations:** none.
 
 RLT-005 (published-mathematics demonstration) candidate review: docs/RLT-005-REVIEW.md.
+
+## Merge record, 2026-11-11 (RLT-005)
+
+- **Gate before merge:**
+  - PR #13 head was exactly 3cd14be, and CI `check` and `gdt-comparison` were green on it (push and pull_request runs).
+  - Both independent audit reports are resolved (docs/RLT-005-REPORT.md §6). Spot re-checks of the two archive should-fix findings at 3cd14be: a single gzip whose header does not name the member gives ERROR; a planted cache symlink gives ERROR and nothing is written through it.
+  - Kernel (`kernel/`), inference rules, axiom sets (`spec/`), `syntax/` and the reading points are unchanged since c42729b. No earlier `.rlt` file changed. The only existing test files that changed are `tests/expected/validate.out` (31 sources, `archived 1`) and `tests/explain/expected.tsv` (8 rows appended, none removed).
+  - All 19 files in `tests/rlt005/accept` ACCEPT as unconditional theorems under ROBINSON-Q; `lean/RLT005Direct.lean` (11 theorems) and `lean/RLT005Readings.lean` (22) compile with standard axioms only, no errors or warnings.
+- **PR #13 merged:** marked ready, then merged as merge commit **9c8a66d**, parents c42729b and 3cd14be. The merge tree 36f4e31 equals 3cd14be's tree.
+- **Fresh clone of main at 9c8a66d:**
+  - `cargo test --release` passes 262 of 262;
+  - `scripts/verify.sh` prints `RESULT all checks hold` (library 87 of 87 current; the eight archived-source tamper cases refused);
+  - `scripts/check-manual.py` reports 29 of 29 examples.
+- **The three commands for `matchable.not.8`** (fresh clone): `rlt check` ACCEPT, exit 0; `rlt explain statements/MATCHABLE-NOT-8.yaml` exit 0 (kernel ACCEPT · source registry verified, pinned · semantic partial, current · physical not applicable); `rlt deps matchable.not.8` exit 0, 19 theorems, 29 of 64 cited-file checks, chain 4 of 8.
+- **Identity registry:** main's first-parent history now holds two versions of `lib/identities.tsv` (c42729b, 9c8a66d); every line of both is kept (87 identities); 19 lines appended since c42729b, none changed or removed.
+- **CI on 9c8a66d:** `check` and `gdt-comparison` both succeed.
+- **Three results kept apart**, as accepted:
+  - *RLT proof:* the explicit-partner formula follows from Robinson's Q (kernel).
+  - *Lean correspondence theorem:* over ℕ that formula is the paper's "8 is not matchable" (`explicit_iff`, `matchable'_eight_iff`), a Lean result attributed to Lean.
+  - *Source-fidelity assessment:* the quoted definitions and claim are verbatim (up to line breaks) in the hash-pinned arXiv v2 e-print; semantic status `partial`, with the documented differences (bridge in Lean; positive divisors because of Q; later multiples of 4 out of scope).
+- **Branch protection:** unchanged (main unprotected, no rulesets). The recommendation in docs/RLT-005-BRANCH-PROTECTION.md awaits separate approval.
+- **Deviations:** none.
+
+RLT-006 (H₄₅ residue certificates) feasibility review: docs/RLT-006-REVIEW.md.

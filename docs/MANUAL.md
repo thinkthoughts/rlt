@@ -1,6 +1,6 @@
-# RLT user manual — chapters 1–12
+# RLT user manual — chapters 1–13
 
-**Status.** RLT-004a, written 2026-11-11 against main at cc01968. Every terminal block in this manual is checked against the real program by `scripts/check-manual.py`; lines shown as `…` are omitted output. Chapter 12 (RLT-005, 2026-11-11) works through a published result. Chapters on writing your own statement records and a reference are planned for a later milestone.
+**Status.** RLT-004a, written 2026-11-11 against main at cc01968. Every terminal block in this manual is checked against the real program by `scripts/check-manual.py`; lines shown as `…` are omitted output. Chapter 12 (RLT-005, 2026-11-11) works through a published result; chapter 13 (RLT-006, 2026-11-12) checks a finite certificate from a research draft. Chapters on writing your own statement records and a reference are planned for a later milestone.
 
 **Who this is for.** Anyone who wants to run RLT on their own machine and read what it reports, including readers who already use [Lean 4](https://lean-lang.org/). Chapter 11 compares the two precisely.
 
@@ -426,7 +426,7 @@ exit 2
 ```console
 $ rlt deps dvd.free235.7; echo "exit $?"
 RLT deps        dvd.free235.7
-library         lib/ index valid (87 entries)
+library         lib/ index valid (101 entries)
 proof           tests/m3c/accept/CA05_free235_seven.rlt (M3c.CA05)
 …
 library entry   dvd.free235.7 · current
@@ -696,3 +696,74 @@ $ cd lean && lean RLT005Readings.lean
 | **Axioms and assumptions** | Robinson's Q (all seven axioms); Γ = ∅ |
 | **Result** | ACCEPT — unconditional theorem; semantic correspondence partial (Lean bridge); physical not applicable |
 | **Still open** | "nor is any subsequent multiple of 4" needs every n, hence induction |
+
+## 13. A research certificate: the residues of H₄₅
+
+Axiom Math's draft *A New Bound for Small Gaps Between Primes* (September 3, 2026) proves H₁ ≤ 212 using a 45-element tuple H₄₅ = {0, 2, 12, …, 212}. Its Lemma 12.1 says H₄₅ is *admissible*: for every prime p, the elements of H₄₅ miss at least one residue class mod p. The proof lists, for the 14 primes 2, 3, …, 43, one missed class each (1, 1, 3, …, 3), and argues that 45 elements cannot cover the p ≥ 47 classes of a larger prime.
+
+RLT checks the 14 finite claims, one element at a time. The 630 element certificates are **generated, not stored**, so generate them first (under a second, then pinned by `tests/rlt006/manifest.sha256`; `scripts/verify.sh` does this before anything else):
+
+```console
+$ python3 -I scripts/gen-rlt006.py target/release/rlt --materialize-only
+630 element certificates written to tests/rlt006/gen/
+```
+
+"H₄₅ misses the class 3 mod 43 at 212" is then the statement ¬(∃k. 212 = (43 × k) + 3), proved from Robinson's Q:
+
+```console
+$ rlt check tests/rlt006/gen/O_43_212.rlt
+…
+written goal    "¬(∃k. 212 = (43 × k) + 3)"
+…
+steps           1193
+…
+verdict         ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q
+…
+```
+
+There are 630 such certificates (14 primes × 45 elements); `sha256sum -c tests/rlt006/manifest.sha256` checks them against their pinned hashes.
+
+Each prime has one theorem that cites its 45 certificates, each pinned by SHA-256. `rlt deps` checks all 46 files in one run and shows the citation budget:
+
+```console
+$ rlt deps admissible.h45.omits.43_3; echo "exit $?"
+…
+library entry   admissible.h45.omits.43_3 · current
+…
+theorems        46 distinct · 45 cited-file checks
+…
+budget          cited-file checks 45 of 64 · citing-file chain 1 of 8
+…
+exit 0
+```
+
+A missing or altered certificate is never accepted: the citation names the file and its hash, so `rlt check`, `rlt deps` and the library verifier all refuse (MALFORMED).
+
+The paper is a PDF without TeX source, so its source pin is a **reviewed transcription** (`sources/transcriptions/AXIOM-BGP212-2026-09-03.yaml`). It records the page and section of each transcribed item, the text exactly as `pdftotext` 24.02.0 extracts it, and the SHA-256 of each page's extraction; `scripts/check_excerpts.py` re-checks it against the PDF. The generator reads the tuple and the table from that file.
+
+```console
+$ rlt explain statements/H45-OMITS-43.yaml; echo "exit $?"
+…
+1 KERNEL ACCEPTANCE: ACCEPT
+…
+2 SOURCE FIDELITY: registry verified · pinned
+  source        AXIOM-BGP212-2026-09-03 (transcribed) @ 2b307ae26046dffd2153fe7466e5a9a302976dc3ba5142151a8a8104a37b3d80
+  location      https://primegaps.axiommath.ai/bgp212.pdf
+…
+3 SEMANTIC CORRESPONDENCE: partial · assessment current
+…
+4 PHYSICAL CORRESPONDENCE: not applicable
+…
+exit 0
+```
+
+The assessment is `partial` because RLT proves one of the lemma's four obligations: the 14 omissions. The other three — 45 distinct elements with diameter 212, that 2, …, 43 are all the primes below 47, and the counting argument for p ≥ 47 — are proved in Lean (`lean/RLT006Direct.lean`, `lean/RLT006BGP212.lean`), not in RLT. `certificates/h45/` holds the computed residue of every element mod every listed prime and the occupied and omitted classes: computed evidence, which RLT has not proved.
+
+| | |
+|---|---|
+| **You write** | nothing by hand: the generator derives every certificate from the reviewed transcription |
+| **RLT interprets** | NAT-DEF; the statements use only `=`, `+` and `×` |
+| **The kernel checks** | 630 element certificates and 14 per-prime theorems |
+| **Axioms and assumptions** | Robinson's Q; Γ = ∅ |
+| **Result** | ACCEPT — 14 unconditional theorems; semantic correspondence partial (obligation (b) of four); physical not applicable |
+| **Still open in RLT** | the tuple's size and diameter, the list of primes below 47, and the large-prime argument |

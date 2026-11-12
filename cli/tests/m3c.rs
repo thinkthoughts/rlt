@@ -187,6 +187,10 @@ fn copy_dir(src: &Path, dst: &Path) {
     std::fs::create_dir_all(dst).unwrap();
     for e in std::fs::read_dir(src).unwrap() {
         let p = e.unwrap().path();
+        // RLT-006 generated certificates are never copied into scratch trees.
+        if p.ends_with("tests/rlt006/gen") {
+            continue;
+        }
         let to = dst.join(p.file_name().unwrap());
         if p.is_dir() {
             copy_dir(&p, &to);

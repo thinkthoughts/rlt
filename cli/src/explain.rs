@@ -516,7 +516,10 @@ fn resolve(root: &Path, rec: &StatementRecord) -> Result<Resolved, String> {
     // `available`: a file at a git commit; `archived` (RLT-005): a member of
     // an immutable archive whose SHA-256 is the registry's `commit`. Either
     // way the record must state the same pin.
-    let pinned = src.status == "available" || src.status == "archived";
+    // `transcribed` (RLT-006): a PDF pinned by SHA-256, read through a
+    // reviewed transcription file.
+    let pinned =
+        src.status == "available" || src.status == "archived" || src.status == "transcribed";
     match (&rec.source.commit, pinned) {
         (Some(c), true) if *c == src.commit => {}
         (Some(c), true) => {

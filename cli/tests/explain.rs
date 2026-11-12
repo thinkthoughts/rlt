@@ -26,6 +26,9 @@ fn records() -> Vec<String> {
         .unwrap()
         .map(|e| e.unwrap().file_name().to_string_lossy().to_string())
         .filter(|n| n.ends_with(".yaml"))
+        // RLT-006's 14 records cite generated certificates: cli/tests/rlt006.rs
+        // materializes them and explains those records.
+        .filter(|n| !n.starts_with("H45-OMITS-"))
         .map(|n| format!("statements/{n}"))
         .collect();
     v.sort();
@@ -49,6 +52,18 @@ fn scratch(name: &str) -> (PathBuf, String) {
 
 #[test]
 fn x01_to_x04_records_are_valid_current_and_accepted() {
+    // RLT-006's 14 records are excluded by records(); count them here.
+    let h45 = std::fs::read_dir(root().join("statements"))
+        .unwrap()
+        .filter(|e| {
+            e.as_ref()
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with("H45-OMITS-")
+        })
+        .count();
+    assert_eq!(h45, 14);
     let rs = records();
     assert_eq!(
         rs,
