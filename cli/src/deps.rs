@@ -346,6 +346,9 @@ pub fn load_library(root: &Path) -> Result<Library, String> {
                 let ok_path = path.ends_with(".rlt")
                     && !path.starts_with('/')
                     && path
+                        .bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || b"_./-".contains(&b))
+                    && path
                         .split('/')
                         .all(|c| !c.is_empty() && c != "." && c != "..");
                 if !ok_path {
@@ -562,7 +565,15 @@ fn compare_entry(
                     .unwrap_or_else(|| format!("(unlisted {})", c.path))
             })
             .collect();
-        cmp("uses", &e.uses.join(", "), &uses.join(", "));
+        // Element by element: one `uses` item stands for exactly one citation.
+        if e.uses != uses {
+            cmp("uses", &e.uses.join(", "), &uses.join(", "));
+            cmp(
+                "uses (item count)",
+                &e.uses.len().to_string(),
+                &uses.len().to_string(),
+            );
+        }
     }
     for alt in &e.alternatives {
         match check_pin(root, &alt.path) {

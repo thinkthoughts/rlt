@@ -125,7 +125,16 @@ for lid, fp, files in sorted(entries):
     # A cited proof outside the library (RLT-006: the generated element
     # certificates) is named `(unlisted PATH)`; `rlt deps --verify-lib`
     # re-checks it through the kernel like any other citation.
-    uses = [by_pin.get((c["path"], c["sha256"]), f"(unlisted {c['path']})") for c in n["children"]]
+    # Only generated certificates may be unlisted (RLT-006); any other cited
+    # proof outside the library is an error, as before.
+    uses = []
+    for c in n["children"]:
+        if (c["path"], c["sha256"]) in by_pin:
+            uses.append(by_pin[(c["path"], c["sha256"])])
+        elif c["path"].startswith("tests/rlt006/gen/"):
+            uses.append(f"(unlisted {c['path']})")
+        else:
+            sys.exit(f"{files[0]} cites {c['path']}, which is neither in the library nor a generated certificate")
     pairs = n["assumption_pairs"] or []
     area = lid.split(".")[0]
     os.makedirs(f"lib/{area}", exist_ok=True)

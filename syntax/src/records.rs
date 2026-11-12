@@ -1579,7 +1579,19 @@ pub fn load_lib_entry(path: &Path) -> Result<LibEntry, String> {
         // RLT-006: `(unlisted PATH)` names a cited proof outside the library
         // (a generated certificate); `rlt deps --verify-lib` checks the path
         // and re-checks the file through the kernel.
-        if u.starts_with("(unlisted ") && u.ends_with(')') {
+        if let Some(path) = u
+            .strip_prefix("(unlisted ")
+            .and_then(|x| x.strip_suffix(')'))
+        {
+            if path.is_empty()
+                || !path
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b"_./-".contains(&b))
+            {
+                return Err(format!(
+                    "{ctx}: `uses` item `{u}` must name one repository path of letters, digits, `_`, `.`, `/` and `-`"
+                ));
+            }
             uses.push(u);
             continue;
         }

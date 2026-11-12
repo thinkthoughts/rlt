@@ -1794,7 +1794,10 @@ pub fn validate(root: &Path) -> Report {
                 .url
                 .split('/')
                 .all(|c| !c.is_empty() && c != "." && c != "..")
-            && root.join(&src.url).is_file();
+            && root.join(&src.url).is_file()
+            && !std::fs::symlink_metadata(root.join(&src.url))
+                .map(|m| m.file_type().is_symlink())
+                .unwrap_or(true);
         if !hex || !path || src.excerpts.is_empty() || !src.location.starts_with("https://") {
             problems.push(format!(
                 "{}: status transcribed requires `commit` = the PDF's SHA-256 (64 lowercase hex), `location` = its https URL, `url` = an existing sources/transcriptions/*.yaml, and excerpts",

@@ -191,36 +191,80 @@ fn scratch(name: &str) -> PathBuf {
     r
 }
 
+/// A scratch repository with all 630 certificates (copied once per case).
+fn full_scratch(name: &str) -> PathBuf {
+    let r = scratch(name);
+    for e in std::fs::read_dir(root().join("tests/rlt006/gen")).unwrap() {
+        let p = e.unwrap().path();
+        std::fs::copy(&p, r.join("tests/rlt006/gen").join(p.file_name().unwrap())).unwrap();
+    }
+    r
+}
+
+/// The library verifier's failing entries, by id.
+fn failing(r: &Path) -> Vec<String> {
+    let v = verify_lib(r);
+    assert_ne!(v.exit, ACCEPT);
+    v.entries
+        .iter()
+        .filter(|e| e.1 != ACCEPT)
+        .map(|e| e.0.clone())
+        .collect()
+}
+
 #[test]
 fn a_missing_or_modified_certificate_is_never_accepted() {
     materialized();
-    // Missing.
-    let r = scratch("missing");
+    // Missing: exactly the one affected entry fails.
+    let r = full_scratch("missing");
+    assert_eq!(
+        verify_lib(&r).exit,
+        ACCEPT,
+        "the full scratch tree verifies"
+    );
     std::fs::remove_file(r.join("tests/rlt006/gen/O_43_212.rlt")).unwrap();
     let c = check_file(&r, &r.join("tests/rlt006/accept/OM_43.rlt"));
     assert_eq!(c.code, MALFORMED, "{}", c.text);
     assert!(c
         .text
         .contains("cited path `tests/rlt006/gen/O_43_212.rlt`: entity not found"));
-    let d = deps(&r, "admissible.h45.omits.43_3");
-    assert_ne!(d.exit, ACCEPT);
-    let v = verify_lib(&r);
-    assert_ne!(v.exit, ACCEPT, "the library verifier refuses");
-    // Without any certificate for p = 2, its entry fails too.
-    let d2 = deps(&r, "admissible.h45.omits.2_1");
-    assert_ne!(d2.exit, ACCEPT);
-    // Modified: one byte changed.
-    let r = scratch("modified");
-    let p = r.join("tests/rlt006/gen/O_43_000.rlt");
+    assert_ne!(deps(&r, "admissible.h45.omits.43_3").exit, ACCEPT);
+    assert_eq!(failing(&r), ["admissible.h45.omits.43_3"]);
+    // Modified: one byte changed; exactly the one affected entry fails.
+    let r = full_scratch("modified");
+    let p = r.join("tests/rlt006/gen/O_07_102.rlt");
     let s = std::fs::read_to_string(&p).unwrap();
     std::fs::write(&p, s.replacen("; RLT-006", "; rlt-006", 1)).unwrap();
-    let c = check_file(&r, &r.join("tests/rlt006/accept/OM_43.rlt"));
+    let c = check_file(&r, &r.join("tests/rlt006/accept/OM_07.rlt"));
     assert_eq!(c.code, MALFORMED, "{}", c.text);
-    assert!(c
-        .text
-        .contains("citation `E0`: tests/rlt006/gen/O_43_000.rlt has SHA-256"));
-    let d = deps(&r, "admissible.h45.omits.43_3");
-    assert_ne!(d.exit, ACCEPT);
+    assert!(c.text.contains("tests/rlt006/gen/O_07_102.rlt has SHA-256"));
+    assert_ne!(deps(&r, "admissible.h45.omits.7_6").exit, ACCEPT);
+    assert_eq!(failing(&r), ["admissible.h45.omits.7_6"]);
+}
+
+#[test]
+fn an_unlisted_item_names_exactly_one_path() {
+    // Two citations merged into one `uses` item, and an unlisted path with
+    // characters outside the allowed set, are refused when the index loads.
+    let r = scratch("unlisted");
+    let p = r.join("lib/admissible/admissible.h45.omits.43_3.yaml");
+    let s = std::fs::read_to_string(&p).unwrap();
+    let merged = s.replacen(
+        "  - (unlisted tests/rlt006/gen/O_43_000.rlt)\n  - (unlisted tests/rlt006/gen/O_43_002.rlt)\n",
+        "  - (unlisted tests/rlt006/gen/O_43_000.rlt), (unlisted tests/rlt006/gen/O_43_002.rlt)\n",
+        1,
+    );
+    assert_ne!(merged, s);
+    std::fs::write(&p, &merged).unwrap();
+    let e = rlt_cli::deps::load_library(&r).err().expect("refused");
+    assert!(e.contains("must name one repository path"), "{e}");
+    let odd = s.replacen(
+        "(unlisted tests/rlt006/gen/O_43_000.rlt)",
+        "(unlisted tests/rlt006/gen/O 43.rlt)",
+        1,
+    );
+    std::fs::write(&p, &odd).unwrap();
+    assert!(rlt_cli::deps::load_library(&r).is_err());
 }
 
 #[test]

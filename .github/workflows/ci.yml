@@ -6,13 +6,18 @@ on:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    # Pinned: the RLT-006 transcription pins pdftotext 24.02.0 (poppler on
+    # Ubuntu 24.04); a newer runner image would ship another version.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       # The Rust version comes from rust-toolchain.toml (pinned).
       - run: rustup show
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all-targets -- -D warnings
+      # PyYAML before cargo test: tests materialize RLT-006's certificates
+      # with scripts/gen-rlt006.py, which reads the transcription (YAML).
+      - run: pip install pyyaml
       - run: cargo test --release
       - name: Install Lean (independent replay; lean/lean-toolchain selects the version)
         run: |

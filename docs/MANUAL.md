@@ -701,7 +701,14 @@ $ cd lean && lean RLT005Readings.lean
 
 Axiom Math's draft *A New Bound for Small Gaps Between Primes* (September 3, 2026) proves H₁ ≤ 212 using a 45-element tuple H₄₅ = {0, 2, 12, …, 212}. Its Lemma 12.1 says H₄₅ is *admissible*: for every prime p, the elements of H₄₅ miss at least one residue class mod p. The proof lists, for the 14 primes 2, 3, …, 43, one missed class each (1, 1, 3, …, 3), and argues that 45 elements cannot cover the p ≥ 47 classes of a larger prime.
 
-RLT checks the 14 finite claims, one element at a time. "H₄₅ misses the class 3 mod 43 at 212" is the statement ¬(∃k. 212 = (43 × k) + 3), proved from Robinson's Q:
+RLT checks the 14 finite claims, one element at a time. The 630 element certificates are **generated, not stored**, so generate them first (under a second, then pinned by `tests/rlt006/manifest.sha256`; `scripts/verify.sh` does this before anything else):
+
+```console
+$ python3 -I scripts/gen-rlt006.py target/release/rlt --materialize-only
+630 element certificates written to tests/rlt006/gen/
+```
+
+"H₄₅ misses the class 3 mod 43 at 212" is then the statement ¬(∃k. 212 = (43 × k) + 3), proved from Robinson's Q:
 
 ```console
 $ rlt check tests/rlt006/gen/O_43_212.rlt
@@ -714,7 +721,7 @@ verdict         ACCEPT — unconditional theorem relative to registered axiom se
 …
 ```
 
-There are 630 such certificates (14 primes × 45 elements). They are **generated, not stored**: `scripts/gen-rlt006.py` writes them into `tests/rlt006/gen/` in under a second, and `tests/rlt006/manifest.sha256` pins every file's SHA-256 (`sha256sum -c tests/rlt006/manifest.sha256` checks them). `scripts/verify.sh` generates them before anything else; run `python3 -I scripts/gen-rlt006.py target/release/rlt --materialize-only` yourself before the commands in this chapter.
+There are 630 such certificates (14 primes × 45 elements); `sha256sum -c tests/rlt006/manifest.sha256` checks them against their pinned hashes.
 
 Each prime has one theorem that cites its 45 certificates, each pinned by SHA-256. `rlt deps` checks all 46 files in one run and shows the citation budget:
 

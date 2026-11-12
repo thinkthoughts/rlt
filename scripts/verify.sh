@@ -22,6 +22,21 @@ rlt=${CARGO_TARGET_DIR:-target}/release/rlt
 # match and the writer then takes SIGPIPE (exit 141) once its output exceeds
 # the pipe buffer. grep_q reads all of its input and reports only the status.
 grep_q() { grep "$@" >/dev/null; }
+# RLT-006 stages alter files temporarily (a certificate moved aside or edited,
+# a scratch transcription). On any exit, put everything back.
+r6_backup=""
+rlt006_cleanup() {
+  [ -f tests/rlt006/gen/O_43_212.rlt.away ] && mv tests/rlt006/gen/O_43_212.rlt.away tests/rlt006/gen/O_43_212.rlt
+  rm -f sources/transcriptions/_verify_tamper.yaml
+  if [ -n "$r6_backup" ] && [ -d "$r6_backup/before" ]; then
+    for x in tests/rlt006/accept tests/rlt006/reject tests/rlt006/expected.tsv tests/rlt006/manifest.sha256 certificates/h45 lean/RLT006Direct.lean; do
+      rm -rf "$x"; cp -r "$r6_backup/before/$x" "$x"
+    done
+    rm -f statements/H45-OMITS-*.yaml; cp "$r6_backup"/before/statements/H45-OMITS-*.yaml statements/
+    rm -rf "$r6_backup"; r6_backup=""
+  fi
+}
+trap rlt006_cleanup EXIT INT TERM
 
 # Log to the results file and the terminal without a subshell, so that
 # `fail` set below reaches the final `exit`; tee is awaited before exit.
@@ -299,7 +314,7 @@ if [ -n "${RLT_REFERENCE:-}" ]; then
 fi
 
 echo; echo "== H45 residue certificates, RLT-006 (tests/rlt006, certificates/h45)"
-r6_tmp=$(mktemp -d)
+r6_tmp=$(mktemp -d); r6_backup=$r6_tmp
 r6_out="tests/rlt006/accept tests/rlt006/reject tests/rlt006/expected.tsv tests/rlt006/manifest.sha256 certificates/h45 lean/RLT006Direct.lean"
 for x in $r6_out; do mkdir -p "$r6_tmp/before/$(dirname "$x")"; cp -r "$x" "$r6_tmp/before/$x"; done
 mkdir -p "$r6_tmp/before/statements"; cp statements/H45-OMITS-*.yaml "$r6_tmp/before/statements/"
@@ -313,12 +328,13 @@ if python3 -I scripts/gen-rlt006.py "$rlt" >/dev/null; then
     echo "scripts/gen-rlt006.py reproduces every committed output and all 630 certificates ($(printf %.1f "$(echo "$g6_t1 - $g6_t0" | bc)") s)"
   else
     echo "  UNEXPECTED: scripts/gen-rlt006.py output differs from the committed files"; fail=1
-    for x in $r6_out; do rm -rf "$x"; cp -r "$r6_tmp/before/$x" "$x"; done
+    rlt006_cleanup; python3 -I scripts/gen-rlt006.py "$rlt" --materialize-only >/dev/null
   fi
 else
   echo "  UNEXPECTED: scripts/gen-rlt006.py failed"; fail=1
+  rlt006_cleanup; python3 -I scripts/gen-rlt006.py "$rlt" --materialize-only >/dev/null
 fi
-rm -rf "$r6_tmp"
+rm -rf "$r6_tmp"; r6_backup=""
 r6_t0=$(date +%s.%N); r6_ok=0
 for f in tests/rlt006/gen/*.rlt; do
   "$rlt" check "$f" | grep_q -E '^verdict         ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q' && r6_ok=$((r6_ok + 1)) || { echo "  UNEXPECTED: $f"; fail=1; }
@@ -413,10 +429,15 @@ print("\n".join(f"{a} {b}" for a, b in sorted(out)))')
 if [ -n "$ex_lean" ]; then
   # One Lean run per referenced file, with every referenced theorem's
   # `#print axioms` appended (RLT-006: 16 references, two files).
+  ex_nrefs=$(echo "$ex_refs" | grep -c .)
+  # Pinned: 8 before RLT-006, plus 16 (om_P for 14 primes,
+  # lemma_12_1_of_rlt_statements, omits_rlt_form).
+  [ "$ex_nrefs" = 24 ] || { echo "  UNEXPECTED: $ex_nrefs distinct Lean references in statement records (24 pinned)"; fail=1; }
   for lf in $(echo "$ex_refs" | cut -d' ' -f1 | sort -u); do
-    ex_gate=$(mktemp -d)/Gate.lean
+    ex_gdir=$(mktemp -d); ex_gate=$ex_gdir/Gate.lean
     { cat "$lf"; echo; echo "$ex_refs" | awk -v f="$lf" '$1 == f { print "#print axioms " $2 }'; } > "$ex_gate"
     ex_glog=$(cd lean && "$ex_lean" "$ex_gate" 2>&1); ex_gcode=$?
+    rm -rf "$ex_gdir"
     for th in $(echo "$ex_refs" | awk -v f="$lf" '$1 == f { print $2 }'); do
       ex_line=$(echo "$ex_glog" | grep -E "^'$th' (depends on axioms|does not depend on any axioms)" | tail -1)
       ex_bad=$(echo "$ex_line" | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound')
@@ -633,6 +654,10 @@ if [ $# -ge 1 ]; then
     tr_t "omitted class altered" "$tr_tmp/good" "t.replace('numbers: [1, 1, 3, 6, 9, 3, 1, 13, 17, 4, 11, 4, 4, 3]','numbers: [1, 1, 3, 6, 9, 3, 1, 13, 17, 4, 11, 4, 4, 2]')" "s" "omitted-classes: numbers"
     tr_t "reviewer removed" "$tr_tmp/good" "t.replace('reviewer: \"Claude (RLT-006 implementation)\"','reviewer: \"\"')" "s" "reviewed_by must name each reviewer"
     tr_t "tool version changed" "$tr_tmp/good" "t.replace('version: \"24.02.0\"','version: \"24.02.1\"')" "s" "the transcription pins 'pdftotext version 24.02.1'"
+    tr_nobin=$(mktemp -d); tr_py=$(command -v python3)
+    tr_log=$(PATH="$tr_nobin" "$tr_py" -I scripts/check_excerpts.py --only $tr_id "$tr_tmp/good" 2>&1); tr_code=$?
+    { [ $tr_code = 1 ] && echo "$tr_log" | grep_q -F "pdftotext is not installed"; } && echo "transcribed source refused: pdftotext absent" || { echo "  UNEXPECTED: transcribed source checked without pdftotext (exit $tr_code)"; fail=1; }
+    rm -rf "$tr_nobin"
     tr_t "excerpt not a reviewed item" "$tr_tmp/good" "t" "s.replace('Lemma 12.1. The set H₄₅ is an admissible 45-tuple of diameter 212.','Lemma 12.1. The set H₄₅ is an admissible 45-tuple of diameter 210.')" "excerpt is not a reviewed item text"
   else
     echo "  UNEXPECTED: $1/archived/bgp212.pdf absent after the excerpt check"; fail=1

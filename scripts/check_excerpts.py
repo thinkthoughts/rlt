@@ -163,7 +163,14 @@ def transcribed(s):
     if not rel.startswith("sources/transcriptions/") or ".." in rel.split("/") or not rel.endswith(".yaml"):
         yield "ERROR", f"transcription path {rel!r} must be sources/transcriptions/*.yaml"
         return
+    if (root / rel).is_symlink():
+        yield "ERROR", f"{rel} is a symlink; a transcription must be a file in sources/transcriptions/"
+        return
     t = yaml.safe_load((root / rel).read_text(encoding="utf-8"))
+    ids = [it.get("id") for it in t.get("items", [])]
+    if len(ids) != len(set(ids)) or not all(ids):
+        yield "ERROR", f"{rel}: item ids must be present and distinct"
+        return
     if t.get("format") != "rlt-transcription/1" or t.get("source") != s["id"]:
         yield "ERROR", f"{rel}: format must be rlt-transcription/1 and source {s['id']}"
         return
@@ -173,7 +180,13 @@ def transcribed(s):
     if not t.get("reviewed_by") or not all(r.get("reviewer") and r.get("date") for r in t["reviewed_by"]):
         yield "ERROR", f"{rel}: reviewed_by must name each reviewer and date"
         return
+    if t["pdf"]["url"] != s["location"]:
+        yield "ERROR", f"{rel}: PDF url {t['pdf']['url']} differs from the registry location {s['location']}"
+        return
     data = fetch_pinned(t["pdf"]["url"], s["commit"])
+    if len(data) != t["pdf"]["bytes"]:
+        yield "ERROR", f"{rel}: the PDF has {len(data)} bytes; the transcription records {t['pdf']['bytes']}"
+        return
     try:
         ver = subprocess.run(["pdftotext", "-v"], capture_output=True, text=True).stderr
     except FileNotFoundError:
