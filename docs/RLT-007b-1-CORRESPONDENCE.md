@@ -10,8 +10,8 @@
 > Lemma 12.1. The set H₄₅ is an admissible 45-tuple of diameter 212.
 
 **Obligation (a)** is the part of the lemma that concerns the tuple itself:
-- **"45-tuple":** 45 distinct integers.
-- **"diameter 212":** max H₄₅ − min H₄₅ = 212.
+- **"45-tuple":** 45 distinct integers. §2 (PDF page 3, transcription item `admissible-definition`) defines an admissible set as "a finite set H = {h₁, …, h_k} of distinct integers", and a k-tuple is such a set with k elements.
+- **"diameter 212":** max H₄₅ − min H₄₅ = 212. The paper uses "diameter" without defining it; this review adopts the standard reading for a finite set of integers, largest element minus smallest element.
 
 Admissibility for every prime is obligations (b)–(d), handled in RLT-006 and in later stages.
 
@@ -24,18 +24,21 @@ Admissibility for every prime is obligations (b)–(d), handled in RLT-006 and i
 | The tuple has exactly 45 entries | generator check against the transcription | **source transcription checked** |
 | The entries are strictly increasing | generator check against the transcription | **source transcription checked** |
 | The first entry is 0, and the last is 212 | generator check against the transcription | **source transcription checked** |
-| The transcribed lemma names a "45-tuple" of "diameter 212" | generator check against the transcription | **source transcription checked** |
+| The transcribed lemma names a "45-tuple" of "diameter 212", as whole numbers, in both the PDF-checked `extracted` field and the reviewed `text` field | generator check against the transcription | **source transcription checked** |
 | The transcription equals the pinned PDF's text and numbers | `scripts/check_excerpts.py`: the PDF hash, the tool version, the page extraction hashes and the numbers | **source transcription checked** |
 
-The source transcription checks run in `scripts/gen-rlt007s1.py`, which refuses to generate anything when one fails, and in verify.sh. The generator's `--self-test` refuses 8 altered transcriptions:
+The source transcription checks run in `scripts/gen-rlt007s1.py`, which refuses to generate anything when one fails, and in verify.sh. The generator's `--self-test` refuses 11 altered transcriptions:
 - a duplicate;
 - an out-of-order entry;
 - 213;
 - 44 entries;
 - 46 entries;
+- 46 strictly increasing entries from 0 to 212, a case only the length check catches;
 - a first entry of 1;
 - a negative entry;
-- a lemma text naming a 44-tuple.
+- a lemma text naming a 44-tuple;
+- an extracted lemma text naming a 145-tuple;
+- a lemma text naming diameter 2120.
 
 ## 3. The readings, checked one by one
 
@@ -54,7 +57,7 @@ The source transcription checks run in `scripts/gen-rlt007s1.py`, which refuses 
 - **`dg_0` … `dg_3` and `bounds`:** the five RLT goals, stated literally over ℕ and proved by `decide` or by explicit witnesses.
 - **`obligation_a`:** decides, in Lean's own vocabulary, that the transcribed list has length 45, no duplicates, first entry 0, last entry 212, and every entry in [0, 212].
 
-All of these use standard axioms only, checked by the Lean axiom gate in verify.sh.
+Lean reports that none of the 50 theorems depends on any axiom. The axiom gate in verify.sh enforces that all 50 are printed, and that no axiom outside the standard three (propext, Classical.choice, Quot.sound) occurs.
 
 ## 5. Assessment
 

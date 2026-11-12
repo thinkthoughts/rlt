@@ -539,9 +539,11 @@ s1_tr=$(python3 -I - <<'PY'
 import yaml
 t = yaml.safe_load(open("sources/transcriptions/AXIOM-BGP212-2026-09-03.yaml", encoding="utf-8"))
 it = {i["id"]: i for i in t["items"]}
-H, L = it["h45-tuple"]["numbers"], it["lemma-12-1"]["text"]
+import re
+H = it["h45-tuple"]["numbers"]
+L = [it["lemma-12-1"]["extracted"], it["lemma-12-1"]["text"]]
 ok = (len(H) == 45 and all(a < b for a, b in zip(H, H[1:])) and H[0] == 0 and H[-1] == 212
-      and "45-tuple" in L and "diameter 212" in L)
+      and all(re.search(r"(?<![0-9])45-tuple(?![0-9A-Za-z])", t) and re.search(r"diameter 212(?![0-9])", t) for t in L))
 print("ok" if ok else "FAILED")
 PY
 )
@@ -567,6 +569,7 @@ for f in tests/rlt007s1/accept/DG_*.rlt; do
 done
 rm -rf "$s1_p"
 [ $s1_ok = 4 ] || fail=1
+[ "$(ls tests/rlt007s1/accept | wc -l)" = 5 ] || { echo "  UNEXPECTED: tests/rlt007s1/accept holds $(ls tests/rlt007s1/accept | wc -l) files, not 5"; fail=1; }
 echo "kernel accepted: $s1_ok of 4 group summaries, each citing 11 per-element theorems (11 of 64 cited-file checks)"
 s1_r=0; s1_rn=0
 while IFS=$'\t' read -r f want reason; do

@@ -125,7 +125,7 @@ fn the_generator_reproduces_every_output_and_refuses_altered_transcriptions() {
     let out = String::from_utf8_lossy(&t.stdout);
     assert!(t.status.success(), "{out}");
     assert!(
-        out.contains("8 of 8 altered transcriptions refused"),
+        out.contains("11 of 11 altered transcriptions refused"),
         "{out}"
     );
     assert!(!out.contains("ACCEPTED"), "{out}");
@@ -195,4 +195,33 @@ fn the_five_statement_records_are_valid_current_and_accepted() {
         n += 1;
     }
     assert_eq!(n, 5);
+}
+
+/// The small committed proofs agree between `rlt deps` and `rlt check` (the
+/// sweep in cli/tests/deps.rs skips this stage's directory).
+#[test]
+fn deps_agrees_with_check_on_the_committed_proofs() {
+    materialized();
+    let mut n = 0;
+    for d in ["tests/rlt007s1/accept", "tests/rlt007s1/reject"] {
+        let mut fs: Vec<_> = std::fs::read_dir(root().join(d))
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .collect();
+        fs.sort();
+        for f in fs {
+            let rel = f
+                .strip_prefix(root())
+                .unwrap()
+                .to_string_lossy()
+                .to_string();
+            let dd = deps(&root(), &rel);
+            let rep = check_file(&root(), &f);
+            let node = dd.root.as_ref().expect("a root node");
+            assert_eq!(node.kernel.check_report, rep.text, "{rel}");
+            assert_eq!(node.kernel.exit, rep.code, "{rel}");
+            n += 1;
+        }
+    }
+    assert_eq!(n, 12, "5 accepted and 7 rejected files, exactly");
 }

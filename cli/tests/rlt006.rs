@@ -85,6 +85,11 @@ fn materialized() {
                 "scripts/gen-rlt007s1.py --materialize-only failed"
             );
         }
+        for l in m.lines() {
+            let (h, p) = l.split_once("  ").unwrap();
+            let bytes = std::fs::read(root().join(p)).unwrap();
+            assert_eq!(sha256_hex(&bytes), h, "{p} differs from its manifest");
+        }
     });
 }
 

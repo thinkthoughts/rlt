@@ -4,8 +4,10 @@ Math's draft "A New Bound for Small Gaps Between Primes" (September 3, 2026):
 the 45 listed elements of H45 are pairwise distinct, and each lies between 0
 and 212. Deterministic: the same inputs give the same bytes.
 
-Input: sources/transcriptions/AXIOM-BGP212-2026-09-03.yaml (the reviewed
-transcription; only the tuple is read). Before writing anything the generator
+Inputs: sources/transcriptions/AXIOM-BGP212-2026-09-03.yaml (the reviewed
+transcription: the tuple and the Lemma 12.1 text) and, for its SHA-256 pin in
+the statement records, docs/RLT-007b-1-CORRESPONDENCE.md. RLT_BINARY is
+accepted for symmetry with the other generators and is not run. Before writing anything the generator
 performs the SOURCE TRANSCRIPTION CHECKS (not kernel-checked): the tuple has
 exactly 45 entries, is strictly increasing, starts at 0 and ends at 212, and
 the transcribed lemma text names "45-tuple" and "diameter 212".
@@ -64,13 +66,20 @@ def transcription_checks(H, lemma_text):
         bad.append("the first entry is not 0")
     if not H or H[-1] != 212:
         bad.append("the last entry is not 212")
-    if "45-tuple" not in lemma_text or "diameter 212" not in lemma_text:
-        bad.append("the transcribed Lemma 12.1 does not name a 45-tuple of diameter 212")
+    # Audit: whole numbers only (not "145-tuple" or "diameter 2120"); the
+    # caller passes both the PDF-checked `extracted` field and the reviewed
+    # `text` field, and both must name a 45-tuple of diameter 212.
+    for t in lemma_text if isinstance(lemma_text, (list, tuple)) else [lemma_text]:
+        if not (re.search(r"(?<![0-9])45-tuple(?![0-9A-Za-z])", t) and re.search(r"diameter 212(?![0-9])", t)):
+            bad.append("the transcribed Lemma 12.1 does not name a 45-tuple of diameter 212")
+            break
     return bad
 
 
 H = items["h45-tuple"]["numbers"]
-LEMMA = items["lemma-12-1"]["text"]
+# `extracted` is compared with the PDF page by scripts/check_excerpts.py;
+# `text` is the reviewed transcription. Both are checked.
+LEMMA = (items["lemma-12-1"]["extracted"], items["lemma-12-1"]["text"])
 
 if MODE == "--self-test":
     cases = [
@@ -79,6 +88,7 @@ if MODE == "--self-test":
         ("213 in place of 212", H[:-1] + [213]),
         ("44 entries", H[:-1]),
         ("46 entries", H + [214]),
+        ("46 strictly increasing entries from 0 to 212 (1 inserted)", [0, 1] + H[1:]),
         ("1 in place of 0", [1] + H[1:]),
         ("a negative entry", [-2] + H[1:]),
     ]
@@ -87,11 +97,16 @@ if MODE == "--self-test":
         r = transcription_checks(alt, LEMMA)
         print(f"{'refused ' if r else 'ACCEPTED'} {name}: {'; '.join(r)}")
         n += 1 if r else 0
-    r = transcription_checks(H, "Lemma 12.1. The set H₄₅ is an admissible 44-tuple of diameter 212.")
-    print(f"{'refused ' if r else 'ACCEPTED'} a lemma text naming a 44-tuple")
-    n += 1 if r else 0
-    print(f"generator self-test: {n} of {len(cases) + 1} altered transcriptions refused")
-    sys.exit(0 if n == len(cases) + 1 else 1)
+    texts = [("a lemma text naming a 44-tuple", (LEMMA[0], LEMMA[1].replace("45-tuple", "44-tuple"))),
+             ("an extracted lemma text naming a 145-tuple", (LEMMA[0].replace("45-tuple", "145-tuple"), LEMMA[1])),
+             ("a lemma text naming diameter 2120", (LEMMA[0], LEMMA[1].replace("diameter 212", "diameter 2120")))]
+    for name, lt in texts:
+        r = transcription_checks(H, lt)
+        print(f"{'refused ' if r else 'ACCEPTED'} {name}")
+        n += 1 if r else 0
+    total = len(cases) + len(texts)
+    print(f"generator self-test: {n} of {total} altered transcriptions refused")
+    sys.exit(0 if n == total else 1)
 
 refusals = transcription_checks(H, LEMMA)
 if refusals:
@@ -303,7 +318,7 @@ rej("SX04_bounds_witness_off_by_one",
 cites, st, w, _, _ = group_file(0, swap=(10, 11))
 rej("SX05_group_cites_other_element",
     proof("SX05", "REJECT CASE: group 0 citing the theorem for element 56 in place of element 54", w, st, cites=cites),
-    1, "REJECT at step F10 — step claims")
+    1, "the cited theorem `E10` proves `" + "(" * 31 + "¬(56 = 60) ∧ ¬(56 = 66))")
 cites, st, w, _, _ = group_file(0, stale=0)
 rej("SX06_group_stale_hash",
     proof("SX06", "REJECT CASE: group 0 recording a stale SHA-256 for a cited theorem", w, st, cites=cites),
@@ -405,7 +420,9 @@ lean.append("\n" + "".join(f"#print axioms RLT007S1.{n}\n" for n in TH))
 OUT["lean/RLT007S1.lean"] = "\n".join(lean)
 
 
-# 5. Statement records (checked goals from `rlt deps --format json`).
+# 5. Statement records. The checked goal is computed from the written goal;
+# `rlt explain` re-derives it from the kernel and refuses a record whose pin
+# differs. The basis hash is that of the correspondence review.
 BASIS = "docs/RLT-007b-1-CORRESPONDENCE.md"
 basis_sha = hashlib.sha256(open(BASIS, "rb").read()).hexdigest()
 
@@ -484,13 +501,21 @@ if MODE == "--check":
     for path, text in sorted(OUT.items()):
         if not os.path.isfile(path) or open(path, encoding="utf-8", newline="").read() != text:
             diff.append(path)
-    for d in ("tests/rlt007s1/reject",):
+    # Audit: the exact file sets of every generated directory.
+    for d in (GEN, ACC, REJ):
         for f in sorted(os.listdir(d)) if os.path.isdir(d) else []:
             if f"{d}/{f}" not in OUT:
                 diff.append(f"{d}/{f} (not produced by the generator)")
-    stmts = sorted(f for f in os.listdir("statements") if re.match(r"H45-(DISTINCT-G\d|BOUNDS)\.yaml$", f))
+    for f in sorted(os.listdir("tests/rlt007s1")):
+        if f not in ("gen", "accept", "reject", "manifest.sha256", "expected.tsv"):
+            diff.append(f"tests/rlt007s1/{f} (not produced by the generator)")
+    # Every H45 record except RLT-006's H45-OMITS-* is this stage's.
+    stmts = sorted(f for f in os.listdir("statements") if f.startswith("H45-") and not f.startswith("H45-OMITS-"))
     if stmts != sorted(os.path.basename(p) for p in OUT if p.startswith("statements/")):
-        diff.append("statements/H45-DISTINCT-*/H45-BOUNDS (an extra or missing record)")
+        diff.append("statements/H45-* (an extra or missing stage-1 record)")
+    for f in sorted(os.listdir("lean")):
+        if f.startswith("RLT007S1") and f"lean/{f}" not in OUT:
+            diff.append(f"lean/{f} (not produced by the generator)")
     for d in diff:
         print(f"DIFFERS  {d}")
     print(f"scripts/gen-rlt007s1.py --check: {len(OUT)} outputs, {len(diff)} differ")
