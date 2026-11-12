@@ -17,6 +17,7 @@ Development stops after M3e. The next phase is a broader review of RLT as a usab
 | M3e | merged (cc01968, 2026-11-11) | the modulo-30 classification, E-T1; see docs/RLT-003-M3e.md |
 | RLT-004a/b/c | merged (58838c9, 45c94b5, c42729b) | manual; statement records and `rlt explain`; theorem library and `rlt deps` |
 | RLT-005 | merged (9c8a66d, 2026-11-11) | 8 is not matchable (McNew–Pomerance, arXiv:2604.05304v2); see docs/RLT-005-REPORT.md |
+| RLT-006 | merged (e5850d9, 2026-11-12) | the 14 small-prime residue omissions of Lemma 12.1 (Axiom Math, H₄₅): 630 certificates, 14 per-prime theorems; see docs/RLT-006-REPORT.md |
 
 **Not yet done, and held for the review:**
 - the `backed by` links (designed in the M3e review §9);
@@ -142,3 +143,53 @@ RLT-005 (published-mathematics demonstration) candidate review: docs/RLT-005-REV
 - **Deviations:** none.
 
 RLT-006 (H₄₅ residue certificates) feasibility review: docs/RLT-006-REVIEW.md.
+
+## Merge record, 2026-11-12 (RLT-006)
+
+- **Final independent re-audit of exactly 5522947, before the merge.**
+  - **Verdict:** no unresolved substantive issue.
+  - **The two formerly blocking findings are fixed.**
+    - The residue-profile check compares integers and rejects the altered q, s, omits flag, dropped row, occupied count and occupied class.
+    - CI's `check` runs on `ubuntu-24.04` with pdftotext 24.02.0, and the transcription and source checks ran and passed in the push and pull_request runs of 5522947.
+  - **Also confirmed:**
+    - all 630 certificates regenerate byte for byte and are each accepted;
+    - each of the 14 per-prime theorems cites the intended 45 certificates, checked independently from the PDF data;
+    - missing, modified and substituted certificates are refused by the manifest, `rlt check`, `rlt deps` and the library verifier;
+    - the identity registry is append-only;
+    - 472 earlier proof reports are byte-identical (only `rlt validate` differs, intentionally);
+    - the Lean correspondence is symbol for symbol, and the vendored lean-bgp212 blocks are identical at 7898eb4;
+    - the transcription matches the rendered PDF;
+    - the `grep_q` replacement adds no false-positive or false-negative path.
+  - **The committed results file** came from 5109d68. The only changes from 5109d68 to 5522947 are the report and that file.
+- **PR #14 merged:** marked ready, then merged as merge commit **e5850d9**, with parents 9c8a66d and 5522947. The merge tree 07434d6 equals 5522947's tree.
+- **Fresh clone of main at e5850d9** (the clone has no generated certificates; they are generated during the run):
+  - `cargo test --release` passes 270 of 270 in 757 s, generating and manifest-checking the certificates;
+  - `scripts/verify.sh` prints `RESULT all checks hold`, exit 0, 1,580 s:
+    - 630 of 630 certificates and 14 of 14 per-prime theorems at 45 of 64 checks;
+    - library 101 of 101;
+    - identity registry kept across 3 committed versions;
+  - `scripts/check-manual.py` reports 33 of 33.
+- **The three commands for `admissible.h45.omits.43_3`** (fresh clone):
+  - `rlt check` ACCEPT;
+  - `rlt explain statements/H45-OMITS-43.yaml` exit 0 (semantic partial, physical not applicable);
+  - `rlt deps` exit 0, 45 of 64 cited-file checks.
+- **CI on e5850d9:** `check` and `gdt-comparison` both succeed.
+- **Results kept apart, as accepted:**
+  - *RLT proofs:* obligation (b) of Lemma 12.1, the 14 omissions from Robinson's Q.
+  - *Lean theorems:* the 14 statements literally; obligations (a), (c) and (d); the whole lemma by the paper's route; lean-bgp212's route re-checked.
+  - *Computed evidence:* the residue profile.
+  - *Source fidelity:* the reviewed transcription of the hash-pinned PDF, with page, section, tool version and extraction hashes.
+- **Remaining limitations:**
+  1. RLT does not verify the complete Lemma 12.1: obligations (a), (c) and (d) are Lean results.
+  2. The residue profile is computed evidence; RLT proves only the 14 tabled classes omitted.
+  3. A single RLT theorem over all certificates exceeds the 64-check citation limit. That limit is unchanged by request.
+  4. CI depends on two upstream inputs, the PDF URL and lean-bgp212's default branch. Both fail closed.
+  5. The residue-profile arithmetic check is weaker than its name: some altered tables pass it, though the regeneration stage catches them.
+  6. INT and TERM in verify.sh clean up but do not stop the run.
+  7. Run times have grown: CI `check` takes about 27 min (about 4 min before RLT-006); local `cargo test` about 13 min; verify.sh about 27 min.
+
+  Items 4–6 are hardening tasks H1–H3 in docs/RLT-007-REVIEW.md.
+- **Not done, as instructed:** no tag, no release, no deployment, no contact with the paper's authors. Branch protection is unchanged; the recommendation in docs/RLT-005-BRANCH-PROTECTION.md awaits approval.
+- **Deviations:** none.
+
+RLT-007 architecture review (the complete Lemma 12.1 in Robinson's Q; verification turnaround): docs/RLT-007-REVIEW.md.

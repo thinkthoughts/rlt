@@ -5,8 +5,9 @@ usage: python3 -I scripts/check_excerpts.py CHECKOUTS_DIR
 
 CHECKOUTS_DIR holds clones named after the GitHub repositories, including
 rlt itself: news, rlt, translatepi, antiviolence, residue-manifold-learning,
-specification-grammar, and (RLT-003 M3b) OpenLogic and lean4. Each excerpt is read with `git show COMMIT:PATH`, so the
-clones may be at any revision as long as they contain the recorded commits.
+specification-grammar, and (RLT-003 M3b) OpenLogic and lean4. Each excerpt is read from the recorded commit by
+scripts/pinned_read.py (object store only, every object re-hashed; RLT-007a),
+so the clones may be at any revision as long as they hold the recorded objects.
 Sources without a GitHub file location (conversation records, foundational
 references, missing sources) are listed as skipped. An archived source
 (RLT-005) is read from CHECKOUTS_DIR/archived/ or downloaded, and refused
@@ -38,7 +39,23 @@ if "--only" in opts:
     if not reg["sources"]:
         sys.exit(f"no source {opts['--only']}")
 
-pat = re.compile(r"https://github\.com/[^/]+/([^/]+)/blob/([0-9a-f]+)/(.+)$")
+pat = re.compile(r"https://github\.com/[^/]+/([^/]+)/blob/([0-9a-f]{7,40})/(.+)$")
+
+# RLT-007a (final audit): every file is read through scripts/pinned_read.py,
+# which uses only the checkout's object store, re-hashes every object on the
+# path and never reads the checkout's own Git metadata; abbreviated registry
+# pins are resolved through sources/commit-pins.tsv (a full SHA only).
+import importlib.util  # noqa: E402
+
+sys.dont_write_bytecode = True  # no scripts/__pycache__ in the working tree
+_spec = importlib.util.spec_from_file_location("pinned_read", root / "scripts/pinned_read.py")
+pinned_read = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(pinned_read)
+full_pins = {}
+for _l in (root / "sources/commit-pins.tsv").read_text(encoding="utf-8").splitlines():
+    if _l and not _l.startswith("#"):
+        _r, _short, _long = _l.split("\t")
+        full_pins[(_r, _short)] = _long
 mention = re.compile(r"(?i)(?<![a-z0-9_])math(0|5|29)(?![0-9])")
 OPEN, CLOSE = (">", '"', "'", "‘", "“"), ("<", '"', "'", "’", "”")
 
@@ -267,13 +284,16 @@ for s in reg["sources"]:
         print(f"skip     {s['id']} ({why})")
         continue
     repo, commit, path = m.groups()
+    if len(commit) != 40:
+        if (repo, commit) not in full_pins:
+            print(f"ERROR    {s['id']}: abbreviated commit {commit} has no row in sources/commit-pins.tsv")
+            bad += 1
+            continue
+        commit = full_pins[(repo, commit)]
     try:
-        text = subprocess.run(
-            ["git", "-C", str(checkouts / repo), "show", f"{commit}:{path}"],
-            check=True, capture_output=True, text=True,
-        ).stdout
-    except subprocess.CalledProcessError as e:
-        print(f"ERROR    {s['id']}: {e.stderr.strip()}")
+        text = pinned_read.read_pinned(str(checkouts / repo), commit, path).decode("utf-8")
+    except (pinned_read.PinnedReadError, UnicodeDecodeError) as e:
+        print(f"ERROR    {s['id']}: {e}")
         bad += 1
         continue
     # Compare with runs of whitespace collapsed, so HTML indentation and

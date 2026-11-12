@@ -1,0 +1,8 @@
+# Full commit SHAs for registry locations that pin an abbreviated SHA
+# (RLT-007a H3). scripts/fetch-sources.py fetches the full SHA and refuses a
+# row whose SHA does not begin with the registry's abbreviation.
+# Resolved 2026-11-12 with `git rev-parse ABBREV^{commit}` in clones of each
+# repository; check_excerpts.py still reads `git show ABBREV:PATH`.
+# repository	abbreviated	full
+residue-manifold-learning	02fbef4	02fbef4a47a53173d8cd0d69e89283a97b15bd02
+specification-grammar	d958b81	d958b81fc0737db1d13b90a61d5d5ba9631ce355

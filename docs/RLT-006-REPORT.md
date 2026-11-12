@@ -146,7 +146,7 @@ verify.sh pins both theorem counts and compares the vendored blocks byte for byt
 | Manual | `scripts/check-manual.py`: 33/33 examples match from a fresh checkout (chapter 13 added; it generates the certificates first) |
 | CI | `check` and `gdt-comparison` green on `5109d68` (push and pull_request). The CI log shows pdftotext 24.02.0 and every RLT-006 stage; RESULT all checks hold. The `check` job is pinned to ubuntu-24.04 |
 
-**A latent gate bug was found and fixed.** Under `set -o pipefail`, `cmd | grep -q` fails when grep exits early and the writer takes SIGPIPE, which happens once the output exceeds the pipe buffer. The new Lean output pushed the replay log past it, and the RLT-005 axiom gate reported 10 of 11. All 29 such pipes in verify.sh now use `grep_q`, which reads its whole input.
+**A latent gate bug was found and fixed.** Under `set -o pipefail`, `cmd | grep -q` fails when grep exits early and the writer takes SIGPIPE, which happens once the output exceeds the pipe buffer. The new Lean output pushed the replay log past it, and the RLT-005 axiom gate reported 10 of 11. All 30 such pipes in verify.sh (on 29 lines; line 348 holds two) now use `grep_q`, which reads its whole input. *(Corrected in RLT-007a: this sentence first said 29, counting lines rather than pipes.)*
 
 ## 9. Independent audits
 

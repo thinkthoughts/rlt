@@ -1,5 +1,5 @@
 RLT-001 verification
-commit   5109d68d5fa13c3b63206e673a0cefc8a097fc4a
+commit   9b3ae7c22cac0b239662564ff9aa89e201a73dbf
 rustc    rustc 1.97.0 (2d8144b78 2026-07-07)
 
 == format and lints
@@ -10,23 +10,23 @@ clippy   ok
 ok
 
 == RLT-006 generated certificates (materialized before any check; tests/rlt006/manifest.sha256)
-630 of 630 certificates generated in 0.9 s, each equal to its manifest hash; 57528 KB on disk (630 files)
+630 of 630 certificates generated in 0.7 s, each equal to its manifest hash; 57528 KB on disk (630 files)
 
 == cargo test (unit + golden)
-test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 177.84s
-test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.25s
-test result: ok. 69 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.46s
-test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.03s
-test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.42s
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 30.47s
-test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.65s
-test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.95s
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.84s
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.72s
-test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.73s
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 534.39s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 159.55s
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 13.17s
+test result: ok. 69 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.21s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.92s
+test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.52s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 26.67s
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.72s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.49s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.48s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.56s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 273.35s
 test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
-test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 == proof files (expect accept → exit 0, reject → exit 1)
 tests/accept/M1_comm_instance.rlt                    exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ARITH
@@ -130,21 +130,18 @@ spec/peano.rlt sha256 1a3f83444a06fdfbd02c9af2a5881b47137ba102a675a4e012c84be477
 spec/peano-arith.rlt sha256 00ceffa9a60b53286f350edbf2f1a5f48a14169a9b09a82cbedc6f9956ff01e4
 spec/robinson-q.rlt sha256 4ad55192222576e3901abc4ee7ea5a6760b64ff212e8c55796ab9847e423b00c
 spec/definitions.rlt sha256 122e37fc627b136023a1a5ffac0344162ed77ae95312248a9f6a76c2b639ecda
-proof files: 472 compared, 0 differ
-DIFF: rlt validate
-differences: 1
 
 == H45 residue certificates, RLT-006 (tests/rlt006, certificates/h45)
-scripts/gen-rlt006.py reproduces every committed output and all 630 certificates (1.1 s)
-1. element certificates: 630 of 630 ACCEPT as unconditional theorems under ROBINSON-Q (84.5 s)
-2. per-prime theorems: 14 of 14 ACCEPT, each citing its 45 certificates (45 of 64 cited-file checks) (85.2 s)
+scripts/gen-rlt006.py reproduces every committed output and all 630 certificates (0.8 s)
+1. element certificates: 630 of 630 ACCEPT as unconditional theorems under ROBINSON-Q (41.0 s)
+2. per-prime theorems: 14 of 14 ACCEPT, each citing its 45 certificates (45 of 64 cited-file checks) (40.9 s)
 tests/rlt006/reject: 6 of 6 give the required exit code and reason
 refused: a generated certificate missing (rlt check MALFORMED, rlt deps exit 2, manifest mismatch)
 refused: a generated certificate modified (rlt check MALFORMED, rlt deps exit 2, manifest mismatch)
 refused: an altered manifest hash (the certificates no longer match it)
 restored: all 630 certificates equal to the manifest again
 tests/explain-rlt006: 6 of 6 record fixtures give the required exit code and line
-3. residue profile (computed evidence, not kernel-checked): 630 rows with h = p*q + s and s != r_p; nu_2=1, nu_3=2, nu_5=4, nu_7=6, nu_11=10, nu_13=12, nu_17=16, nu_19=18, nu_23=22, nu_29=27, nu_31=29, nu_37=34, nu_41=34, nu_43=36
+3. residue profile (computed evidence, not kernel-checked): 630 rows with h = p*q + s and s != r_p; nu_2=1, nu_3=2, nu_5=4, nu_7=6, nu_11=10, nu_13=12, nu_17=16, nu_19=18, nu_23=22, nu_29=27, nu_31=29, nu_37=34, nu_41=34, nu_43=36; checked against the transcription by scripts/check-h45-profile.py; self-test: 21 of 21 altered tables refused
 
 == statement records and rlt explain, RLT-004b (statements/, tests/explain)
 scripts/gen-explain-tests.py reproduces tests/explain and tests/explain-rlt006
@@ -198,7 +195,7 @@ golden json output reproduced
 == theorem library and rlt deps, RLT-004c (lib/)
 entries         101 of 101 current and accepted
 rlt deps mod30.classification: exit 0; json exit, distinct theorems, cited-file checks, chain: 0 50 49 2
-identity registry: every line of 2 committed version(s) is kept (101 identities)
+identity registry: every line of 3 committed version(s) is kept (101 identities)
 
 == chemical notation (rlt chem; 0 interpreted, 1 uninterpreted)
 CO₂    exit 0 (want 0)  INTERPRETED — a registered reading of notation; no kernel 
@@ -349,6 +346,8 @@ M2Generated.lean is current (111 statements; tier 1). M2Readings.lean compiled (
 Generated.lean is current
 
 == source excerpts
+sources/commit-pins.tsv: 2 abbreviated registry commit(s) resolved to full SHAs; 10 pinned commit(s) in 10 repositories, no branch named
+scripts/fetch-sources.py fetches lean-bgp212 at 7898eb4, the commit the vendored blocks are compared with
 0 problem(s)
 archived source refused: archive bytes changed
 archived source refused: pin changed

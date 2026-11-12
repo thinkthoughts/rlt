@@ -212,15 +212,22 @@ fn failing(r: &Path) -> Vec<String> {
         .collect()
 }
 
+// RLT-007a: the missing and modified cases are two tests, so the test
+// harness can run them at the same time. Each scratch tree's control is the
+// affected entry itself, accepted before the change (`rlt deps`); the whole
+// library is then verified once after the change, and exactly that entry
+// fails. (Before RLT-007a the control verified the whole library a third
+// time; the before/after pair on the affected entry, with every other entry
+// accepted afterwards, is the same evidence.)
 #[test]
-fn a_missing_or_modified_certificate_is_never_accepted() {
+fn a_missing_certificate_is_never_accepted() {
     materialized();
     // Missing: exactly the one affected entry fails.
     let r = full_scratch("missing");
     assert_eq!(
-        verify_lib(&r).exit,
+        deps(&r, "admissible.h45.omits.43_3").exit,
         ACCEPT,
-        "the full scratch tree verifies"
+        "the affected entry is accepted in the scratch tree before the change"
     );
     std::fs::remove_file(r.join("tests/rlt006/gen/O_43_212.rlt")).unwrap();
     let c = check_file(&r, &r.join("tests/rlt006/accept/OM_43.rlt"));
@@ -230,8 +237,18 @@ fn a_missing_or_modified_certificate_is_never_accepted() {
         .contains("cited path `tests/rlt006/gen/O_43_212.rlt`: entity not found"));
     assert_ne!(deps(&r, "admissible.h45.omits.43_3").exit, ACCEPT);
     assert_eq!(failing(&r), ["admissible.h45.omits.43_3"]);
+}
+
+#[test]
+fn a_modified_certificate_is_never_accepted() {
+    materialized();
     // Modified: one byte changed; exactly the one affected entry fails.
     let r = full_scratch("modified");
+    assert_eq!(
+        deps(&r, "admissible.h45.omits.7_6").exit,
+        ACCEPT,
+        "the affected entry is accepted in the scratch tree before the change"
+    );
     let p = r.join("tests/rlt006/gen/O_07_102.rlt");
     let s = std::fs::read_to_string(&p).unwrap();
     std::fs::write(&p, s.replacen("; RLT-006", "; rlt-006", 1)).unwrap();
