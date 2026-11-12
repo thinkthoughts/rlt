@@ -28,7 +28,7 @@ fn copy_dir(from: &Path, to: &Path) {
     for e in std::fs::read_dir(from).unwrap() {
         let e = e.unwrap();
         // RLT-006 generated certificates are never copied into scratch trees.
-        if e.path().ends_with("tests/rlt006/gen") {
+        if e.path().ends_with("tests/rlt006/gen") || e.path().ends_with("tests/rlt007s1/gen") {
             continue;
         }
         let t = to.join(e.file_name());
@@ -89,19 +89,21 @@ fn sha(p: &Path) -> String {
 fn the_library_is_valid_and_every_entry_current() {
     let lib = load_library(&root()).expect("lib/ loads");
     // 68 entries over 70 proofs at RLT-004c; RLT-005 adds 19 of each;
-    // RLT-006 adds the 14 per-prime theorems.
-    assert_eq!(lib.entries.len(), 101);
+    // RLT-006 adds the 14 per-prime theorems; RLT-007b stage 1 adds the four
+    // distinctness groups and the bounds theorem.
+    assert_eq!(lib.entries.len(), 106);
     let proofs: usize = lib
         .entries
         .iter()
         .map(|(_, e)| 1 + e.alternatives.len())
         .sum();
     assert_eq!(
-        proofs, 103,
+        proofs, 108,
         "every accepted proof of M3c–M3e, RLT-005, the RLT-006 summaries and the statement records is indexed"
     );
     // RLT-006's entries cite generated certificates: materialize them first.
     materialize_rlt006();
+    materialize("tests/rlt007s1/manifest.sha256", "scripts/gen-rlt007s1.py");
     let r = verify_lib(&root());
     assert_eq!(r.exit, ACCEPT, "{}", rlt_cli::deps::render_lib_text(&r));
     assert!(r.entries.iter().all(|e| e.1 == ACCEPT));
@@ -159,7 +161,7 @@ fn every_proof_agrees_with_rlt_check() {
             let p = e.unwrap().path();
             // RLT-006 (630 generated certificates, 14 summaries citing 45
             // each): cli/tests/rlt006.rs checks them after materialization.
-            if p.ends_with("tests/rlt006") {
+            if p.ends_with("tests/rlt006") || p.ends_with("tests/rlt007s1") {
                 continue;
             }
             if p.is_dir() {
@@ -955,6 +957,33 @@ fn audit_regressions() {
     assert_eq!(d.exit, REJECT, "{}", render_text(&d));
     // An id ending in `.rlt` is refused.
     assert!(rlt_syntax::records::lib_id("arith.rlt", "t").is_err());
+}
+
+/// Generate a family of manifest-pinned files when any is absent, and
+/// require each to match its manifest (RLT-007b stage 1).
+fn materialize(manifest: &str, generator: &str) {
+    let m = std::fs::read_to_string(root().join(manifest)).unwrap();
+    let lines: Vec<(&str, &str)> = m.lines().map(|l| l.split_once("  ").unwrap()).collect();
+    if lines.iter().any(|(_, p)| !root().join(p).is_file()) {
+        let st = std::process::Command::new("python3")
+            .args([
+                "-I",
+                generator,
+                env!("CARGO_BIN_EXE_rlt"),
+                "--materialize-only",
+            ])
+            .current_dir(root())
+            .status()
+            .expect("python3 runs the generator");
+        assert!(st.success());
+    }
+    for (s, p) in lines {
+        assert_eq!(
+            rlt_cli::sha256_hex(&std::fs::read(root().join(p)).unwrap()),
+            s,
+            "{p}"
+        );
+    }
 }
 
 /// Generate RLT-006's certificates when absent and require each to match

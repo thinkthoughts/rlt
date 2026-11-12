@@ -63,6 +63,28 @@ fn materialized() {
             let bytes = std::fs::read(root().join(&p)).unwrap();
             assert_eq!(sha256_hex(&bytes), s, "{p} differs from the manifest");
         }
+        // RLT-007b stage 1: the library also cites the generated per-element
+        // distinctness theorems; the full scratch trees below copy them, so
+        // they are materialized here as well.
+        let m = std::fs::read_to_string(root().join("tests/rlt007s1/manifest.sha256")).unwrap();
+        if m.lines()
+            .any(|l| !root().join(l.split_once("  ").unwrap().1).is_file())
+        {
+            let st = std::process::Command::new("python3")
+                .args([
+                    "-I",
+                    "scripts/gen-rlt007s1.py",
+                    env!("CARGO_BIN_EXE_rlt"),
+                    "--materialize-only",
+                ])
+                .current_dir(root())
+                .status()
+                .expect("python3 runs the generator");
+            assert!(
+                st.success(),
+                "scripts/gen-rlt007s1.py --materialize-only failed"
+            );
+        }
     });
 }
 

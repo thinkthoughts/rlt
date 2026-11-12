@@ -27,6 +27,7 @@ FILES = (
     + sorted(glob.glob("tests/m3e/accept/*.rlt"))
     + sorted(glob.glob("tests/rlt005/accept/*.rlt"))
     + sorted(glob.glob("tests/rlt006/accept/*.rlt"))
+    + sorted(glob.glob("tests/rlt007s1/accept/*.rlt"))
 )
 NAMED = {
     "tests/accept/R_math29_pairing.rlt": "arith.add.29_1_30",
@@ -53,6 +54,12 @@ NAMED = {
     "tests/rlt005/accept/MNV_conditions_without_distinctness.rlt": "matchable.not.8.nonvacuous",
     "tests/rlt005/accept/MN8_eight_is_not_matchable.rlt": "matchable.not.8",
     "tests/rlt005/accept/MNC_two_not_coprime_to_two.rlt": "matchable.not_coprime.2_2",
+    # RLT-007b stage 1: obligation (a) of Lemma 12.1.
+    "tests/rlt007s1/accept/DG_0.rlt": "admissible.h45.distinct.g0",
+    "tests/rlt007s1/accept/DG_1.rlt": "admissible.h45.distinct.g1",
+    "tests/rlt007s1/accept/DG_2.rlt": "admissible.h45.distinct.g2",
+    "tests/rlt007s1/accept/DG_3.rlt": "admissible.h45.distinct.g3",
+    "tests/rlt007s1/accept/BOUNDS.rlt": "admissible.h45.bounds",
 }
 PATTERNS = [
     (r"^(\d+) ∣ (\d+)$", "dvd.{0}_{1}"),
@@ -131,7 +138,7 @@ for lid, fp, files in sorted(entries):
     for c in n["children"]:
         if (c["path"], c["sha256"]) in by_pin:
             uses.append(by_pin[(c["path"], c["sha256"])])
-        elif c["path"].startswith("tests/rlt006/gen/"):
+        elif c["path"].startswith(("tests/rlt006/gen/", "tests/rlt007s1/gen/")):
             uses.append(f"(unlisted {c['path']})")
         else:
             sys.exit(f"{files[0]} cites {c['path']}, which is neither in the library nor a generated certificate")
