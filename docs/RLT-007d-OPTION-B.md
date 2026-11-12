@@ -183,6 +183,23 @@ This is the semantic form of the cut rule. Inside one file, the kernel's `cite` 
 - Composition re-checks every component once: about 2,230 kernel file checks for Lemma 12.1. These are separate roots, so they parallelize with RLT-007a's scheduling. Estimated 6–10 minutes of CPU time on top of the stages, which already check the same files.
 - The record is small. The checker is estimated at a few hundred lines plus tests.
 
+## 4a. A measured constraint the implementation review must resolve
+
+Stage 1 prototyping found that the existing parser limits each written formula to a numeral total of 200,000 (`MAX_NUMERAL_TOTAL`, `syntax/src/elab.rs`). Every file is also limited to 1,000,000 term nodes.
+
+**What it affects.** The assembly file must state its conclusion and every declared assumption in full. Estimates:
+- distinctness alone, as one formula, is 221,056 in numeral total, which is why stage 1 splits it into four groups;
+- the 47 per-prime omission statements together come to roughly 0.5 million nodes;
+- the conclusion Lemma 12.1 restates all of them.
+
+So **a single assembly file is likely to exceed the existing limits.** It must be measured before the detailed implementation review.
+
+**Options within this architecture, with no limit changes:**
+- **Layered assembly.** Several conditional assemblies, each discharged by composition. For example, Adm(p) for each range of primes, then L12.1 from those. This needs composition depth greater than one, with the same cycle rules applied level by level: a composed result could discharge only assumptions of a higher layer, never its own.
+- **A more compact final statement.** L12.1 as a conjunction of named sub-results whose statements stay within the limits.
+
+The detailed implementation review will choose between them with measurements. Both keep every rule in §3.
+
 ## 5. Decisions requested
 
 - **B-D1.** Approve this specification, for implementation after the component stages (RLT-007b/c) have merged.
