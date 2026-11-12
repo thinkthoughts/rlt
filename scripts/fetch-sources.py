@@ -82,7 +82,9 @@ def git(*args, cwd):
     env = dict(os.environ, GIT_NO_REPLACE_OBJECTS="1")
     if args[0] in ("cat-file", "fsck"):
         env["GIT_NO_LAZY_FETCH"] = "1"
-    return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, env=env)
+    # Defence in depth (re-audit): no repository-configured program runs.
+    safe = ["-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null"]
+    return subprocess.run(["git", *safe, *args], cwd=cwd, capture_output=True, text=True, env=env)
 
 
 bad = 0
@@ -91,6 +93,16 @@ for name, (slug, commits) in sorted(repos.items()):
     # Audit N1: a repository restored from a cache keeps only its objects.
     # Everything else in .git (config, hooks, refs including refs/replace,
     # info/grafts, objects/info/alternates) is untrusted and rebuilt here.
+    # Re-audit: anything but a real directory holding a real `.git` directory
+    # and a real `objects` directory (a `.git` file pointing elsewhere, or a
+    # symlink at any of the three) is discarded and fetched again.
+    g = d / ".git"
+    if d.is_symlink() or (d.exists() and not d.is_dir()):
+        d.unlink()
+    elif d.is_dir() and (g.is_symlink() or not g.is_dir() or (g / "objects").is_symlink()
+                         or not (g / "objects").is_dir()):
+        print(f"discard  {name}: the cached checkout is not a plain repository; fetching again")
+        shutil.rmtree(d)
     if (d / ".git").is_dir():
         objs = d / ".git" / "objects"
         keep = d.parent / f".{name}.objects"

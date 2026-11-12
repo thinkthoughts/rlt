@@ -148,6 +148,14 @@ Required because P1–P3 change proof-check scheduling and reuse. An independent
 | N2 under `set -m` the checks ran as a background job on a terminal and stopped there with `tostop` (outside CI) | the child reads `/dev/null` and writes through a relay in the supervisor's foreground group. Re-tested under a pty with `stty tostop`: runs, and TERM stops it cleanly |
 | N3, N4 (notes) | documented in the supervisor's header: signals already ignored by the starting shell, Ctrl-Z, and the microsecond window before the child's pid is known |
 
+**Pre-merge confirmation of `b52fbf8`** (same auditor):
+- N2, the signal cleanup (including a real Ctrl-C through a pty with `tostop`) and the rebuild of restored repositories are confirmed. No objects were lost, and shallow and partial clones still read every excerpt offline.
+- One further should-fix was found: a cached checkout whose `.git` was a *file* pointing elsewhere skipped the rebuild, so a cached `core.fsmonitor` could run a program during `git fsck`. It requires write access to the cache.
+
+  **Fix:** a checkout is used only when it is a real directory with a real `.git` and a real `objects` directory; anything else (a `.git` file, or a symlink at any level) is discarded and fetched again. Every git call also disables fsmonitor and hooks.
+
+  **Re-tested:** the `.git`-file attack (no program runs; the checkout is re-fetched), and symlinked `.git`, checkout and `objects` directories.
+
 The fixes were then re-tested:
 - the interrupts and supervisor cases in §1;
 - a partial-backup restore (nothing deleted);
