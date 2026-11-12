@@ -6,10 +6,11 @@ them by path and SHA-256, so no existing hash changes.
 
 - **Identity.** A library id is bound, permanently, to a *statement fingerprint*: the SHA-256 of a canonical
   text holding the convention and its pinned interpretation digest, the axiom set with its file and
-  SHA-256, the definitions file and the definitions used, the kernel form of the checked formula, and every
-  assumption in kernel form. `rlt deps ID` prints that text.
+  SHA-256, the definitions file and the definitions used, and the checked formula and each assumption in a
+  canonical form (bound variables as de Bruijn indices; assumption names dropped, since they label steps
+  inside a proof). Alpha-variants therefore share one fingerprint. `rlt deps ID` prints the text.
 - **Registry.** `identities.tsv` records each id with its fingerprint and first proof SHA-256. It is
-  append-only: `scripts/verify.sh` refuses any edit to an existing line.
+  append-only: `scripts/check-identities.sh`, run by `scripts/verify.sh`, refuses any change to a line of any committed version of the file.
 - **Replacement.** A proof may be replaced under the same id only by a proof whose fingerprint is identical.
   The entry's `history` keeps every earlier pin (path, SHA-256, fingerprint, date, reviewer); once the first
   registered proof is replaced, it must appear there.

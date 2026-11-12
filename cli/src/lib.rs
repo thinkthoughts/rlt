@@ -382,7 +382,9 @@ pub struct CitationTrace {
     /// The outcome of checking the cited bytes; `None` when the citation
     /// failed before its file was checked (path, cycle, hash, budget).
     pub outcome: Option<Box<CheckOutcome>>,
-    /// Why the citation failed, when it did.
+    /// Why the citation was refused, when it was: before its file was
+    /// checked (`outcome` is `None`) or after (accepted file, but refused
+    /// as a citation, e.g. conditional or another axiom set).
     pub problem: Option<String>,
 }
 
@@ -753,8 +755,19 @@ fn check_inner(
                 outcome: Some(Box::new(sub)),
                 problem: None,
             });
+            // A refusal after the sub-check is recorded on its trace entry,
+            // then reported exactly as before.
+            macro_rules! traced_bail {
+                ($msg:expr) => {{
+                    let msg: String = $msg;
+                    if let Some(tr) = out.citations.last_mut() {
+                        tr.problem = Some(msg.clone());
+                    }
+                    bail!(msg)
+                }};
+            }
             let (Some(th), Some(spf)) = (th, spf) else {
-                bail!(format!(
+                traced_bail!(format!(
                     "citation `{l}`: {} is not an accepted theorem ({sub_verdict})",
                     c.path.escape_debug()
                 ));
@@ -765,25 +778,25 @@ fn check_inner(
                 .map(|t| t.outcome.as_ref().map(|o| o.report.code))
                 != Some(Some(ACCEPT))
             {
-                bail!(format!(
+                traced_bail!(format!(
                     "citation `{l}`: {} is not an accepted theorem ({sub_verdict})",
                     c.path.escape_debug()
                 ));
             }
             if spf.axiom_set != pf.axiom_set {
-                bail!(format!(
+                traced_bail!(format!(
                     "citation `{l}`: the cited theorem's axiom set {} differs from this file's {}",
                     spf.axiom_set, pf.axiom_set
                 ));
             }
             if spf.convention != pf.convention {
-                bail!(format!(
+                traced_bail!(format!(
                     "citation `{l}`: the cited theorem's convention {} differs from this file's {}",
                     spf.convention, pf.convention
                 ));
             }
             if !th.is_unconditional() {
-                bail!(format!(
+                traced_bail!(format!(
                     "citation `{l}`: the cited theorem is conditional (Γ ≠ ∅)"
                 ));
             }

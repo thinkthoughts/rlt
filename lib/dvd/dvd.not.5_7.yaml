@@ -1,7 +1,7 @@
 format: rlt-lib/1
 id: dvd.not.5_7
 title: "¬(5 ∣ 7)"
-fingerprint: 0adc4accc4fff2220f1283ec6ee2d036e622eca76320603a3c2a08978563f1d9
+fingerprint: 03fa05ae52b7c5b18c70355ebed007344f1563e5b77aebebe01f55ed714639e5
 proof: {path: tests/m3c/accept/CA04_five_not_divides_seven.rlt, sha256: 5877f73c4b6fef01f0731e46b60210f7cd68a845ebb357ebf1175d0b00017570}
 proof_id: M3c.CA04
 axiom_set: ROBINSON-Q

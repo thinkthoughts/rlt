@@ -1,7 +1,7 @@
 format: rlt-lib/1
 id: dvd.free235.13
 title: "free235(13)"
-fingerprint: 2a2c1f37a4a3e1668106db1044ed0a97aad336c56bb41fb35c6384fdf56f9f29
+fingerprint: c8fee5c711e318422386f0eb6cf528af20e6e934c932e5cba881541714bc02ef
 proof: {path: tests/m3e/accept/F_13.rlt, sha256: 4c725574d86e105b74bede4e0b7bcd43f3645e345188185a19f9127e46cf3bc2}
 proof_id: M3e.F_13
 axiom_set: ROBINSON-Q

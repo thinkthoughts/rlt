@@ -1,7 +1,7 @@
 format: rlt-lib/1
 id: dvd.2_8
 title: "2 ∣ 8"
-fingerprint: 3a8cb9c8b73e4ee0464eeb3c6e4bd5c8bcd4604f88d6dc03e3ea3d659c4074c7
+fingerprint: 5ba97e45d6d34349eba734d8d835f4d0f19dc74b807834fdaf8cf4459c53e680
 proof: {path: tests/m3c/accept/CA01_two_divides_eight.rlt, sha256: c237e7de9c8a5ef620506fbe5e18469b7b624c652beef5dd63369cdf2765196d}
 proof_id: M3c.CA01
 alternatives:

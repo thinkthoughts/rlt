@@ -1,7 +1,7 @@
 format: rlt-lib/1
 id: dvd.2_0
 title: "2 ∣ 0"
-fingerprint: 26df956b6155ba6e6d521a69d8b7f9e8c90a6d07cc3ffe8e75baecb3aed702e0
+fingerprint: b081c34a40723807dda593e56cf3f1ac992c52bcadbb42ae887ff38a647266d4
 proof: {path: tests/m3e/accept/PD_00.rlt, sha256: 1bbdb4b861f5ae80b1753bc2b562e0f2b5380510f90a17a939a1d28e7d7d2539}
 proof_id: M3e.PD_00
 axiom_set: ROBINSON-Q

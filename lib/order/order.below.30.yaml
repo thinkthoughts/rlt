@@ -1,7 +1,7 @@
 format: rlt-lib/1
 id: order.below.30
 title: "∀x. x < 30 → x = 0 ∨ x = 1 ∨ x = 2 ∨ x = 3 ∨ x = 4 ∨ x = 5 ∨ x = 6 ∨ x = 7 ∨ x = 8 ∨ x = 9 ∨ x = 10 ∨ x = 11 ∨ x = 12 ∨ x = 13 ∨ x = 14 ∨ x = 15 ∨ x = 16 ∨ x = 17 ∨ x = 18 ∨ x = 19 ∨ x = 20 ∨ x = 21 ∨ x = 22 ∨ x = 23 ∨ x = 24 ∨ x = 25 ∨ x = 26 ∨ x = 27 ∨ x = 28 ∨ x = 29"
-fingerprint: b7b166a3f6a081bf6f4b51d156ae64e7644547eef78a40556944ae8bf4940e29
+fingerprint: 299bf591852bff51805dc7ab0a62a62813a32c6d9b973e4e1ae13e55a7fbc4b8
 proof: {path: tests/m3d/accept/DA01_below_thirty.rlt, sha256: 29689458f3619f4422c34a0f0c84ba4d181c675ebe6b0d653852f20d729e5eb4}
 proof_id: M3d.DA01
 axiom_set: ROBINSON-Q

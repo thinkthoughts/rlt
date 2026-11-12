@@ -1,7 +1,7 @@
 format: rlt-lib/1
 id: dvd.5_25
 title: "5 ∣ 25"
-fingerprint: 0a8432bf8c505c146ec4c5a7c27fe91ade98e3d094729bf11921f1749199f37e
+fingerprint: 6881ce4c210c3e4b3e6efacac61d13d3aa5fbab8039e83bf3fa8ddae13667c87
 proof: {path: tests/m3e/accept/PD_25.rlt, sha256: a7517181687d787a88dda4c5066c4190126f4b2c17183f11c72b849aecdaba4a}
 proof_id: M3e.PD_25
 axiom_set: ROBINSON-Q

@@ -1,7 +1,7 @@
 format: rlt-lib/1
 id: dvd.2_12
 title: "2 ∣ 12"
-fingerprint: 33b206dfd761364926c6ef92ec313ea8e97c6d9ecf9bf1f4d59ec97959843f03
+fingerprint: 81b81df52f22e2bf82e7c054c490cbb250b8c955c62034e98446c21518a4cc03
 proof: {path: tests/m3e/accept/PD_12.rlt, sha256: b1c8e7c3e6e2018c38d0cd997281012a37e5e654d47dd96afc329f30d291b5da}
 proof_id: M3e.PD_12
 axiom_set: ROBINSON-Q

@@ -436,7 +436,7 @@ library entry   dvd.free235.7 · current
 theorems        4 distinct · 3 cited-file checks
 …
 budget          cited-file checks 3 of 64 · citing-file chain 1 of 8
-exit            0 — every node checked and accepted; the library entry, if any, is current
+exit            0 — every node checked and accepted; the library index valid and the entry, if any, current
 exit 0
 ```
 

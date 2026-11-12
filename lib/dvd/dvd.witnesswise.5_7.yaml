@@ -1,7 +1,7 @@
 format: rlt-lib/1
 id: dvd.witnesswise.5_7
 title: "∀k. ¬(7 = 5 × k)"
-fingerprint: 9b7b0511ce3b64b5e43410e26df0d527e8297a3a65187049bf026767c824d605
+fingerprint: 444204989f1bbcf056f127c49fe4f3eb772592ad6ca18807ee0a725f39307e33
 proof: {path: tests/m3c/accept/CA08_five_witnesswise.rlt, sha256: 19354a9b7d9fa7f8531abad09c8e84c35e8ba7c19e24af0e879e1df9f945c37b}
 proof_id: M3c.CA08
 axiom_set: ROBINSON-Q

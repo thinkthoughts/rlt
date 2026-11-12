@@ -1,7 +1,7 @@
 format: rlt-lib/1
 id: order.below.0
 title: "∀x. ¬(x < 0)"
-fingerprint: 423a96dea7dd88f733afe80c70e75681a7f7db2b803480b71286b87cf9753d85
+fingerprint: 2f56014cf2304a251df50470690ecd1dc4e82dd4e914a7c6e2610e3a2d07dafc
 proof: {path: tests/m3d/accept/DA04_nothing_below_zero.rlt, sha256: 07c402a21bd5358f7eaade9314ca2433b889592259a64268e174ab97eb809a24}
 proof_id: M3d.DA04
 axiom_set: ROBINSON-Q

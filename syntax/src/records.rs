@@ -1437,7 +1437,8 @@ pub fn lib_id(id: &str, ctx: &str) -> Result<String, String> {
                 .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
     };
     let segs: Vec<&str> = id.split('.').collect();
-    if segs.len() >= 2 && segs.iter().all(|s| seg_ok(s)) {
+    // A last segment `rlt` would read as a proof path to `rlt deps`.
+    if segs.len() >= 2 && segs.iter().all(|s| seg_ok(s)) && segs.last() != Some(&"rlt") {
         Ok(id.to_string())
     } else {
         Err(format!(

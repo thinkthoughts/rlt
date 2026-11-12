@@ -23,6 +23,70 @@ use std::path::Path;
 // ---------------------------------------------------------------------------
 // Statement fingerprint (C1, refined at approval).
 
+/// A canonical form of a formula: bound variables as de Bruijn indices
+/// (`#0` is the nearest binder) and binder names dropped, so alpha-variants
+/// share one form; every symbol is written prefix with explicit arity.
+pub fn canonical(p: &rlt_kernel::Prop) -> String {
+    use rlt_kernel::Prop::*;
+    fn term(t: &rlt_kernel::Term, o: &mut String) {
+        use rlt_kernel::Term::*;
+        match t {
+            Var(v) => {
+                let _ = write!(o, "var:{v}");
+            }
+            Param(v) => {
+                let _ = write!(o, "param:{v}");
+            }
+            Bound(i) => {
+                let _ = write!(o, "#{i}");
+            }
+            App(f, args) => {
+                let _ = write!(o, "({f}/{}", args.len());
+                for a in args {
+                    o.push(' ');
+                    term(a, o);
+                }
+                o.push(')');
+            }
+        }
+    }
+    fn go(p: &rlt_kernel::Prop, o: &mut String) {
+        match p {
+            Eq(f) => {
+                o.push_str("(= ");
+                term(&f.lhs, o);
+                o.push(' ');
+                term(&f.rhs, o);
+                o.push(')');
+            }
+            False => o.push_str("false"),
+            And(a, b) | Or(a, b) | Imp(a, b) => {
+                o.push_str(match p {
+                    And(..) => "(and ",
+                    Or(..) => "(or ",
+                    _ => "(imp ",
+                });
+                go(a, o);
+                o.push(' ');
+                go(b, o);
+                o.push(')');
+            }
+            Forall(_, b) | Exists(_, b) => {
+                o.push_str(if matches!(p, Forall(..)) {
+                    "(forall "
+                } else {
+                    "(exists "
+                });
+                go(b, o);
+                o.push(')');
+            }
+        }
+    }
+    let mut o = String::new();
+    go(p, &mut o);
+    o
+}
+
 /// The parts that fix what a theorem states and how it is read.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StatementParts {
@@ -33,10 +97,11 @@ pub struct StatementParts {
     pub axiom_sha256: String,
     /// `(file, sha256, names used)` when the statement uses definitions.
     pub definitions: Option<(String, String, Vec<String>)>,
-    /// Kernel form of the checked formula.
+    /// Canonical form of the checked formula.
     pub goal: String,
-    /// `(name, kernel form)` in name order.
-    pub assumptions: Vec<(String, String)>,
+    /// Canonical forms of the assumptions, sorted: their names are labels
+    /// inside the proof and leave the statement unchanged.
+    pub assumptions: Vec<String>,
 }
 
 /// The canonical text the fingerprint hashes. Every line is one part; a
@@ -59,8 +124,8 @@ pub fn fingerprint_text(p: &StatementParts) -> String {
     if p.assumptions.is_empty() {
         t.push_str("assumptions none\n");
     }
-    for (n, f) in &p.assumptions {
-        let _ = writeln!(t, "assumption {n} {f}");
+    for f in &p.assumptions {
+        let _ = writeln!(t, "assumption {f}");
     }
     t
 }
@@ -73,18 +138,14 @@ pub fn statement_parts(out: &CheckOutcome, k: &KernelBlock) -> Option<StatementP
     }
     let pf = out.proof.as_ref()?;
     let th = out.theorem.as_ref()?;
-    let goal = out.prop.as_ref()?.kernel_form();
+    let goal = canonical(out.prop.as_ref()?);
     let (_, conv_digest, _) = PINNED_CONVENTIONS
         .iter()
         .find(|(c, _, _)| *c == pf.convention)?;
     let (_, ax_file, ax_sha) = PINNED_AXIOM_SETS
         .iter()
         .find(|(a, _, _)| *a == pf.axiom_set)?;
-    let mut assumptions: Vec<(String, String)> = th
-        .assumptions()
-        .iter()
-        .map(|(n, f)| (n.clone(), f.kernel_form()))
-        .collect();
+    let mut assumptions: Vec<String> = th.assumptions().values().map(canonical).collect();
     assumptions.sort();
     Some(StatementParts {
         convention: pf.convention.clone(),
@@ -306,7 +367,10 @@ pub struct Node {
     pub kernel: KernelBlock,
     pub fingerprint: Option<String>,
     pub fingerprint_text: Option<String>,
-    /// A citation that failed before its file was checked.
+    /// Whether this node's file was checked (a citation may be refused
+    /// before its file is read).
+    pub checked: bool,
+    /// Why the citation to this node was refused, when it was.
     pub problem: Option<String>,
     pub children: Vec<Node>,
 }
@@ -325,7 +389,11 @@ fn build(
         .citations
         .iter()
         .map(|c| match &c.outcome {
-            Some(o) => build(o, Some(c.label.clone()), &c.path, &c.sha256, lib),
+            Some(o) => {
+                let mut n = build(o, Some(c.label.clone()), &c.path, &c.sha256, lib);
+                n.problem = c.problem.clone();
+                n
+            }
             None => Node {
                 label: Some(c.label.clone()),
                 path: c.path.clone(),
@@ -336,6 +404,7 @@ fn build(
                 kernel: KernelBlock::default(),
                 fingerprint: None,
                 fingerprint_text: None,
+                checked: false,
                 problem: c.problem.clone(),
                 children: vec![],
             },
@@ -349,6 +418,7 @@ fn build(
         fingerprint: text.as_ref().map(|t| sha256_hex(t.as_bytes())),
         fingerprint_text: text,
         kernel: k,
+        checked: true,
         problem: None,
         children,
     }
@@ -367,7 +437,8 @@ fn walk<'a>(n: &'a Node, f: &mut dyn FnMut(&'a Node, usize)) {
 /// Longest chain of citing files from the root (the depth limit counts these).
 fn citing_chain(n: &Node) -> usize {
     if n.children.is_empty() {
-        0
+        // A file refused for nesting too deep was itself a citing file.
+        usize::from(n.kernel.verdict_line.contains("citations nest deeper than"))
     } else {
         1 + n.children.iter().map(citing_chain).max().unwrap_or(0)
     }
@@ -386,12 +457,16 @@ pub struct Deps {
     pub root: Option<Node>,
     pub distinct: usize,
     pub checks: usize,
+    /// Checks attempted, counting one refused for the budget.
+    pub attempted: usize,
     pub chain: usize,
     pub axioms: Vec<String>,
     pub definitions: Vec<String>,
     pub warnings: Vec<String>,
     /// `(record, state line from rlt explain, its exit)`.
     pub statement_records: Vec<(String, String, i32)>,
+    /// The worst checker exit among alternative proofs.
+    pub alt_exit: i32,
     pub state: String,
     pub exit: i32,
 }
@@ -412,7 +487,8 @@ fn compare_entry(
     node: &Node,
     stale: &mut Vec<StaleItem>,
     records: &mut Vec<(String, String, i32)>,
-) {
+) -> i32 {
+    let mut alt_exit = ACCEPT;
     let mut cmp = |what: &str, record: &str, current: &str| {
         if record != current {
             stale.push(StaleItem {
@@ -466,6 +542,9 @@ fn compare_entry(
     for alt in &e.alternatives {
         match check_pin(root, &alt.path) {
             Ok((sha, out)) => {
+                if out.report.code != ACCEPT {
+                    alt_exit = worse(alt_exit, out.report.code);
+                }
                 cmp(
                     &format!("alternative {} sha256", alt.path),
                     &alt.sha256,
@@ -478,7 +557,24 @@ fn compare_entry(
                     an.fingerprint.as_deref().unwrap_or("(not accepted)"),
                 );
             }
-            Err(m) => cmp(&format!("alternative {}", alt.path), "readable", &m),
+            Err(m) => {
+                alt_exit = worse(alt_exit, MALFORMED);
+                cmp(&format!("alternative {}", alt.path), "readable", &m)
+            }
+        }
+    }
+    // History pins: where the recorded bytes still exist, they must prove
+    // the identical statement.
+    for h in &e.history {
+        if let Ok((sha, out)) = check_pin(root, &h.path) {
+            if sha == h.sha256 {
+                let hn = build(&out, None, &h.path, &sha, None);
+                cmp(
+                    &format!("history {} fingerprint", h.path),
+                    &h.fingerprint,
+                    hn.fingerprint.as_deref().unwrap_or("(not accepted)"),
+                );
+            }
         }
     }
     for r in &e.statement_records {
@@ -496,7 +592,14 @@ fn compare_entry(
                     });
                 }
                 let x = crate::explain::explain(root, r);
-                records.push((r.clone(), format!("record valid · {}", x.state), x.exit));
+                if x.exit != ACCEPT {
+                    stale.push(StaleItem {
+                        what: format!("statement record {r}"),
+                        record: "rlt explain exit 0".into(),
+                        current: format!("rlt explain exit {} ({})", x.exit, x.state),
+                    });
+                }
+                records.push((r.clone(), format!("record {}", x.state), x.exit));
             }
             Err(m) => stale.push(StaleItem {
                 what: format!("statement record {r}"),
@@ -505,6 +608,7 @@ fn compare_entry(
             }),
         }
     }
+    alt_exit
 }
 
 fn crate_axiom_set(n: &Node) -> String {
@@ -522,11 +626,13 @@ pub fn deps(root: &Path, target: &str) -> Deps {
         root: None,
         distinct: 0,
         checks: 0,
+        attempted: 0,
         chain: 0,
         axioms: vec![],
         definitions: vec![],
         warnings: vec![],
         statement_records: vec![],
+        alt_exit: ACCEPT,
         state: "invalid".into(),
         exit: MALFORMED,
     };
@@ -567,16 +673,28 @@ pub fn deps(root: &Path, target: &str) -> Deps {
     let mut pins = BTreeSet::new();
     let mut axioms = BTreeSet::new();
     let mut defs = BTreeSet::new();
+    let mut refused_budget = 0;
     walk(&node, &mut |n, depth| {
         pins.insert((n.path.clone(), n.sha256.clone()));
-        if depth > 0 && n.problem.is_none() {
+        if depth > 0 && n.checked {
             d.checks += 1;
         }
-        if let Some(a) = &n.kernel.axioms_used {
-            axioms.extend(a.split(", ").filter(|s| *s != "none").map(String::from));
+        if n.problem
+            .as_deref()
+            .is_some_and(|p| p.contains("would check more than"))
+        {
+            refused_budget += 1;
         }
-        defs.extend(n.kernel.definitions_used.iter().cloned());
+        // The unions cover accepted edges only: a refused citation adds
+        // nothing to what the root rests on.
+        if n.problem.is_none() {
+            if let Some(a) = &n.kernel.axioms_used {
+                axioms.extend(a.split(", ").filter(|s| *s != "none").map(String::from));
+            }
+            defs.extend(n.kernel.definitions_used.iter().cloned());
+        }
     });
+    d.attempted = d.checks + refused_budget;
     d.distinct = pins.len();
     d.chain = citing_chain(&node);
     d.axioms = axioms.into_iter().collect();
@@ -595,16 +713,20 @@ pub fn deps(root: &Path, target: &str) -> Deps {
     }
     if let (Some(e), Ok(l)) = (&entry, &lib) {
         d.entry = Some(e.id.clone());
-        compare_entry(root, l, e, &node, &mut d.stale, &mut d.statement_records);
+        d.alt_exit = compare_entry(root, l, e, &node, &mut d.stale, &mut d.statement_records);
     }
-    d.state = if d.stale.is_empty() {
+    d.state = if lib.is_err() {
+        "library invalid".into()
+    } else if d.stale.is_empty() {
         "current".into()
     } else {
         "stale".into()
     };
     d.exit = match node.kernel.exit {
         MALFORMED => MALFORMED,
+        _ if lib.is_err() => MALFORMED,
         REJECT => REJECT,
+        _ if d.alt_exit != ACCEPT => d.alt_exit,
         _ if !d.stale.is_empty() => STALE,
         _ => ACCEPT,
     };
@@ -676,7 +798,7 @@ pub fn verify_lib(root: &Path) -> LibReport {
 
 fn exit_meaning(code: i32) -> &'static str {
     match code {
-        ACCEPT => "0 — every node checked and accepted; the library entry, if any, is current",
+        ACCEPT => "0 — every node checked and accepted; the library index valid and the entry, if any, current",
         REJECT => "1 — the checker rejects a proof in the graph",
         STALE => "3 — the graph checks, but the library entry differs from the checked files",
         _ => "2 — invalid input, an invalid library index, or a citation or limit failure as `rlt check` reports it",
@@ -713,8 +835,15 @@ fn node_lines(t: &mut String, n: &Node, prefix: &str, last: bool, top: bool) {
         }
     );
     if let Some(p) = &n.problem {
-        let _ = writeln!(t, "{inner}{}", one(&format!("citation failed: {p}")));
-        return;
+        let what = if n.checked {
+            "citation refused"
+        } else {
+            "citation failed"
+        };
+        let _ = writeln!(t, "{inner}{}", one(&format!("{what}: {p}")));
+        if !n.checked {
+            return;
+        }
     }
     let _ = writeln!(
         t,
@@ -837,14 +966,17 @@ pub fn render_text(d: &Deps) -> String {
     row(
         &mut t,
         "assumptions",
-        "cited theorems carry Γ = ∅, so none cross a citation; the root's Γ is shown above",
+        "accepted citations carry Γ = ∅, so none cross a citation; the root's Γ is shown above",
     );
+    let over = d.attempted > MAX_CITED_CHECKS || d.chain > MAX_CITATION_DEPTH;
     row(
         &mut t,
         "budget",
         &format!(
-            "cited-file checks {} of {MAX_CITED_CHECKS} · citing-file chain {} of {MAX_CITATION_DEPTH}",
-            d.checks, d.chain
+            "cited-file checks {} of {MAX_CITED_CHECKS} · citing-file chain {} of {MAX_CITATION_DEPTH}{}",
+            d.attempted,
+            d.chain,
+            if over { " — limit exceeded; the checker refused the file" } else { "" }
         ),
     );
     for w in &d.warnings {
@@ -912,6 +1044,7 @@ fn node_json(n: &Node) -> Json {
         ),
         ("fingerprint", s(&n.fingerprint)),
         ("fingerprint_text", s(&n.fingerprint_text)),
+        ("checked", Json::Bool(n.checked)),
         ("problem", s(&n.problem)),
         (
             "children",
@@ -953,6 +1086,7 @@ pub fn to_json(d: &Deps) -> Json {
             obj(vec![
                 ("distinct_theorems", Json::Int(d.distinct as i64)),
                 ("cited_file_checks", Json::Int(d.checks as i64)),
+                ("cited_file_checks_attempted", Json::Int(d.attempted as i64)),
                 ("cited_file_check_limit", Json::Int(MAX_CITED_CHECKS as i64)),
                 ("citing_file_chain", Json::Int(d.chain as i64)),
                 (

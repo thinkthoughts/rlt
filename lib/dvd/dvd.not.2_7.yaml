@@ -1,7 +1,7 @@
 format: rlt-lib/1
 id: dvd.not.2_7
 title: "¬(2 ∣ 7)"
-fingerprint: aa994cd0e1e55ebbd8f64dd976abb49403de2b5b03515cdd6a25197cf63b7f44
+fingerprint: dd329d2029344af33c6d1d56a042325b16e08a54e1eea6546f4dda0c0e4dd82a
 proof: {path: tests/m3c/accept/CA02_two_not_divides_seven.rlt, sha256: bafaefafd5fde46346a7da3e2c8ee7b405db76ace31886c2faf26ad1ecf94e1b}
 proof_id: M3c.CA02
 alternatives:

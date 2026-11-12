@@ -1,7 +1,7 @@
 format: rlt-lib/1
 id: dvd.3_9
 title: "3 ∣ 9"
-fingerprint: 569a74b824a75cc536591fed08c828169adb38f1a27a757599d80a739df6abfe
+fingerprint: 075d6b2cc9f799dcd8a5375fce2036ba14e5890ae3de899f34a8dc49b3bff876
 proof: {path: tests/m3e/accept/PD_09.rlt, sha256: 68e4054ecc28902027af2600028e1f1705d6939022bf0abd7944e76c9328401f}
 proof_id: M3e.PD_09
 axiom_set: ROBINSON-Q

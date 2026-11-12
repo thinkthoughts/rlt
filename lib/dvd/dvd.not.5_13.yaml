@@ -1,7 +1,7 @@
 format: rlt-lib/1
 id: dvd.not.5_13
 title: "¬(5 ∣ 13)"
-fingerprint: d7d3c8bb5f5f32a1ddb992db09058ef25951b9cafb502e60c1ab34786f9add57
+fingerprint: a34f873f901877fab6efa54dec70a1d5dbebb0aa76ae86bfd6d338498ea7adda
 proof: {path: tests/m3e/accept/ND_5_13.rlt, sha256: e89e1e72b5aa7d4ee6cd5b09acec9a593b133a044375a39979bff9020bd4a39b}
 proof_id: M3e.ND_5_13
 axiom_set: ROBINSON-Q

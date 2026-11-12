@@ -1,7 +1,7 @@
 format: rlt-lib/1
 id: dvd.3_27
 title: "3 ∣ 27"
-fingerprint: 57c01cd384020bd5b823467217a95fdf8cfebe1040b98a23161949aed33325a8
+fingerprint: 880960c7696a5562c55e9f60960f739fa745d404954e1e522c814f2a28e2e712
 proof: {path: tests/m3e/accept/PD_27.rlt, sha256: 4148bde3a8faeaa9bc39a5dd4e907e7c12a39559d83c360b7d7bd95acb73c6fa}
 proof_id: M3e.PD_27
 axiom_set: ROBINSON-Q

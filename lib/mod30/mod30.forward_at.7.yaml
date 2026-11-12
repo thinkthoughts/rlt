@@ -1,7 +1,7 @@
 format: rlt-lib/1
 id: mod30.forward_at.7
 title: "7 < 30 → (free235(7) → (7 = 1 ∨ 7 = 7 ∨ 7 = 11 ∨ 7 = 13 ∨ 7 = 17 ∨ 7 = 19 ∨ 7 = 23 ∨ 7 = 29)) ∧ ((7 = 1 ∨ 7 = 7 ∨ 7 = 11 ∨ 7 = 13 ∨ 7 = 17 ∨ 7 = 19 ∨ 7 = 23 ∨ 7 = 29) → free235(7))"
-fingerprint: c23f84645b5318f32e439d8fd7832440e937b8271fe670856a52d688a0a2b22a
+fingerprint: 1a64d36a8c089f61f0418861eef66e116b7b28e4c00501dfaee1257afc82b961
 proof: {path: tests/m3e/accept/EA_07.rlt, sha256: 6a4160af609b1318459b36adad55eb0b805a81dc3fa8dfce3d1d772f8156c303}
 proof_id: M3e.EA_07
 axiom_set: ROBINSON-Q

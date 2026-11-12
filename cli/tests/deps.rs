@@ -244,7 +244,7 @@ fn the_fingerprint_changes_with_every_part_that_fixes_meaning() {
             ))
         }),
         Box::new(|p| p.goal = "¬(∃k. S(S(S(S(S(S(S(0))))))) = *(k, S(S(0))))".into()),
-        Box::new(|p| p.assumptions = vec![("h".into(), "S(0) = S(0)".into())]),
+        Box::new(|p| p.assumptions = vec!["(= (S/1 (0/0)) (S/1 (0/0)))".into()]),
     ];
     for (i, v) in variants.iter().enumerate() {
         let mut p = base.clone();
@@ -714,11 +714,12 @@ fn citations_cycles_and_limits() {
     assert_eq!(b64.distinct, 2, "one root and DA03, checked 64 times");
     assert_eq!(b64.checks, 64);
     expect("budget65.rlt", MALFORMED, "would check more than 64 files");
+    expect("budget65.rlt", MALFORMED, "cited-file checks 65 of 64");
     expect("self.rlt", MALFORMED, "citation cycle through");
     expect("cyc_a.rlt", MALFORMED, "citation cycle through");
 }
 
-/// lib/identities.tsv is append-only against a base commit.
+/// lib/identities.tsv is append-only across every committed version.
 #[test]
 fn identity_registry_is_append_only() {
     let dir = root().join("target/deps-scratch/gitgate");
@@ -732,11 +733,6 @@ fn identity_registry_is_append_only() {
             .output()
             .unwrap()
     };
-    let reg = std::fs::read_to_string(root().join("lib/identities.tsv")).unwrap();
-    std::fs::write(dir.join("lib/identities.tsv"), &reg).unwrap();
-    git(&["init", "-q"]);
-    git(&["add", "."]);
-    git(&["commit", "-q", "-m", "base"]);
     let gate = || {
         std::process::Command::new(root().join("scripts/check-identities.sh"))
             .arg("HEAD")
@@ -746,15 +742,20 @@ fn identity_registry_is_append_only() {
             .status
             .code()
     };
+    let reg = std::fs::read_to_string(root().join("lib/identities.tsv")).unwrap();
+    std::fs::write(dir.join("lib/identities.tsv"), &reg).unwrap();
+    git(&["init", "-q"]);
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "base"]);
     assert_eq!(gate(), Some(0));
-    // Appending a new identity is allowed.
-    std::fs::write(
-        dir.join("lib/identities.tsv"),
-        format!("{reg}new.id\t{}\t{}\n", "a".repeat(64), "b".repeat(64)),
-    )
-    .unwrap();
+    // Appending a new identity is allowed, committed or not.
+    let grown = format!("{reg}new.id\t{}\t{}\n", "a".repeat(64), "b".repeat(64));
+    std::fs::write(dir.join("lib/identities.tsv"), &grown).unwrap();
     assert_eq!(gate(), Some(0));
-    // Changing an existing identity's fingerprint is refused.
+    git(&["commit", "-qam", "grow"]);
+    assert_eq!(gate(), Some(0));
+    // Changing an existing identity's fingerprint is refused, in the working
+    // tree and after it is committed (the check reads every version).
     let line = reg
         .lines()
         .find(|l| l.starts_with("mod30.classification\t"))
@@ -764,15 +765,134 @@ fn identity_registry_is_append_only() {
     f[1] = &forged;
     std::fs::write(
         dir.join("lib/identities.tsv"),
-        reg.replace(line, &f.join("\t")),
+        grown.replace(line, &f.join("\t")),
     )
     .unwrap();
     assert_eq!(gate(), Some(1));
-    // Removing one is refused.
-    std::fs::write(
-        dir.join("lib/identities.tsv"),
-        reg.replace(&format!("{line}\n"), ""),
-    )
-    .unwrap();
+    git(&["commit", "-qam", "rebind"]);
+    assert_eq!(gate(), Some(1), "a committed rebinding is still refused");
+    // Removing the file is refused.
+    std::fs::remove_file(dir.join("lib/identities.tsv")).unwrap();
     assert_eq!(gate(), Some(1));
+}
+
+fn scratch_file(dir: &Path, name: &str, text: &str) -> String {
+    std::fs::write(dir.join(name), text).unwrap();
+    sha(&dir.join(name))
+}
+
+/// Audit regressions (RLT-004c audit 1–7).
+#[test]
+fn audit_regressions() {
+    let dir = root().join("target/deps-scratch/audit");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let rel = "target/deps-scratch/audit";
+    // 6: alpha-variants and assumption names leave the fingerprint unchanged.
+    let a02_path = std::fs::read_dir(root().join("tests/m3a/accept"))
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .find(|p| p.file_name().unwrap().to_string_lossy().starts_with("A02"))
+        .unwrap();
+    let a02 = std::fs::read_to_string(&a02_path).unwrap();
+    scratch_file(
+        &dir,
+        "a02y.rlt",
+        &a02.replace("∀x. x × 0 = 0", "∀y. y × 0 = 0")
+            .replace("(forall x (= (* x 0) 0))", "(forall y (= (* y 0) 0))"),
+    );
+    let fp = |f: &str| {
+        deps(&root(), &format!("{rel}/{f}"))
+            .root
+            .unwrap()
+            .fingerprint
+            .unwrap()
+    };
+    let a02_rel = a02_path
+        .strip_prefix(root())
+        .unwrap()
+        .to_string_lossy()
+        .to_string();
+    assert_eq!(
+        deps(&root(), &a02_rel).root.unwrap().fingerprint.unwrap(),
+        fp("a02y.rlt"),
+        "an alpha-variant is the same statement"
+    );
+    let cond = std::fs::read_to_string(root().join("tests/accept/M1_conditional.rlt")).unwrap();
+    scratch_file(
+        &dir,
+        "condg.rlt",
+        &cond
+            .replace("(assume h ", "(assume g ")
+            .replace("(hyp h)", "(hyp g)"),
+    );
+    assert_eq!(
+        deps(&root(), "tests/accept/M1_conditional.rlt")
+            .root
+            .unwrap()
+            .fingerprint
+            .unwrap(),
+        fp("condg.rlt"),
+        "an assumption's name is a label, not part of the statement"
+    );
+    // 2: a refused citation is shown as refused and adds nothing to the unions.
+    let mut cc = std::fs::read_to_string(root().join("tests/accept/M1_thirty.rlt")).unwrap();
+    let i = cc.find("(steps").unwrap();
+    cc.insert_str(
+        i,
+        &format!(
+            "(cites (C \"tests/accept/M1_conditional.rlt\" \"{}\"))\n  ",
+            sha(&root().join("tests/accept/M1_conditional.rlt"))
+        ),
+    );
+    scratch_file(&dir, "cc.rlt", &cc);
+    let d = deps(&root(), &format!("{rel}/cc.rlt"));
+    let t = render_text(&d);
+    assert_eq!(d.exit, MALFORMED, "{t}");
+    let c = &d.root.as_ref().unwrap().children[0];
+    assert!(
+        c.checked && c.problem.as_deref().unwrap().contains("conditional"),
+        "{t}"
+    );
+    assert!(
+        t.contains("citation refused: citation `C`: the cited theorem is conditional"),
+        "{t}"
+    );
+    assert!(
+        !d.axioms.contains(&"mul_succ".to_string()),
+        "refused edge excluded: {:?}",
+        d.axioms
+    );
+    // 4 and 5 and 7 on scratch repositories.
+    let r = scratch_root("audit-stale-record");
+    edit(
+        &r,
+        "statements/MATH29-PAIRING.yaml",
+        "checked_goal: \"29 + 1 = 30\"",
+        "checked_goal: \"29 + 1 = 31\"",
+    );
+    let d = deps(&r, "arith.add.29_1_30");
+    assert_eq!(d.exit, STALE, "{}", render_text(&d));
+    assert!(render_text(&d).contains("stale         statement record statements/MATH29-PAIRING.yaml: entry rlt explain exit 0 · current rlt explain exit 3"));
+    let r = scratch_root("audit-invalid-lib");
+    std::fs::write(r.join("lib/junk.txt"), "x").unwrap();
+    let d = deps(&r, "tests/m3e/accept/PD_00.rlt");
+    assert_eq!(d.exit, MALFORMED, "{}", render_text(&d));
+    let r = scratch_root("audit-alt-rejected");
+    let cr10 = "tests/m3c/reject/CR10_two_not_divides_eight.rlt";
+    std::fs::create_dir_all(r.join("tests/m3c/reject")).unwrap();
+    std::fs::copy(root().join(cr10), r.join(cr10)).unwrap();
+    edit(
+        &r,
+        "lib/dvd/dvd.2_4.yaml",
+        "uses: []",
+        &format!(
+            "uses: []\nalternatives:\n  - {{path: {cr10}, sha256: {}}}",
+            sha(&r.join(cr10))
+        ),
+    );
+    let d = deps(&r, "dvd.2_4");
+    assert_eq!(d.exit, REJECT, "{}", render_text(&d));
+    // An id ending in `.rlt` is refused.
+    assert!(rlt_syntax::records::lib_id("arith.rlt", "t").is_err());
 }

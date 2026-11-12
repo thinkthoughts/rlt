@@ -1,7 +1,7 @@
 format: rlt-lib/1
 id: dvd.not.3_17
 title: "¬(3 ∣ 17)"
-fingerprint: 950917039d27d28c520e533b899124cbe36f37171297b03f723602f769016d82
+fingerprint: 7424fdc890b9aa39fac1203f2043891a4eb55b8d3c349916e631111571bbf129
 proof: {path: tests/m3e/accept/ND_3_17.rlt, sha256: 8142681b2f3e1afc1794eae2ac1ec08f61d9fb61effdaa1221e7d2b6bdebdabe}
 proof_id: M3e.ND_3_17
 axiom_set: ROBINSON-Q

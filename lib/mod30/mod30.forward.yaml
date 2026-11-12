@@ -1,7 +1,7 @@
 format: rlt-lib/1
 id: mod30.forward
 title: "∀r. r < 30 → (free235(r) → (r = 1 ∨ r = 7 ∨ r = 11 ∨ r = 13 ∨ r = 17 ∨ r = 19 ∨ r = 23 ∨ r = 29))"
-fingerprint: 91f5330a8e8f4b61d1f74739dce234c205851b239412e44f1bae933b8f6cab03
+fingerprint: 374594a5ef4d18e77057e76763b43a5338d8a53b17573e118e4e3f6e892cd3ee
 proof: {path: tests/m3e/accept/E_FWD.rlt, sha256: 4758d9dd7ffb2d875e11b0cbeac3eb0d47faae5e3b59308e831fa25c01a92182}
 proof_id: M3e.E_FWD
 axiom_set: ROBINSON-Q

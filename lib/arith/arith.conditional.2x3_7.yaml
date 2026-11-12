@@ -1,7 +1,7 @@
 format: rlt-lib/1
 id: arith.conditional.2x3_7
 title: "2 × 3 + 1 = 8"
-fingerprint: 3fc1bc2470b6f62e1bc9b6f563a75f409bec8410fb8354ab2efcafd44608a742
+fingerprint: cf1f50c49c38209355a7399a9c945b2ac9f582f3832d2761a62bd188bea52a81
 proof: {path: tests/accept/M1_conditional.rlt, sha256: de8dee325db954b8bc0ade312d441a3e4be340d1a21c340b17166e377b418c42}
 proof_id: M1.conditional
 axiom_set: PEANO-ARITH
