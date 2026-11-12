@@ -1,0 +1,17 @@
+format: rlt-lib/1
+id: dvd.2_8
+title: "2 ∣ 8"
+fingerprint: 3a8cb9c8b73e4ee0464eeb3c6e4bd5c8bcd4604f88d6dc03e3ea3d659c4074c7
+proof: {path: tests/m3c/accept/CA01_two_divides_eight.rlt, sha256: c237e7de9c8a5ef620506fbe5e18469b7b624c652beef5dd63369cdf2765196d}
+proof_id: M3c.CA01
+alternatives:
+  - {path: tests/m3e/accept/PD_08.rlt, sha256: 16a430f5fffb04f36f6181c5dbc00f85f8e0657a9725b5e29ad924e720291ed3}
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∃k. 8 = 2 × k"
+assumptions: []
+citable: true
+uses: []
+statement_records:
+  - statements/DVD-2-8.yaml
+history: []

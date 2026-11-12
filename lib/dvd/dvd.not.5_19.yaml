@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.not.5_19
+title: "¬(5 ∣ 19)"
+fingerprint: b6aa28f69fad313284ec7b5e99a7bc38cf10cd7b7cfd8b0afe62dbaf9b235b4b
+proof: {path: tests/m3e/accept/ND_5_19.rlt, sha256: 655efa10520aa843cc217472692e31ea061846af75661e058d6806e3a8c75eeb}
+proof_id: M3e.ND_5_19
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "¬(∃k. 19 = 5 × k)"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

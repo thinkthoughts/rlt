@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.2_4
+title: "2 ∣ 4"
+fingerprint: fbb5d0050f58ceea841568a4d89dc835cb9add39cab424f0513b35e5d7e1284e
+proof: {path: tests/m3e/accept/PD_04.rlt, sha256: ceb1c81de4d70ff038914bd5bbf8ca021d15c35bcea98880a4853d4749dcf47f}
+proof_id: M3e.PD_04
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∃k. 4 = 2 × k"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

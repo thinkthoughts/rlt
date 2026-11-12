@@ -1,0 +1,17 @@
+format: rlt-lib/1
+id: dvd.free235.19
+title: "free235(19)"
+fingerprint: 20fc1c6ae5c3866d778ef67bbb0abc3752039c15fdb4296f20af298786222ac8
+proof: {path: tests/m3e/accept/F_19.rlt, sha256: 0da76b329984bb7003e09c00e1bcc42511a7f3ba04539851763b8906e43295d1}
+proof_id: M3e.F_19
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "(¬(∃k. 19 = 2 × k) ∧ ¬(∃k. 19 = 3 × k)) ∧ ¬(∃k. 19 = 5 × k)"
+assumptions: []
+citable: true
+uses:
+  - dvd.not.2_19
+  - dvd.not.3_19
+  - dvd.not.5_19
+statement_records: []
+history: []

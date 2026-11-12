@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.witnesswise.2_7
+title: "∀k. ¬(7 = 2 × k)"
+fingerprint: 92dfa9949ad84d8c76c41812a906b865cc18b9f7de89c8a27fdcf3acd111b1a1
+proof: {path: tests/m3c/accept/CA06_two_witnesswise.rlt, sha256: 0b8becbe09a5e27af158cdc6559f648764f48b88c29d580e8636d7a535baef1a}
+proof_id: M3c.CA06
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀k. ¬(7 = 2 × k)"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

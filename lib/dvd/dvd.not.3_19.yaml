@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.not.3_19
+title: "¬(3 ∣ 19)"
+fingerprint: ccf1b93b3ffc0364c636e1d951f599d2bff9f75f62217c85dc33eb393c5dda58
+proof: {path: tests/m3e/accept/ND_3_19.rlt, sha256: 7181670dd1ca87a4eb1c6de1d61a1cd180bb6f15561e4e4d383d99b30e61caf5}
+proof_id: M3e.ND_3_19
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "¬(∃k. 19 = 3 × k)"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

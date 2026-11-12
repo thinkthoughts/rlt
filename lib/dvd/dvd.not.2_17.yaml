@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.not.2_17
+title: "¬(2 ∣ 17)"
+fingerprint: b576f6717d1ce5c08a7025db78f301263e0c72db15aadf60379d5a3d5e256864
+proof: {path: tests/m3e/accept/ND_2_17.rlt, sha256: 6f44692d11770aba7175b46f9f694345e2188bd4879b0b55ecb45c78e0a66029}
+proof_id: M3e.ND_2_17
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "¬(∃k. 17 = 2 × k)"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

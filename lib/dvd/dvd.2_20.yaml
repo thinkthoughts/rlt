@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.2_20
+title: "2 ∣ 20"
+fingerprint: 135807bf21e79492893f1605612addba527f67ead08fe87808afaffccb1db151
+proof: {path: tests/m3e/accept/PD_20.rlt, sha256: f3492d6696558311a57d75a2608156255631390a8ce04a55468c116d0e26fcca}
+proof_id: M3e.PD_20
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∃k. 20 = 2 × k"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

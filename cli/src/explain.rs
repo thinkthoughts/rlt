@@ -3,7 +3,7 @@
 //!
 //! This module sits outside the trusted kernel. The kernel outcome comes from
 //! the same function `rlt check` uses (`check_inner`, through
-//! `check_preread_outcome`), run on exactly the bytes whose SHA-256 is
+//! `check_bytes_outcome`), run on exactly the bytes whose SHA-256 is
 //! reported. A defect here could misstate a verdict to a reader or a
 //! consumer of the JSON; it cannot change what the kernel accepts, and the
 //! full `rlt check` report is carried in the JSON so any reader can compare.
@@ -106,7 +106,7 @@ pub fn json_write(v: &Json, indent: usize, out: &mut String) {
     }
 }
 
-fn obj(fields: Vec<(&str, Json)>) -> Json {
+pub(crate) fn obj(fields: Vec<(&str, Json)>) -> Json {
     Json::Obj(
         fields
             .into_iter()
@@ -236,6 +236,10 @@ pub struct Explanation {
     pub semantic: Option<SemanticBlock>,
     pub physical: Option<PhysicalBlock>,
     pub open_questions: Vec<String>,
+    /// RLT-004c: the library entry whose proof pin is this record's, if any,
+    /// and the state of the library index (`valid` or the reason it is not).
+    pub library_id: Option<String>,
+    pub library_index: String,
     pub exit: i32,
 }
 
@@ -287,15 +291,20 @@ fn line<'a>(report: &'a str, label: &str) -> Option<&'a str> {
 }
 
 fn kernel_block(root: &Path, proof_path: &Path, rel: &str, bytes: &[u8]) -> KernelBlock {
-    let sha = sha256_hex(bytes);
-    let mut k = KernelBlock {
-        proof: rel.to_string(),
-        sha256: sha,
-        ..Default::default()
-    };
-    // One read: the bytes hashed above are the bytes checked, whether or not
+    // One read: the bytes hashed here are the bytes checked, whether or not
     // they are UTF-8 (a non-UTF-8 file gets `rlt check`'s own report).
     let out = crate::check_bytes_outcome(root, proof_path, bytes.to_vec());
+    kernel_fields(&out, rel, &sha256_hex(bytes))
+}
+
+/// The kernel block of one checked file: `rel` and `sha` name the bytes the
+/// outcome checked. Used by `rlt explain` and, per node, by `rlt deps`.
+pub fn kernel_fields(out: &crate::CheckOutcome, rel: &str, sha: &str) -> KernelBlock {
+    let mut k = KernelBlock {
+        proof: rel.to_string(),
+        sha256: sha.to_string(),
+        ..Default::default()
+    };
     let r = &out.report.text;
     k.check_report = r.clone();
     if out.report.code == ACCEPT {
@@ -401,6 +410,8 @@ fn invalid(path: String, problem: String) -> Explanation {
         semantic: None,
         physical: None,
         open_questions: vec![],
+        library_id: None,
+        library_index: String::new(),
         exit: MALFORMED,
     }
 }
@@ -458,7 +469,21 @@ fn explain_at(root: &Path, record: &str) -> Explanation {
         Err(e) => return invalid(shown, e),
     };
     match resolve(root, &rec) {
-        Ok(x) => finish(shown, rec, x),
+        Ok(x) => {
+            let mut e = finish(shown, rec, x);
+            // The library link is reported, never relied on: it changes no
+            // status and no exit code.
+            match crate::deps::load_library(root) {
+                Ok(l) => {
+                    e.library_index = "valid".into();
+                    if let Some(k) = &e.kernel {
+                        e.library_id = l.by_pin(&k.proof, &k.sha256).map(|x| x.id.clone());
+                    }
+                }
+                Err(m) => e.library_index = format!("invalid: {m}"),
+            }
+            e
+        }
         Err(e) => {
             let mut x = invalid(shown, e);
             x.id = Some(rec.id);
@@ -769,6 +794,8 @@ fn finish(path: String, rec: StatementRecord, x: Resolved) -> Explanation {
         semantic: Some(semantic),
         physical: Some(x.physical),
         open_questions: rec.open_questions,
+        library_id: None,
+        library_index: String::new(),
         exit,
     }
 }
@@ -780,14 +807,14 @@ const L: usize = 16;
 
 /// One report line. Every value passes through `one`, so no value from a
 /// record, proof file or report can add, split or reorder lines.
-fn row(t: &mut String, label: &str, value: &str) {
+pub(crate) fn row(t: &mut String, label: &str, value: &str) {
     let _ = writeln!(t, "{label:<L$}{}", one(value), L = L);
 }
 
 /// A string from a record or report, shown on one line: control characters,
 /// line and paragraph separators, bidirectional controls and other invisible
 /// characters are escaped, so no value can add or reorder report lines.
-fn one(s: &str) -> String {
+pub(crate) fn one(s: &str) -> String {
     s.chars()
         .map(|c| {
             if c.is_control() || rlt_syntax::records::invisible(c) {
@@ -854,6 +881,15 @@ pub fn render_text(x: &Explanation) -> String {
             ),
         );
         row(&mut t, "  sha256", &k.sha256);
+        row(
+            &mut t,
+            "  library",
+            &match (&x.library_id, x.library_index.as_str()) {
+                (Some(id), _) => format!("{id} (rlt deps {id})"),
+                (None, "valid") => "no lib/ entry has this proof pin".to_string(),
+                (None, m) => format!("lib/ index {m}"),
+            },
+        );
         for (label, v) in [
             ("  written goal", &k.written_goal),
             ("  convention", &k.convention),
@@ -1146,6 +1182,8 @@ pub fn to_json(x: &Explanation) -> Json {
             ("checker_exit", Json::Int(k.exit as i64)),
             ("proof", Json::s(&k.proof)),
             ("sha256", Json::s(&k.sha256)),
+            ("library_id", Json::opt(&x.library_id)),
+            ("library_index", Json::s(&x.library_index)),
             ("proof_id", Json::opt(&k.proof_id)),
             ("written_goal", Json::opt(&k.written_goal)),
             ("convention", Json::opt(&k.convention)),

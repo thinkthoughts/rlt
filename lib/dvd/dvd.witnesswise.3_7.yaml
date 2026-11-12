@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.witnesswise.3_7
+title: "∀k. ¬(7 = 3 × k)"
+fingerprint: 43749ac6e3d3af04e014ede79fb203d7bc117c69ab80fa40489b2caca5e36aca
+proof: {path: tests/m3c/accept/CA07_three_witnesswise.rlt, sha256: 79bfde645249830abe3077388f916df28eb7ee66bf2be23dbd85d71370bb7f8b}
+proof_id: M3c.CA07
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀k. ¬(7 = 3 × k)"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

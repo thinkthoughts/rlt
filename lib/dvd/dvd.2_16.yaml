@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.2_16
+title: "2 ∣ 16"
+fingerprint: 0640942084e1d483594d001d943abc7a42de5f7d5329681837aa7f5621f8491b
+proof: {path: tests/m3e/accept/PD_16.rlt, sha256: fb1a5d4de354edd745977684e775584f11c2714480653240abb071775a2d7e8c}
+proof_id: M3e.PD_16
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∃k. 16 = 2 × k"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

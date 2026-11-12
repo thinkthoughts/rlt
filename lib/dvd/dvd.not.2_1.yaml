@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.not.2_1
+title: "¬(2 ∣ 1)"
+fingerprint: 5253ceaef77e3599b168e359c12535c1c4b789afa4287d97dee88283119a15a4
+proof: {path: tests/m3e/accept/ND_2_01.rlt, sha256: c252b05c124456bb41094bdc4b1ebf1347ed08b632e37cdbacd8aafd49121db3}
+proof_id: M3e.ND_2_01
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "¬(∃k. 1 = 2 × k)"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

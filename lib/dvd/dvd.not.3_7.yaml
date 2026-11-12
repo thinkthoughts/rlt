@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.not.3_7
+title: "¬(3 ∣ 7)"
+fingerprint: 0d038fa7fdab4fb96ce50b8bb9796a9d95b9479f6b82eac8f545c39992076f68
+proof: {path: tests/m3c/accept/CA03_three_not_divides_seven.rlt, sha256: bfec4c786c3b80c823812266023880ce2b58545d3ad4f4ca673b1b52f69355a6}
+proof_id: M3c.CA03
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "¬(∃k. 7 = 3 × k)"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

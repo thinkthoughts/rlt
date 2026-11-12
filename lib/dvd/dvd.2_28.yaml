@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.2_28
+title: "2 ∣ 28"
+fingerprint: a0e461d2da937435807765ecc2badc0897c34ec21f8d3374971d7ff83704d633
+proof: {path: tests/m3e/accept/PD_28.rlt, sha256: 37a515009a3561a795d0af599fb7139de8fe6259a9884dda8f01aee7e75ccc8b}
+proof_id: M3e.PD_28
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∃k. 28 = 2 × k"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

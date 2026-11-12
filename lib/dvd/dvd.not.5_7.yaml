@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.not.5_7
+title: "¬(5 ∣ 7)"
+fingerprint: 0adc4accc4fff2220f1283ec6ee2d036e622eca76320603a3c2a08978563f1d9
+proof: {path: tests/m3c/accept/CA04_five_not_divides_seven.rlt, sha256: 5877f73c4b6fef01f0731e46b60210f7cd68a845ebb357ebf1175d0b00017570}
+proof_id: M3c.CA04
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "¬(∃k. 7 = 5 × k)"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

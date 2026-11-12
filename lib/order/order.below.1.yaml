@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: order.below.1
+title: "∀x. x < 1 → x = 0"
+fingerprint: 33c7d341402632493c0a8bb60e7ec1fbf7691e2faef032699d04a67a97ae905a
+proof: {path: tests/m3d/accept/DA03_below_one.rlt, sha256: 110250791ce5b0836ea9df2eb400e5bb67a665a3f6394777259bc807491ca68b}
+proof_id: M3d.DA03
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀x. ((∃z. S(z) + x = 1) → x = 0)"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

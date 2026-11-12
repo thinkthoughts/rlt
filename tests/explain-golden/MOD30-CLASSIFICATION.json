@@ -22,6 +22,8 @@
     "checker_exit": 0,
     "proof": "tests/m3e/accept/E_T1.rlt",
     "sha256": "e11712c64baf6fcb40bc172b5d7e12607809c85b9f1cd087064a0c17ca651750",
+    "library_id": "mod30.classification",
+    "library_index": "valid",
     "proof_id": "M3e.E_T1",
     "written_goal": "\"∀r. r < 30 → (free235(r) → (r = 1 ∨ r = 7 ∨ r = 11 ∨ r = 13 ∨ r = 17 ∨ r = 19 ∨ r = 23 ∨ r = 29)) ∧ ((r = 1 ∨ r = 7 ∨ r = 11 ∨ r = 13 ∨ r = 17 ∨ r = 19 ∨ r = 23 ∨ r = 29) → free235(r))\"",
     "convention": "NAT-DEF",

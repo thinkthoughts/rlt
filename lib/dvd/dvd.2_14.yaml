@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.2_14
+title: "2 ∣ 14"
+fingerprint: 7ba42a9249260e98f0eb7c287ae339019ce7ea9310f5d553a88c8a09d7b4c355
+proof: {path: tests/m3e/accept/PD_14.rlt, sha256: 8075e458e5c0a04180e06ab14d918b8157639849e75c73f51bea90793383102a}
+proof_id: M3e.PD_14
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∃k. 14 = 2 × k"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

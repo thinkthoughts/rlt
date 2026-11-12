@@ -1,0 +1,38 @@
+format: rlt-lib/1
+id: mod30.backward
+title: "∀r. (r = 1 ∨ r = 7 ∨ r = 11 ∨ r = 13 ∨ r = 17 ∨ r = 19 ∨ r = 23 ∨ r = 29) → free235(r)"
+fingerprint: 1dea82ab40f2dfe69ebd9ff9c720eee280421b779ee4b48951d40dd016b6d339
+proof: {path: tests/m3e/accept/E_BWD.rlt, sha256: 10e27c9f3b49b902cefae86ffc0f3067d32abdbac754a64cf3256efd524d16bf}
+proof_id: M3e.E_BWD
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀r. ((((((((r = 1 ∨ r = 7) ∨ r = 11) ∨ r = 13) ∨ r = 17) ∨ r = 19) ∨ r = 23) ∨ r = 29) → ((¬(∃k. r = 2 × k) ∧ ¬(∃k. r = 3 × k)) ∧ ¬(∃k. r = 5 × k)))"
+assumptions: []
+citable: true
+uses:
+  - dvd.not.2_1
+  - dvd.not.3_1
+  - dvd.not.5_1
+  - dvd.not.2_7
+  - dvd.not.3_7
+  - dvd.not.5_7
+  - dvd.not.2_11
+  - dvd.not.3_11
+  - dvd.not.5_11
+  - dvd.not.2_13
+  - dvd.not.3_13
+  - dvd.not.5_13
+  - dvd.not.2_17
+  - dvd.not.3_17
+  - dvd.not.5_17
+  - dvd.not.2_19
+  - dvd.not.3_19
+  - dvd.not.5_19
+  - dvd.not.2_23
+  - dvd.not.3_23
+  - dvd.not.5_23
+  - dvd.not.2_29
+  - dvd.not.3_29
+  - dvd.not.5_29
+statement_records: []
+history: []

@@ -1,0 +1,17 @@
+format: rlt-lib/1
+id: dvd.free235.11
+title: "free235(11)"
+fingerprint: 110bbee0af043e64f5801b50b96d3f4e22a8c1ae147b6b89bdde20373b1a4925
+proof: {path: tests/m3e/accept/F_11.rlt, sha256: d90399be9903aeb440029e7e6eb9d2d54a49a1f067febd100b51b5bf8bd2c7f0}
+proof_id: M3e.F_11
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "(¬(∃k. 11 = 2 × k) ∧ ¬(∃k. 11 = 3 × k)) ∧ ¬(∃k. 11 = 5 × k)"
+assumptions: []
+citable: true
+uses:
+  - dvd.not.2_11
+  - dvd.not.3_11
+  - dvd.not.5_11
+statement_records: []
+history: []

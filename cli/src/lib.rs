@@ -2,6 +2,7 @@
 //! Every report is a deterministic string so tests can compare it with a
 //! golden file.
 
+pub mod deps;
 pub mod explain;
 pub mod gen;
 pub mod residues;
@@ -365,6 +366,24 @@ pub struct CheckOutcome {
     /// The checked goal as a formula (RLT-003 M3a).
     pub prop: Option<rlt_kernel::Prop>,
     pub theorem: Option<Theorem>,
+    /// RLT-004c: the citations this check resolved, in the file's order, each
+    /// with the outcome of checking the cited bytes. Recorded during the one
+    /// check `rlt check` performs; reports and verdicts are unaffected.
+    pub citations: Vec<CitationTrace>,
+}
+
+/// One citation as `check_inner` resolved it (RLT-004c, `rlt deps`).
+pub struct CitationTrace {
+    pub label: String,
+    /// The path exactly as written in the citing file.
+    pub path: String,
+    /// The SHA-256 the citing file records.
+    pub sha256: String,
+    /// The outcome of checking the cited bytes; `None` when the citation
+    /// failed before its file was checked (path, cycle, hash, budget).
+    pub outcome: Option<Box<CheckOutcome>>,
+    /// Why the citation failed, when it did.
+    pub problem: Option<String>,
 }
 
 /// `rlt check FILE`: replay one proof file and report every layer separately.
@@ -419,6 +438,7 @@ pub fn check_bytes_outcome(root: &Path, file: &Path, bytes: Vec<u8>) -> CheckOut
                 goal: None,
                 prop: None,
                 theorem: None,
+                citations: Vec::new(),
             }
         }
     }
@@ -495,6 +515,7 @@ fn check_inner(
         goal: None,
         prop: None,
         theorem: None,
+        citations: Vec::new(),
     };
     macro_rules! bail {
         ($msg:expr) => {{
@@ -663,37 +684,52 @@ fn check_inner(
         }
         for c in &pf.cites {
             let l = &c.label;
+            // A citation that fails before its file is checked is recorded
+            // with its problem, then reported exactly as before.
+            macro_rules! cite_bail {
+                ($msg:expr) => {{
+                    let msg: String = $msg;
+                    out.citations.push(CitationTrace {
+                        label: l.clone(),
+                        path: c.path.clone(),
+                        sha256: c.sha256.clone(),
+                        outcome: None,
+                        problem: Some(msg.clone()),
+                    });
+                    bail!(msg)
+                }};
+            }
             let path = match citation_path(root, &c.path) {
                 Ok(p) => p,
-                Err(e) => bail!(format!("citation `{l}`: {e}")),
+                Err(e) => cite_bail!(format!("citation `{l}`: {e}")),
             };
             let canon = match path.canonicalize() {
                 Ok(p) => p,
-                Err(e) => bail!(format!("citation `{l}`: {}", e.kind())),
+                Err(e) => cite_bail!(format!("citation `{l}`: {}", e.kind())),
             };
             if here.contains(&canon) {
-                bail!(format!(
+                cite_bail!(format!(
                     "citation `{l}`: citation cycle through {}",
                     c.path.escape_debug()
                 ));
             }
             let bytes = match std::fs::read(&path) {
                 Ok(b) => b,
-                Err(e) => bail!(format!("citation `{l}`: {}", e.kind())),
+                Err(e) => cite_bail!(format!("citation `{l}`: {}", e.kind())),
             };
             let actual = sha256_hex(&bytes);
             if actual != c.sha256 {
-                bail!(format!(
+                cite_bail!(format!(
                     "citation `{l}`: {} has SHA-256 {actual}; the citation records {}",
                     c.path.escape_debug(),
                     c.sha256
                 ));
             }
             let Ok(text) = String::from_utf8(bytes) else {
-                bail!(format!("citation `{l}`: the cited file is not UTF-8"));
+                cite_bail!(format!("citation `{l}`: the cited file is not UTF-8"));
             };
             if budget.get() == 0 {
-                bail!(format!(
+                cite_bail!(format!(
                     "citation `{l}`: the citations would check more than {MAX_CITED_CHECKS} files"
                 ));
             }
@@ -709,13 +745,26 @@ fn check_inner(
                 .trim_start_matches("verdict")
                 .trim()
                 .to_string();
-            let (Some(th), Some(spf)) = (sub.theorem, sub.proof) else {
+            let (th, spf) = (sub.theorem.clone(), sub.proof.clone());
+            out.citations.push(CitationTrace {
+                label: l.clone(),
+                path: c.path.clone(),
+                sha256: c.sha256.clone(),
+                outcome: Some(Box::new(sub)),
+                problem: None,
+            });
+            let (Some(th), Some(spf)) = (th, spf) else {
                 bail!(format!(
                     "citation `{l}`: {} is not an accepted theorem ({sub_verdict})",
                     c.path.escape_debug()
                 ));
             };
-            if sub.report.code != ACCEPT {
+            if out
+                .citations
+                .last()
+                .map(|t| t.outcome.as_ref().map(|o| o.report.code))
+                != Some(Some(ACCEPT))
+            {
                 bail!(format!(
                     "citation `{l}`: {} is not an accepted theorem ({sub_verdict})",
                     c.path.escape_debug()
@@ -941,6 +990,7 @@ pub fn bind_proof(
             goal: None,
             prop: None,
             theorem: None,
+            citations: Vec::new(),
         };
         return (
             out,
@@ -970,6 +1020,7 @@ pub fn bind_proof(
             goal: None,
             prop: None,
             theorem: None,
+            citations: Vec::new(),
         };
         return (
             out,

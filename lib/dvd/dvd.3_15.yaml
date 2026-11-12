@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.3_15
+title: "3 ∣ 15"
+fingerprint: 6016e94fd34861e3bbcee8b6e6d9a5286b11ca3648652e0675ff5b943a695325
+proof: {path: tests/m3e/accept/PD_15.rlt, sha256: be1f0ee7ff7e699d1eae651b3364cdd9f75bf8bc93037da1a5637613b1ced4f4}
+proof_id: M3e.PD_15
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∃k. 15 = 3 × k"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

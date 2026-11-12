@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.not.3_1
+title: "¬(3 ∣ 1)"
+fingerprint: d43fb1bf9575efd0b4bff92c3963f2001c554a2db2da0a4c7e66c06c6054d8a0
+proof: {path: tests/m3e/accept/ND_3_01.rlt, sha256: 930ef8490e2dbf5752ac9cee483dfa10be6a9f3683ec2715e7e35a34b1a87e50}
+proof_id: M3e.ND_3_01
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "¬(∃k. 1 = 3 × k)"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

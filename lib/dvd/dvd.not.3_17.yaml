@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: dvd.not.3_17
+title: "¬(3 ∣ 17)"
+fingerprint: 950917039d27d28c520e533b899124cbe36f37171297b03f723602f769016d82
+proof: {path: tests/m3e/accept/ND_3_17.rlt, sha256: 8142681b2f3e1afc1794eae2ac1ec08f61d9fb61effdaa1221e7d2b6bdebdabe}
+proof_id: M3e.ND_3_17
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "¬(∃k. 17 = 3 × k)"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []
