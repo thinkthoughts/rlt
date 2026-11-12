@@ -91,3 +91,28 @@ RLT-004b (statement records and `rlt explain`) review: docs/RLT-004b-REVIEW.md.
 - **Deviations:** none in the merge. One stale doc comment at the top of `cli/src/explain.rs` still names `check_preread_outcome`; the code calls `check_bytes_outcome`. It is a comment-only correction, listed for RLT-004c implementation.
 
 RLT-004c (theorem library and `rlt deps`) review: docs/RLT-004c-REVIEW.md.
+
+## Merge record, 2026-11-11 (RLT-004c)
+
+- **Gate before merge:**
+  - PR #12 head was exactly 6698345, and CI `check` and `gdt-comparison` were green on it.
+  - The final audit corrections were present: the first-parent identity gate, refused-citation tracing, over-limit counts, assumption dedup.
+  - Kernel, rules, axiom sets, definitions, conventions, reading points, statement records and earlier proofs were unchanged. The only existing test files that changed were the two `rlt explain` golden files, which gain the approved C5 `library` line.
+- **Branch protection (recorded, not changed):**
+  - `GET repos/thinkthoughts/rlt/branches/main/protection` returns 404 "Branch not protected"; `branches/main` reports `protected: false`.
+  - There are no rulesets (`rulesets` and `rules/branches/main` are empty).
+  - Main does not currently prevent force-pushes or history rewriting.
+  - The append-only identity rule relies on main's history being stable. Enabling protection (no force-push, no deletion) is recommended and awaits approval.
+- **PR #12 merged:** marked ready, then merged as merge commit **c42729b**, with parents 45c94b5 and 6698345. The merge tree 9e459bed equals 6698345's tree.
+- **Fresh clone of main at c42729b** (shallow clone, deepened):
+  - `cargo test --release` passes 257 of 257;
+  - `scripts/verify.sh` prints `RESULT all checks hold` (library 68 of 68 current);
+  - `scripts/check-manual.py` reports 25 of 25 examples.
+- **CI on c42729b:** `check` and `gdt-comparison` both succeed.
+- **Identity gate on the resulting first-parent history:**
+  - main's first-parent history holds one version of `lib/identities.tsv` (c42729b); the branch's earlier drafts are excluded;
+  - the gate passes on the unchanged file;
+  - editing a fingerprint in the working tree is refused, naming c42729b.
+- **Deviations:** none.
+
+RLT-005 (published-mathematics demonstration) candidate review: docs/RLT-005-REVIEW.md.
