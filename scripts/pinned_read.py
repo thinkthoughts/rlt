@@ -14,6 +14,10 @@ none of the checkout's own Git metadata.
   * Every object on the path commit -> tree -> ... -> blob is re-hashed here
     (SHA-1 of "<type> <size>\\0<content>") and must equal the name it was
     read under, so altered object bytes are refused whatever the store holds.
+  * Each object's stored type must be the expected one (no following a tag
+    or commit to another object); its size must be at most 50 MB, and the
+    bytes actually read are capped at the reported size.
+  * The path must have no empty, `.` or `..` segment.
   * The commit must be a full 40-hex SHA; callers resolve abbreviated
     registry pins through sources/commit-pins.tsv.
 
@@ -29,6 +33,7 @@ import sys
 import tempfile
 
 FULL = re.compile(r"[0-9a-f]{40}")
+LIMIT = 50 * 1024 * 1024  # bytes per object
 
 
 class PinnedReadError(Exception):
@@ -86,13 +91,52 @@ def read_pinned(checkout, commit, path):
         with open(os.path.join(repo, "objects", "info", "alternates"), "w") as f:
             f.write(objects + "\n")
 
+        def capped(*args, limit):
+            """Run git, reading at most `limit` bytes of its output; more is a
+            refusal and git is stopped (final audit: a header can understate
+            the size, so the cap is enforced on the bytes themselves)."""
+            pr = subprocess.Popen(["git", "--git-dir", repo, *args], env=env, cwd=tmp,
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL)
+            chunks, n = [], 0
+            try:
+                while True:
+                    b = pr.stdout.read(1 << 20)
+                    if not b:
+                        break
+                    n += len(b)
+                    if n > limit:
+                        pr.kill()
+                        raise PinnedReadError(f"git {' '.join(args)}: more than {limit} bytes; refused")
+                    chunks.append(b)
+                err = pr.stderr.read()
+                code = pr.wait(timeout=120)
+            except subprocess.TimeoutExpired:
+                pr.kill()
+                raise PinnedReadError(f"git {' '.join(args)}: no answer within 120 s")
+            finally:
+                if pr.poll() is None:
+                    pr.kill()
+                    pr.wait()
+            if code != 0:
+                raise PinnedReadError(f"git {' '.join(args)}: {err.decode('utf-8', 'replace').strip()[:300]}")
+            return b"".join(chunks)
+
         def obj(kind, sha):
-            # Audit note: size first, so an oversized object is refused
-            # before it is read into memory (50 MB, as for archived files).
+            # The stored type must be the expected one, so `cat-file <type>`
+            # never follows a tag or commit to another object; the size
+            # reported must be within the limit; and the bytes actually read
+            # are capped at that size, whatever the header claims. Memory git
+            # itself uses to rebuild a deltified object is outside this
+            # script's control (bounded in CI by the job's time limit).
+            t = git("cat-file", "-t", sha).strip()
+            if t != kind.encode():
+                raise PinnedReadError(f"{sha}: stored as {t.decode('ascii', 'replace')!r}, expected {kind}")
             size = git("cat-file", "-s", sha).strip()
-            if not size.isdigit() or int(size) > 50 * 1024 * 1024:
-                raise PinnedReadError(f"{kind} {sha}: size {size.decode('ascii', 'replace')!r} refused (limit 50 MB)")
-            data = git("cat-file", kind, sha)
+            if not size.isdigit() or int(size) > LIMIT:
+                raise PinnedReadError(f"{kind} {sha}: size {size.decode('ascii', 'replace')!r} refused (limit {LIMIT} bytes)")
+            data = capped("cat-file", kind, sha, limit=int(size))
+            if len(data) != int(size):
+                raise PinnedReadError(f"{kind} {sha}: {len(data)} bytes read, header says {int(size)}")
             got = hashlib.sha1(f"{kind} {len(data)}\0".encode() + data).hexdigest()
             if got != sha:
                 raise PinnedReadError(f"{kind} {sha}: its bytes hash to {got}; the object store is altered")
