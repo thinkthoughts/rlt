@@ -156,6 +156,12 @@ Required because P1–P3 change proof-check scheduling and reuse. An independent
 
   **Re-tested:** the `.git`-file attack (no program runs; the checkout is re-fetched), and symlinked `.git`, checkout and `objects` directories.
 
+**Confirmation of `9c7798d`:**
+- The auditor reports nothing blocking.
+- Its two remaining notes both concerned an alternates file, carried in through a symlinked `objects/info` or a planted object store. Both already failed safe through `git fsck --full`.
+- They are tidied in the next commit: `objects/info` is always replaced by an empty directory before any cached objects are adopted.
+- Self-tested; the auditor has not yet re-checked this tidy-up.
+
 The fixes were then re-tested:
 - the interrupts and supervisor cases in §1;
 - a partial-backup restore (nothing deleted);

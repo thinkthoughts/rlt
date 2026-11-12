@@ -108,7 +108,6 @@ for name, (slug, commits) in sorted(repos.items()):
         keep = d.parent / f".{name}.objects"
         shutil.rmtree(keep, ignore_errors=True)
         os.replace(objs, keep)
-        shutil.rmtree(keep / "info", ignore_errors=True)
         shutil.rmtree(d)
     if not (d / ".git").is_dir():
         d.mkdir(parents=True, exist_ok=True)
@@ -116,9 +115,19 @@ for name, (slug, commits) in sorted(repos.items()):
         git("remote", "add", "origin", f"https://github.com/{slug}", cwd=d)
         git("config", "remote.origin.promisor", "true", cwd=d)
         git("config", "remote.origin.partialclonefilter", "blob:none", cwd=d)
-        if (d.parent / f".{name}.objects").is_dir():
+        keep = d.parent / f".{name}.objects"
+        if keep.is_symlink() or (keep.exists() and not keep.is_dir()):
+            keep.unlink()
+        if keep.is_dir():
+            # Only object data is adopted: objects/info (alternates and
+            # http-alternates), a file or symlink, is always replaced.
+            info = keep / "info"
+            if info.is_symlink() or info.is_file():
+                info.unlink()
+            elif info.is_dir():
+                shutil.rmtree(info)
             shutil.rmtree(d / ".git" / "objects")
-            os.replace(d.parent / f".{name}.objects", d / ".git" / "objects")
+            os.replace(keep, d / ".git" / "objects")
             (d / ".git" / "objects" / "info").mkdir(exist_ok=True)
     for c in sorted(commits):
         if git("cat-file", "-e", f"{c}^{{commit}}", cwd=d).returncode == 0:
