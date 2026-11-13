@@ -43,7 +43,7 @@ Intervals: [0, 40], [41, 78], [79, 112], [113, 156], [157, 190], [191, 212]. The
 
 **Argument (cut rule, induction on layers).**
 - *Layer 0.* v's registered proof is re-checked in the run: the kernel accepts ∅ ⊢ φ_v (Γ = ∅ is required, as is a citable, assumption-free library entry). By kernel soundness (`docs/KERNEL-SOUNDNESS.md`) every model of Q satisfies φ_v.
-- *Layer n ≥ 1.* v's assembly is re-checked: the kernel accepts Γ_v ⊢ φ_v with no citations. By kernel soundness, every model of Q satisfying all of Γ_v satisfies φ_v. `rlt compose` requires every γ ∈ Γ_v to have exactly one discharge row, naming a node u of a strictly lower layer that passed earlier in the same run, with canonical(γ) = canonical(φ_u) — the same closed formula up to the names of bound variables — under the same axiom set, convention and definitions file. By the induction hypothesis every model of Q satisfies φ_u, hence γ, hence φ_v.
+- *Layer n ≥ 1.* v's assembly is re-checked: the kernel accepts Γ_v ⊢ φ_v with no citations. By kernel soundness, every model of Q satisfying all of Γ_v satisfies φ_v. `rlt compose` requires every γ ∈ Γ_v to have exactly one discharge row, naming a node u of a strictly lower layer that passed in the same run (the discharges are compared once every node has passed), with canonical(γ) = canonical(φ_u) — the same closed formula up to the names of bound variables — under the same axiom set, convention and definitions file. By the induction hypothesis every model of Q satisfies φ_u, hence γ, hence φ_v.
 - *Well-foundedness.* Layers are integers checked to equal 1 + the highest discharger's layer; every edge strictly decreases the layer, so the graph is acyclic and the layer order is a topological order.
 
 This is the semantic cut rule across files; inside one file the kernel performs the same step with `cite` and imp-elim.
@@ -54,7 +54,7 @@ This is the semantic cut rule across files; inside one file the kernel performs 
 |---|---|
 | Is the composition rule valid? | yes, by the argument above (cut rule; induction on layers) |
 | Did the kernel accept every component and assembly? | **kernel accepted**: each proof re-checked in the run by the unchanged kernel |
-| Did the checker implement the rule correctly? | new trusted code (`cli/src/compose.rs`), cross-checked by an independent implementation (§5), 50 negative cases and audits (§7) |
+| Did the checker implement the rule correctly? | new trusted code (`cli/src/compose.rs`), cross-checked by an independent implementation (§5), 51 negative cases and audits (§7) |
 | Do the six statements say Lemma 12.1? | **source transcription checked** and **semantic correspondence assessed** (`docs/RLT-007d-CORRESPONDENCE.md`) |
 
 **Trusted boundary.**
@@ -63,7 +63,8 @@ This is the semantic cut rule across files; inside one file the kernel performs 
 |---|---|
 | Kernel, 20 rules, Q's 7 axioms, limits, parser, `rlt check`, `canonical()`, fingerprints | trusted already; unchanged |
 | `rlt compose` | new trusted code: reads the bundle and the register, checks the graph, re-checks every proof through the existing check function, compares canonical formulas. It builds no formula, applies no rule and creates no kernel theorem |
-| The bundle and the register | reviewed records; every pin re-verified, every statement re-derived by the kernel in the run |
+| The bundle and the two registers | reviewed records; every pin re-verified, every statement re-derived by the kernel in the run |
+| `lib/` and `lib/identities.tsv` | the existing library: `rlt compose` recomputes each component's fingerprint; the Python checker compares entries with the append-only identity registry (checked against history by `scripts/verify.sh`) but does not recompute fingerprints |
 | Generator, Python checker, Lean file, reports | untrusted or independent evidence |
 
 ## 4. Implementation
@@ -85,7 +86,7 @@ This is the semantic cut rule across files; inside one file the kernel performs 
 - **Specifications**: 62 probes `(goal φ) (assume s φ)` proved by `(hyp s)`; the kernel's reading of φ is the approved statement.
 
 **Decisions taken in implementation** (within D-1 to D-4; for review):
-1. *One bundle and a register* instead of per-result composition records; **composed results are not library entries**, so they are never citable.
+1. *One bundle and two registers* instead of per-result composition records; **composed results are not library entries**, so they are never citable. This departs from FINAL §5 (a library id with `status: composed`, `citable: false`) and §13: the assemblies and the named result have no line in the append-only `lib/identities.tsv`; their identity rests on the SHA-256 pins in `compose/h45.yaml` and on the two reviewed registers.
 2. *Unused declared assumptions are always refused* (the design allowed a reasoned `unused: true` mark; none is needed).
 3. *Both registers are fixed* (`compose/approved-specifications.tsv`, `compose/approved-results.tsv`), so a bundle can neither pair a weaker theorem with a probe of its own (N41) nor use the lemma's name for fewer statements (N43). The registers are reviewed files; the binary does not pin their hashes, and `scripts/gen-rlt007d.py --check` and the Rust tests rebuild them.
 4. *Layer-0 re-checks use `rlt check` on the registered proof* plus a recomputed fingerprint, rather than `rlt deps` (same pins, half the time); the library's own consistency stays with `rlt deps --verify-lib` in `scripts/verify.sh`.
@@ -104,13 +105,13 @@ This is the semantic cut rule across files; inside one file the kernel performs 
 |---|---|---|
 | full bundle `compose/h45.yaml` | COMPOSED, exit 0 | COMPOSED, exit 0; all six results equal to the statements rebuilt from the transcription |
 | controls: tail; tail with the assumption over q instead of p; range 6 | COMPOSED | COMPOSED |
-| 50 negative cases | each refused with the listed class, exit and reason | each refused with the same class and exit |
+| 51 negative cases | each refused with the listed class, exit and reason | each refused with the same class and exit |
 
 **Negative cases** (`tests/rlt007d/expected.tsv`), by class:
 
 | Class | Cases |
 |---|---|
-| malformed | unknown key; wrong format; a layer-0 node with an assembly; a YAML anchor; an explicit tag; a repeated key; a `./` path; a non-string id |
+| malformed | unknown key; wrong format; a layer-0 node with an assembly; a YAML anchor; an explicit tag; a repeated key; a `./` path; a non-string id; a byte-order mark |
 | missing | unknown discharger; unknown library id; assembly file absent; probe absent; result names an unknown node; an assumption without a row |
 | stale | assembly hash; probe hash; layer-0 fingerprint |
 | conditional | a conditional library theorem as a component |
@@ -130,16 +131,58 @@ This is the semantic cut rule across files; inside one file the kernel performs 
 
 ## 6. Measurements
 
-To be completed from the verification run and CI (§8).
+On the local workspace (2 CPUs), release build:
+
+| Run | Wall | CPU |
+|---|---|---|
+| `rlt compose compose/h45.yaml` (62 proofs re-checked with every cited file, 62 probes) | 4 min 38 s | 4 min 36 s |
+| `scripts/compose-check.py` on the same bundle (kernel runs in parallel) | 2 min 31 s | 4 min 54 s |
+| both, in parallel, plus the three controls (`scripts/verify.sh`) | 6 min 18 s | — |
+| 51 negative cases, both checkers | about 4 min | — |
+| `lean RLT007D.lean` | 3 min 24 s | — |
+| `cargo test --test rlt007d` (9 tests) | 7 min 44 s | — |
+| the eight assemblies, `rlt check` each | 1.9 s in all | — |
+
+Committed size: `tests/rlt007d` 3.54 MB in 140 files (assemblies 1.07 MB, probes 0.38 MB, controls 0.26 MB, negative cases 1.83 MB), `compose/` 29 KB, `lean/RLT007D.lean` 140 KB. Generated at verification time: none beyond the existing certificate families (RLT-006, stages 1 and 4), which the components cite.
+
+Full `scripts/verify.sh` on the workspace at 99e3e29: 80 min 48 s wall, 116 min CPU, run alongside two audits (§8).
 
 ## 7. Audits
 
-To be completed.
+Two independent audits on e2436bf (mathematical; implementation), corrections in 99e3e29 and the final commit, and targeted re-audits of 99e3e29.
+
+**Mathematical audit.** No blocking finding: the cut is complete (every γ of every assembly needs a row; unused declared assumptions refused; layer order enforced); compared formulas are closed sentences; definitions are expanded before matching; layer 0 is unconditional; the six statements read in ℕ give Lemma 12.1. All 62 statements, the classes and the register hashes recomputed independently. Should-fix items, all corrected: the report's summary wording and labels; the named result's six ids pinned; Lean lemmas relating RLT's `<` and `∣` to Lean's; three promised negatives (weaker `adm.all`; `adm.all` from 1 < p; an omission with a conjunct dropped or repeated); the design document carried into the branch. Re-audit: all fixed; three wording corrections in these documents, made.
+
+**Implementation audit.** 18 adversarial bundles; none composed with an undischarged, mismatched, conditional or stale premise.
+
+| Finding | Correction |
+|---|---|
+| Blocking: the lemma's name could label a one-statement result | named-result register `compose/approved-results.tsv` (N43) |
+| Python composed bundles Rust refused (anchors, tags, repeated keys, `./` paths, non-string ids, a probe copied elsewhere, a library identity tampered) | strict YAML reader, scalar types, the path rule, the specification register and `lib/identities.tsv` in Python (N45–N51) |
+| Python crashed on list-valued fields | type checks |
+| A component's changed cited file was classed `kernel` | `stale` (changed) and `missing` (absent), both checkers, verify.sh tamper test |
+| Symbolic links in pinned paths followed | refused as malformed in both (Rust test) |
+| Re-read files not compared with pins | compared |
+| Probe-shape checks untested in Rust | `probe_parts` unit-tested |
+| Python report lacked the disclaimer | added |
+
+Re-audit of 99e3e29: every item fixed, Rust and Python agreeing on every adversarial row. Remaining notes, recorded here: Python checks library fingerprints through the append-only identity registry, not by recomputation (trusted-boundary table, §3); the named-result check comes last, so a misnamed full-size bundle is refused after its kernel work (time only); the stale/missing classification reads the kernel's citation message, guarded by the verify.sh tamper test; a byte-order mark is now refused by both (N51).
 
 ## 8. Verification
 
-To be completed.
+- `scripts/gen-rlt007d.py --check`: 145 outputs, 0 differ.
+- `cargo test --test rlt007d`: 9 of 9; Rust and Python agree on all 51 negative cases and 3 controls.
+- Full `scripts/verify.sh` at 99e3e29 (local): every stage passed except two lines, both corrected or environmental: the RLT-007d report check still expected the earlier summary wording (corrected; re-run by hand on the final binary: report check passes), and the vendored lean-bgp212 comparison needs `SOURCE_CHECKOUTS_DIR`, which CI provides. Results there: cargo test all passed; RLT-007d section — full bundle and controls composed by both checkers, 51 of 51 negatives (50 at that commit), tamper refusals stale and missing, file restored; Lean replay 23 files, `RLT007D.lean` 17 statements, standard axioms only.
+- CI: see the PR for the final commit; e2436bf passed (check and gdt-comparison).
+- Earlier proofs: `scripts/compare-reports.sh` against main 838954f (see the PR).
 
 ## 9. Wording for the paper's authors
 
-To be completed after the audits.
+> We checked Lemma 12.1 of your September 3, 2026 draft ("H₄₅ is an admissible 45-tuple of diameter 212") in RLT, a small proof checker for first-order arithmetic over Robinson's Q. The result is a composition of 62 machine-checked theorems, assembled by a separate composition checker; no single proof object covers the whole lemma.
+>
+> - **Kernel-checked outright:** the 45 listed numbers are pairwise distinct (990 disequalities), and each lies between 0 and 212.
+> - **Kernel-checked, prime by prime:** H₄₅ omits the class you list for each prime up to 43, and an explicit class for each prime from 47 to 211 (the least omitted one; your proof uses a counting argument there). It omits the class 1 for every prime above 212. Every prime is one of the 47 primes below 213 or exceeds 212.
+> - **Joined by composition:** for every prime p, H₄₅ omits some residue class r < p. Eight conditional theorems connect the per-prime facts; the composition checker verified that each of their 56 assumptions is exactly one of the kernel-checked theorems, re-checking every proof in the same run.
+> - **Checked against your text:** the 45 numbers, their order and the 14 classes come from a reviewed transcription of your draft, and the reading of these statements as Lemma 12.1 was reviewed separately.
+>
+> An independent checker written in Python and a Lean 4 formalization agree with this result. Everything is reproducible from the public repository with one command (`rlt compose compose/h45.yaml`).

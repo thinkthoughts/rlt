@@ -359,7 +359,10 @@ def register(path, n):
 
 def load(path):
     try:
-        y = strict_yaml(open(path, encoding="utf-8").read())
+        text = open(path, encoding="utf-8").read()
+        if text.startswith("\ufeff"):
+            raise Refuse("malformed", "bundle: a byte-order mark is not allowed")
+        y = strict_yaml(text)
     except FileNotFoundError:
         raise Refuse("missing", f"{path}: file not found")
     top = ["format", "id", "axiom_set", "convention", "definitions", "nodes", "result"]

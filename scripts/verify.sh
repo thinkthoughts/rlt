@@ -852,9 +852,10 @@ for b in compose/h45.yaml tests/rlt007d/accept/*.yaml; do
   rc=$(cat "$cd_p/$cd_i.code"); pc=$(cat "$cd_p/$((cd_i + 1)).code")
   if [ "$b" = compose/h45.yaml ]; then
     ro=$(cat "$cd_p/$cd_i.out")
-    echo "$ro" | grep -E '^(graph|result|  [1-6]\. |remaining|summary|verdict)' | cut -c1-160
-    { echo "$ro" | grep_q -xF "graph           62 nodes, 3 layers, 56 discharged assumptions, acyclic; every proof re-checked in this run" \
-      && echo "$ro" | grep_q -F "summary         5 statements kernel accepted, 1 discharged by composition (3 layers, 56 edges); a composition of kernel-checked theorems, not one kernel theorem" \
+    echo "$ro" | grep -E '^(graph|result|  [1-6]\. |remaining|summary|outside|verdict)' | cut -c1-160
+    { echo "$ro" | grep_q -xF "graph           62 nodes in layers 0–2, 56 discharged assumptions, acyclic; every proof re-checked in this run" \
+      && echo "$ro" | grep_q -xF "summary         5 statements kernel accepted, 1 discharged by composition (2 composition layers above the components, 56 edges); a composition of kernel-checked theorems, not one kernel theorem" \
+      && echo "$ro" | grep_q -E '^outside         outside this check: .*source transcription checked.*semantic correspondence assessed' \
       && echo "$ro" | grep_q -E '^  6\. adm\.all +discharged by composition \(layer 2\)$' \
       && echo "$ro" | grep_q -xF "remaining       assumptions: none (every assumption of every composed node is discharged)"; } || { echo "  UNEXPECTED: the full composition report"; fail=1; }
     [ "$(cat "$cd_p/$((cd_i + 1)).out" | grep -c '^  result .*approved statement (rebuilt from the transcription)$')" = 6 ] || { echo "  UNEXPECTED: compose-check did not match the six approved statements"; fail=1; }
@@ -879,7 +880,7 @@ while IFS=$'\t' read -r b want cls reason; do
   cd_i=$((cd_i + 2))
 done < tests/rlt007d/expected.tsv
 rm -rf "$cd_p"
-{ [ "$cd_n" = 50 ] && [ "$(ls -A tests/rlt007d/negative | wc -l | tr -d ' ')" = 50 ]; } || { echo "  UNEXPECTED: tests/rlt007d/expected.tsv lists $cd_n cases"; fail=1; }
+{ [ "$cd_n" = 51 ] && [ "$(ls -A tests/rlt007d/negative | wc -l | tr -d ' ')" = 51 ]; } || { echo "  UNEXPECTED: tests/rlt007d/expected.tsv lists $cd_n cases"; fail=1; }
 echo "tests/rlt007d/negative: $cd_ok of $cd_n refused by rlt compose with the required class, exit and reason, and by compose-check with the same class and exit"
 # A file cited by a component, changed and then absent: refused as stale,
 # then as missing, by both checkers; then restored (also on any exit).

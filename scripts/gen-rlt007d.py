@@ -566,6 +566,7 @@ neg("N47_yaml_repeated_key", "malformed", "duplicated key", text=tail_txt.replac
 neg("N48_dot_path", "malformed", "is not a repository-relative path",
     text=tail_txt.replace(f"      path: {ASM}/ADM_TAIL.rlt", f"      path: ./{ASM}/ADM_TAIL.rlt", 1))
 neg("N49_id_not_a_string", "malformed", "`id` must be a string", text=tail_txt.replace("id: admissible.h45.tail_only", "id: 7", 1))
+neg("N51_byte_order_mark", "malformed", "unknown key", text="\ufeff" + tail_txt)
 cp = f"{NEG}/N50_registered_probe_copied/SPEC.rlt"
 neg("N50_registered_probe_copied", "specification", "is not the approved specification",
     tb(T0, nd("adm.tail", spec={"path": cp, "sha256": sha(OUT[f"{SPEC}/SPEC_adm_tail.rlt"])})),

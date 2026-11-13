@@ -432,7 +432,7 @@ fn expected() -> Vec<(String, i32, String, String)> {
 fn every_negative_case_is_refused_for_its_class_and_reason() {
     materialized();
     let e = expected();
-    assert_eq!(e.len(), 50);
+    assert_eq!(e.len(), 51);
     let mut classes = std::collections::BTreeSet::new();
     for (b, code, class, reason) in &e {
         let c = compose(&root(), b);

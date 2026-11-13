@@ -67,7 +67,7 @@ The composition then joins them: each range assembly turns the omissions OM(q, r
 ## 5. What the composition establishes, and what it does not
 
 - **Established:** each of the six statements holds in every model of Robinson's Q (statements 1–5 as kernel theorems, statement 6 by the composition argument of `docs/RLT-007d-REPORT.md` §3), so in particular in ℕ.
-- **Not a single kernel theorem:** statement 6 rests on eight conditional kernel theorems and 54 unconditional ones, joined by the composition checker. No single proof object derives it; `rlt compose` reports it as *discharged by composition* and never as an unconditional kernel theorem.
+- **Not a single kernel theorem:** statement 6 rests on eight conditional kernel theorems (the assemblies) and 49 unconditional ones (the 47 omissions, the tail and the classification), joined by the composition checker; statements 1–5 are separate unconditional kernel theorems. No single proof object derives it; `rlt compose` reports it as *discharged by composition* and never as an unconditional kernel theorem.
 - **Composed results are not library entries.** They are reported by `rlt compose` only and cannot be cited by later proofs; a later proof that needs one cites its components.
 
 ## 6. Lean comparison
