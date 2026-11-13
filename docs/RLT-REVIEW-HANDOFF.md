@@ -19,6 +19,7 @@ Development stops after M3e. The next phase is a broader review of RLT as a usab
 | RLT-005 | merged (9c8a66d, 2026-11-11) | 8 is not matchable (McNew–Pomerance, arXiv:2604.05304v2); see docs/RLT-005-REPORT.md |
 | RLT-006 | merged (e5850d9, 2026-11-12) | the 14 small-prime residue omissions of Lemma 12.1 (Axiom Math, H₄₅): 630 certificates, 14 per-prime theorems; see docs/RLT-006-REPORT.md |
 | RLT-007a | merged (1561668, 2026-11-12) | verification hardening and scheduling; verify.sh 1,622 s → about 1,030 s; see docs/RLT-007a-REPORT.md |
+| RLT-007b stage 1 | merged (eb0e2ef, 2026-11-12) | obligation (a) of Lemma 12.1: 44 per-element distinctness theorems, 4 group summaries, bounds theorem; see docs/RLT-007b-1-REPORT.md |
 
 **Not yet done, and held for the review:**
 - the `backed by` links (designed in the M3e review §9);
@@ -221,4 +222,27 @@ RLT-007 architecture review (the complete Lemma 12.1 in Robinson's Q; verificati
   - *Proposed fix:* stage only the `.idx` and `.pack` pair needed, under a total size bound; wrap `OSError` as `PinnedReadError`; apply the 120 s deadline to staging.
   - *Proposed test:* a checkout on a separate filesystem (for example `/dev/shm`) holding a sparse 3 GB `pack-*.pack` with no index. `pinned_read.py` must refuse quickly, with a size reason and bounded temporary space, and the real files must still read.
   - Two related audit notes remain: staging time grows with the number of files, and the per-object deadlines (up to 3 × 120 s) are long but bounded.
+- **Not done, as instructed:** no tag, no release, no deployment, no contact with the paper's authors; branch protection and repository settings unchanged.
+
+## Merge record, 2026-11-12 (RLT-007b stage 1)
+
+- **Approval:** merge exactly a0187ae.
+- **Pre-merge checks:**
+  - PR #17 head was a0187ae;
+  - `check` and `gdt-comparison` were green on its push and pull_request runs;
+  - every audit correction was included: the self-test isolates the length check (11 cases), the lemma text is checked in both the `extracted` and `text` fields with whole-number matching, `--check` requires exact file sets, the accepted-file count is checked, deps is compared with check, the SX05 reason is pinned, and the wording is fixed;
+  - nothing changed under `kernel/`, `syntax/`, `cli/src`, `spec/`, `conventions/` or the Cargo files;
+  - every earlier proof, record and library entry is unchanged; `lib/identities.tsv` grew by exactly 5 appended lines, with the old file a byte-identical prefix.
+- **PR #17 merged:** marked ready, then merged as merge commit **eb0e2ef** (eb0e2eff06079060a4f3ef1989e7bbe913670e5d), with parents 1561668 and a0187ae. The merge tree f8750ee equals a0187ae's tree.
+- **Fresh clone of main at eb0e2ef,** with sources fetched by `scripts/fetch-sources.py` into an empty directory:
+  - `cargo test --release`: 278 passed, 0 failed;
+  - `scripts/verify.sh`: `RESULT all checks hold`, exit 0, 1,124 s wall (the machine was shared with an audit);
+  - `scripts/check-manual.py`: 33 of 33.
+- **The 49 new theorems, from that run:**
+  - kernel accepted: 45 of 45 (44 per-element theorems and bounds) and 4 of 4 group summaries (11 of 64 checks each);
+  - 7 of 7 rejected cases refused;
+  - generator self-test 11 of 11; `--check` 64 outputs, 0 differ.
+- **Lean:** `RLT007S1.lean` has 50 statements, each printed, standard axioms only.
+- **Library:** 106 of 106 entries current and accepted, including `admissible.h45.distinct.g0`–`g3` and `admissible.h45.bounds`.
+- **CI on eb0e2ef:** `check` and `gdt-comparison` both succeed.
 - **Not done, as instructed:** no tag, no release, no deployment, no contact with the paper's authors; branch protection and repository settings unchanged.

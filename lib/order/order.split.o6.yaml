@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: order.split.o6
+title: "∀p. (190 < p → (p < 213 ∨ 212 < p))"
+fingerprint: 13f4057de4f5cd925c0d523a48fda061ad00b7ab4955c62f9d286ea7d12438d5
+proof: {path: tests/rlt007s2a/accept/O_6.rlt, sha256: 122fee754aafdb3181d78bee929ddb47c5e4c640ec313af7499aefe1c3fbadc4}
+proof_id: RLT007S2a.O_6
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀p. ((∃z. S(z) + 190 = p) → ((∃z. S(z) + p = 213) ∨ (∃z. S(z) + 212 = p)))"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

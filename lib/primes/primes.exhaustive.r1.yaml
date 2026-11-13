@@ -1,0 +1,16 @@
+format: rlt-lib/1
+id: primes.exhaustive.r1
+title: "∀p. ((p < 41 ∧ (1 < p ∧ ∀d. ((1 < d ∧ d < p) → ¬(d ∣ p)))) → (p = 2 ∨ (p = 3 ∨ (p = 5 ∨ (p = 7 ∨ (p = 11 ∨ (p = 13 ∨ (p = 17 ∨ (p = 19 ∨ (p = 23 ∨ (p = 29 ∨ (p = 31 ∨ p = 37))))))))))))"
+fingerprint: 4e645a92cf28eb1719ca509a2cdc6b2d15675c9afeefb9659efca6c31fb0b614
+proof: {path: tests/rlt007s2a/accept/E_1.rlt, sha256: 7d83b6a637f74dd6b2ee0225029955d2dc21359370feaa9fe5aaf9c7ca8ed6fd}
+proof_id: RLT007S2a.E_1
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀p. (((∃z. S(z) + p = 41) ∧ ((∃z. S(z) + 1 = p) ∧ (∀d. (((∃z. S(z) + 1 = d) ∧ (∃z. S(z) + d = p)) → ¬(∃k. p = d × k))))) → (p = 2 ∨ (p = 3 ∨ (p = 5 ∨ (p = 7 ∨ (p = 11 ∨ (p = 13 ∨ (p = 17 ∨ (p = 19 ∨ (p = 23 ∨ (p = 29 ∨ (p = 31 ∨ p = 37))))))))))))"
+assumptions: []
+citable: true
+uses:
+  - primes.nonprime.i1
+statement_records:
+  - statements/PRIMES-RANGE-1.yaml
+history: []

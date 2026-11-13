@@ -28,6 +28,7 @@ FILES = (
     + sorted(glob.glob("tests/rlt005/accept/*.rlt"))
     + sorted(glob.glob("tests/rlt006/accept/*.rlt"))
     + sorted(glob.glob("tests/rlt007s1/accept/*.rlt"))
+    + sorted(glob.glob("tests/rlt007s2a/accept/*.rlt"))
 )
 NAMED = {
     "tests/accept/R_math29_pairing.rlt": "arith.add.29_1_30",
@@ -60,6 +61,26 @@ NAMED = {
     "tests/rlt007s1/accept/DG_2.rlt": "admissible.h45.distinct.g2",
     "tests/rlt007s1/accept/DG_3.rlt": "admissible.h45.distinct.g3",
     "tests/rlt007s1/accept/BOUNDS.rlt": "admissible.h45.bounds",
+    # RLT-007b stage 2a: the primes below 213 under Prime_B.
+    "tests/rlt007s2a/accept/N_1.rlt": "primes.nonprime.i1",
+    "tests/rlt007s2a/accept/N_2.rlt": "primes.nonprime.i2",
+    "tests/rlt007s2a/accept/N_3.rlt": "primes.nonprime.i3",
+    "tests/rlt007s2a/accept/N_4.rlt": "primes.nonprime.i4",
+    "tests/rlt007s2a/accept/N_5.rlt": "primes.nonprime.i5",
+    "tests/rlt007s2a/accept/N_6.rlt": "primes.nonprime.i6",
+    "tests/rlt007s2a/accept/E_1.rlt": "primes.exhaustive.r1",
+    "tests/rlt007s2a/accept/E_2.rlt": "primes.exhaustive.r2",
+    "tests/rlt007s2a/accept/E_3.rlt": "primes.exhaustive.r3",
+    "tests/rlt007s2a/accept/E_4.rlt": "primes.exhaustive.r4",
+    "tests/rlt007s2a/accept/E_5.rlt": "primes.exhaustive.r5",
+    "tests/rlt007s2a/accept/E_6.rlt": "primes.exhaustive.r6",
+    "tests/rlt007s2a/accept/O_1.rlt": "order.split.o1",
+    "tests/rlt007s2a/accept/O_2.rlt": "order.split.o2",
+    "tests/rlt007s2a/accept/O_3.rlt": "order.split.o3",
+    "tests/rlt007s2a/accept/O_4.rlt": "order.split.o4",
+    "tests/rlt007s2a/accept/O_5.rlt": "order.split.o5",
+    "tests/rlt007s2a/accept/O_6.rlt": "order.split.o6",
+    "tests/rlt007s2a/accept/C.rlt": "primes.below_213",
 }
 PATTERNS = [
     (r"^(\d+) ∣ (\d+)$", "dvd.{0}_{1}"),

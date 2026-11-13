@@ -1,0 +1,16 @@
+format: rlt-lib/1
+id: primes.exhaustive.r4
+title: "∀p. (((112 < p ∧ p < 157) ∧ (1 < p ∧ ∀d. ((1 < d ∧ d < p) → ¬(d ∣ p)))) → (p = 113 ∨ (p = 127 ∨ (p = 131 ∨ (p = 137 ∨ (p = 139 ∨ (p = 149 ∨ p = 151)))))))"
+fingerprint: 7a63a028424ec98188d58d10908344a6f657ab1858910215a06d0effe94b8432
+proof: {path: tests/rlt007s2a/accept/E_4.rlt, sha256: cbd0525ce1ecbeabdc45b5fbe592cf4d43775abf6f2ebff822605ea4244c8d81}
+proof_id: RLT007S2a.E_4
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀p. ((((∃z. S(z) + 112 = p) ∧ (∃z. S(z) + p = 157)) ∧ ((∃z. S(z) + 1 = p) ∧ (∀d. (((∃z. S(z) + 1 = d) ∧ (∃z. S(z) + d = p)) → ¬(∃k. p = d × k))))) → (p = 113 ∨ (p = 127 ∨ (p = 131 ∨ (p = 137 ∨ (p = 139 ∨ (p = 149 ∨ p = 151)))))))"
+assumptions: []
+citable: true
+uses:
+  - primes.nonprime.i4
+statement_records:
+  - statements/PRIMES-RANGE-4.yaml
+history: []

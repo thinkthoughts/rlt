@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: order.split.o5
+title: "∀p. (156 < p → (p < 191 ∨ 190 < p))"
+fingerprint: 9c73ef878b828df6a9c4beded049ee17bcab2bee576118bf23ddaf72742cf516
+proof: {path: tests/rlt007s2a/accept/O_5.rlt, sha256: 6abd2cb6dd4417b2b3a82f1c6fb61556eb542b3bf929edd3b70d1f929c4088ff}
+proof_id: RLT007S2a.O_5
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀p. ((∃z. S(z) + 156 = p) → ((∃z. S(z) + p = 191) ∨ (∃z. S(z) + 190 = p)))"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

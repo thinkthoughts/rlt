@@ -1,0 +1,16 @@
+format: rlt-lib/1
+id: primes.exhaustive.r3
+title: "∀p. (((78 < p ∧ p < 113) ∧ (1 < p ∧ ∀d. ((1 < d ∧ d < p) → ¬(d ∣ p)))) → (p = 79 ∨ (p = 83 ∨ (p = 89 ∨ (p = 97 ∨ (p = 101 ∨ (p = 103 ∨ (p = 107 ∨ p = 109))))))))"
+fingerprint: c8b773079fbfe4530a2f758deac12a10ac6b917111baae49814201ad1c743535
+proof: {path: tests/rlt007s2a/accept/E_3.rlt, sha256: a83ccc8166419efa7a7b983201a658ae94d028e4fa999ccaf8dfc7da5aa1efc7}
+proof_id: RLT007S2a.E_3
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀p. ((((∃z. S(z) + 78 = p) ∧ (∃z. S(z) + p = 113)) ∧ ((∃z. S(z) + 1 = p) ∧ (∀d. (((∃z. S(z) + 1 = d) ∧ (∃z. S(z) + d = p)) → ¬(∃k. p = d × k))))) → (p = 79 ∨ (p = 83 ∨ (p = 89 ∨ (p = 97 ∨ (p = 101 ∨ (p = 103 ∨ (p = 107 ∨ p = 109))))))))"
+assumptions: []
+citable: true
+uses:
+  - primes.nonprime.i3
+statement_records:
+  - statements/PRIMES-RANGE-3.yaml
+history: []
