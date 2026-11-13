@@ -85,7 +85,7 @@ fn every_rejected_case_is_refused_for_its_reason() {
         );
         n += 1;
     }
-    assert_eq!(n, 6);
+    assert_eq!(n, 9);
     let files = std::fs::read_dir(root().join("tests/rlt007s3/reject"))
         .unwrap()
         .count();
@@ -105,7 +105,7 @@ fn the_generator_reproduces_every_output_and_refuses_altered_tuples() {
 
 #[test]
 fn the_statement_record_is_valid_current_and_accepted() {
-    let rel = "statements/H45-TAIL-OMITS.yaml";
+    let rel = "statements/TAIL-OMITS-H45.yaml";
     let x = explain(&root(), rel);
     let t = render_text(&x);
     assert_eq!(x.exit, ACCEPT, "{t}");
@@ -120,7 +120,7 @@ fn the_statement_record_is_valid_current_and_accepted() {
                 .unwrap()
                 .file_name()
                 .to_string_lossy()
-                .starts_with("H45-TAIL-")
+                .starts_with("TAIL-OMITS-")
         })
         .count();
     assert_eq!(n, 1);
@@ -151,5 +151,5 @@ fn deps_agrees_with_check_on_the_committed_proofs() {
             n += 1;
         }
     }
-    assert_eq!(n, 7, "1 accepted and 6 rejected files, exactly");
+    assert_eq!(n, 10, "1 accepted and 9 rejected files, exactly");
 }

@@ -651,11 +651,21 @@ s3_gc=$(python3 -I scripts/gen-rlt007s3.py "$rlt" --check); s3_gcc=$?
 s3_tr=$(python3 -I - <<'PY'
 import yaml
 t = yaml.safe_load(open("sources/transcriptions/AXIOM-BGP212-2026-09-03.yaml", encoding="utf-8"))
+import re
 h = {i["id"]: i for i in t["items"]}["h45-tuple"]["numbers"]
-print("ok" if len(h) == 45 and h == sorted(set(h)) and h[0] == 0 and h[-1] == 212 and 1 not in h else "FAILED")
+ok = len(h) == 45 and h == sorted(set(h)) and h[0] == 0 and h[-1] == 212 and 1 not in h
+# The statement, rebuilt here from the transcribed tuple, must be the goal of
+# TAIL.rlt and (unfolded) the record's checked goal.
+c = f"¬(∃k. {h[0]} = (p × k) + 1)"
+for x in h[1:]:
+    c = f"({c} ∧ ¬(∃k. {x} = (p × k) + 1))"
+g = re.search(r'\(goal "([^"]*)"\)', open("tests/rlt007s3/accept/TAIL.rlt", encoding="utf-8").read()).group(1)
+r = yaml.safe_load(open("statements/TAIL-OMITS-H45.yaml", encoding="utf-8"))["kernel"]["checked_goal"]
+ok = ok and g == f"∀p. (212 < p → {c})" and r == f"∀p. ((∃z. S(z) + 212 = p) → {c})"
+print("ok" if ok else "FAILED")
 PY
 )
-[ "$s3_tr" = ok ] && echo "source transcription checked (not kernel-checked): 45 increasing entries from 0 to 212, without 1" || { echo "  UNEXPECTED: source transcription check failed"; fail=1; }
+[ "$s3_tr" = ok ] && echo "source transcription checked (not kernel-checked): 45 increasing entries from 0 to 212, without 1; the statement of TAIL.rlt and its record rebuilt from them" || { echo "  UNEXPECTED: source transcription or statement check failed"; fail=1; }
 [ "$(ls -A tests/rlt007s3/accept | wc -l | tr -d ' ')" = 1 ] || { echo "  UNEXPECTED: tests/rlt007s3/accept holds other files"; fail=1; }
 s3_log=$("$rlt" check tests/rlt007s3/accept/TAIL.rlt); s3_code=$?
 { [ $s3_code = 0 ] && echo "$s3_log" | grep_q -E '^verdict         ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q' && echo "$s3_log" | grep_q -xF 'assumptions     Γ = ∅'; } \
@@ -667,7 +677,7 @@ while IFS=$'\t' read -r f want reason; do
   s3_log=$("$rlt" check "$f"); s3_code=$?
   { [ "$s3_code" = "$want" ] && echo "$s3_log" | grep '^verdict' | grep_q -F -- "$reason"; } && s3_r=$((s3_r + 1)) || { echo "  UNEXPECTED: $f exit $s3_code (want $want)"; fail=1; }
 done < tests/rlt007s3/expected.tsv
-{ [ "$s3_rn" = 6 ] && [ "$(ls -A tests/rlt007s3/reject | wc -l | tr -d ' ')" = 6 ]; } || { echo "  UNEXPECTED: tests/rlt007s3/expected.tsv lists $s3_rn cases"; fail=1; }
+{ [ "$s3_rn" = 9 ] && [ "$(ls -A tests/rlt007s3/reject | wc -l | tr -d ' ')" = 9 ]; } || { echo "  UNEXPECTED: tests/rlt007s3/expected.tsv lists $s3_rn cases"; fail=1; }
 echo "tests/rlt007s3/reject: $s3_r of $s3_rn give the required exit code and reason"
 
 echo; echo "== statement records and rlt explain, RLT-004b (statements/, tests/explain)"
@@ -716,9 +726,9 @@ if [ -n "$ex_lean" ]; then
   # Pinned: 8 before RLT-006, plus 16 (om_P for 14 primes,
   # lemma_12_1_of_rlt_statements, omits_rlt_form), plus 6 for RLT-007b
   # stage 1 (dg_0 … dg_3, bounds, obligation_a), plus 14 for stage 2a (c,
-  # e_1 … e_6, listed_1 … listed_6, pb_iff_std), plus 3 for stage 3 (tail,
-  # one_mod_iff, tail_mod).
-  [ "$ex_nrefs" = 47 ] || { echo "  UNEXPECTED: $ex_nrefs distinct Lean references in statement records (47 pinned)"; fail=1; }
+  # e_1 … e_6, listed_1 … listed_6, pb_iff_std), plus 4 for stage 3 (tail,
+  # one_mod_iff, tail_mod, int_class_iff).
+  [ "$ex_nrefs" = 48 ] || { echo "  UNEXPECTED: $ex_nrefs distinct Lean references in statement records (48 pinned)"; fail=1; }
   # RLT-007a: the gate files are independent Lean runs, made in parallel.
   # Audit note 5: one Lean call first, so elan installs the toolchain once.
   (cd lean && "$ex_lean" --version >/dev/null 2>&1)
@@ -862,7 +872,7 @@ $(cat "$lean_p/$lean_i.out")"
   # for decision B (20: the countermodel and the equivalences). Checked by
   # name: every declared theorem has its own `#print axioms` line in the file
   # and its own line in Lean's output, with standard axioms only.
-  for rf_pin in RLT007S2a:33 RLT007S2Design:20 RLT007S3:8; do
+  for rf_pin in RLT007S2a:33 RLT007S2Design:20 RLT007S3:10; do
     rf=${rf_pin%%:*}; s2_want=${rf_pin#*:}; s2_stage=2a; [ "$rf" = RLT007S3 ] && s2_stage=3
     s2_names=$(sed -n 's/^theorem \([A-Za-z0-9_]*\).*/\1/p' "lean/$rf.lean")
     s2_n=$(echo "$s2_names" | grep -c .); s2_ok=0

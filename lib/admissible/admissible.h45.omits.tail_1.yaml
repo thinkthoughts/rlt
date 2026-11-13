@@ -11,5 +11,5 @@ assumptions: []
 citable: true
 uses: []
 statement_records:
-  - statements/H45-TAIL-OMITS.yaml
+  - statements/TAIL-OMITS-H45.yaml
 history: []

@@ -25,7 +25,7 @@ No restriction on k and no positivity hypothesis is needed.
 Outputs:
   tests/rlt007s3/accept/TAIL.rlt   the theorem
   tests/rlt007s3/reject/*.rlt      rejected cases; tests/rlt007s3/expected.tsv
-  statements/H45-TAIL-OMITS.yaml   statement record
+  statements/TAIL-OMITS-H45.yaml   statement record
   lean/RLT007S3.lean               Lean comparison
 
 Source transcription check (not kernel-checked): the generator's tuple is the
@@ -70,7 +70,7 @@ def tuple_checks(h):
 
 if MODE == "--self-test":
     cases = [
-        ("1 added", sorted(H[:-1] + [1])),
+        ("1 listed in place of 2 (only the check for 1 applies)", [0, 1] + H[2:]),
         ("213 replacing 212", H[:-1] + [213]),
         ("44 entries", H[:-1]),
         ("a duplicate", H[:2] + [H[1]] + H[3:]),
@@ -94,6 +94,7 @@ OUT = {}
 
 
 def S(t, k):
+    assert k >= 0, k
     for _ in range(k):
         t = f"(S {t})"
     return t
@@ -304,7 +305,11 @@ def element(P, Q, h):
         P.add(f"{X}1a", f"(forall y (imp (= {h} {S('y', h)}) (= 0 y)))", f"(forall-elim {Q.have[h]} 0)")
         P.add(f"{X}1b", f"(imp (= {h} {S(W, BOUND + 2)}) (= 0 {V}))", f"(forall-elim {X}1a {V})")
         P.add(f"{X}1c", f"(= 0 {V})", f"(imp-elim {X}1b {X}1t)")
-        P.add(f"{X}1n", f"(not (= 0 {V}))", f"(inst q2_zero_ne_succ (x {S(W, BOUND + 1 - h)}))")
+        # For h ≤ BOUND, V = S(…) and q2 refutes 0 = V. For h > BOUND (only in a
+        # rejected case) V has no predecessor; the step then claims ¬(0 = W),
+        # which q2 does not give, and the kernel refuses it.
+        pred = S(W, BOUND + 1 - h) if h <= BOUND + 1 else W
+        P.add(f"{X}1n", f"(not (= 0 {V}))", f"(inst q2_zero_ne_succ (x {pred}))")
         P.add(f"{X}1f", "false", f"(imp-elim {X}1n {X}1c)")
     P.add(f"{X}1F", "false", f"(exists-elim {X}1x {jv} {X}hj {X}1f)")
     P.add(f"{X}c", "false", f"(or-cases {X}q {X}h0 {X}0f {X}h1 {X}1F)")
@@ -383,6 +388,20 @@ rej("SR06_statement_without_bound",
     t.replace(f'(goal "{gw}")', f'(goal "∀p. {conj_w(H, "p")}")', 1)
      .replace("; RLT-007b stage 3:", "; REJECT CASE (only the statement changed: the hypothesis 212 < p dropped; false for p = 1):", 1),
     1, "the goal is `∀p. ((((((((((((((((((((((((((((((((((((((((((((¬(∃k. 0 = (p × k) + 1)")
+rej("SR07_statement_bound_211",
+    t.replace(f'(goal "{gw}")', f'(goal "{gw.replace("∀p. (212 < p", "∀p. (211 < p", 1)}")', 1)
+     .replace("; RLT-007b stage 3:", "; REJECT CASE (only the statement changed, to the stronger bound 211 < p: true, but not the statement proved):", 1),
+    1, "the goal is `∀p. ((∃z. S(z) + 211 = p) →")
+sw = conj_w(H[1:2] + H[:1] + H[2:], "p")
+rej("SR08_statement_conjuncts_reordered",
+    t.replace(f'(goal "{gw}")', f'(goal "∀p. (212 < p → {sw})")', 1)
+     .replace("; RLT-007b stage 3:", "; REJECT CASE (only the statement changed: the first two conjuncts swapped, so it no longer matches the OM_p shape):", 1),
+    1, "the goal is `∀p. ((∃z. S(z) + 212 = p) → ((((((((((((((((((((((((((((((((((((((((((((¬(∃k. 2 = (p × k) + 1)")
+assert t.count('(PZ (= pp ' + S("z", 213) + ') (trans P4 P3))') == 1
+rej("SR09_proof_p_off_by_one",
+    t.replace('(PZ (= pp ' + S("z", 213) + ') (trans P4 P3))', '(PZ (= pp ' + S("z", 212) + ') (trans P4 P3))', 1)
+     .replace("; RLT-007b stage 3:", "; REJECT CASE (inside the proof: p = S²¹²(z) claimed instead of S²¹³(z)):", 1),
+    1, "REJECT at step PZ — step claims")
 OUT["tests/rlt007s3/expected.tsv"] = ("# file\texit\trequired substring of the verdict (RLT-007b stage 3 rejected cases)\n"
                                      + "\n".join(rows) + "\n")
 
@@ -406,8 +425,11 @@ file proves, in Lean (none of it is an RLT derivation):
     the statement as "h is in the residue class 1 modulo p";
   * tail_mod: every element of H45 has a remainder other than 1 modulo every
     p > 212, prime or not;
-  * bound_210_fails: the statement with 210 < p is false (p = 211, h = 212),
-    so the bound 212 used here is above the least true bound 211;
+  * bound_210_fails, bound_211_holds: the statement fails with 210 < p
+    (p = 211, h = 212) and holds with 211 < p, so 211 is the least true
+    bound; RLT states 212 < p, the bound the classification produces;
+  * int_class_iff: for h ≥ 0 and p > 1, the integer form ∃k ∈ ℤ. h = p·k + 1
+    equals the natural-number form used here;
   * h45_eq: the list below is the transcribed tuple (checked by the generator).
 -/
 
@@ -458,6 +480,39 @@ theorem bound_210_fails : ¬ (∀ p, LT 210 p → ∀ h ∈ H45, ¬ (∃ k, h = 
   intro hall
   exact hall 211 ⟨0, rfl⟩ 212 (by decide) ⟨1, rfl⟩
 
+/-- With bound_210_fails: 211 is the least bound for which the statement holds. -/
+theorem bound_211_holds : ∀ p, LT 211 p → ∀ h ∈ H45, ¬ (∃ k, h = p * k + 1) := by
+  intro p hp h hh
+  rw [lt_iff] at hp
+  rintro ⟨k, hk⟩
+  have hs := small h hh
+  cases k with
+  | zero => simp at hk; omega
+  | succ k =>
+    have : p ≤ p * (k + 1) := Nat.le_mul_of_pos_right p (Nat.succ_pos k)
+    omega
+
+/-- The integer reading of "h is in the class 1 modulo p" equals the natural-number
+    form used by RLT, for h ≥ 0 and p > 1. -/
+theorem int_class_iff (p h : Nat) (hp : 1 < p) :
+    (∃ k : Int, (h : Int) = p * k + 1) ↔ ∃ k : Nat, h = p * k + 1 := by
+  constructor
+  · rintro ⟨k, hk⟩
+    have hk0 : 0 ≤ k := by
+      rcases Int.lt_or_le k 0 with hneg | hpos
+      · have : (p : Int) * k ≤ -(p : Int) := by
+          have := Int.mul_le_mul_of_nonneg_left (show k ≤ -1 by omega) (show (0 : Int) ≤ p by omega)
+          simpa using this
+        omega
+      · exact hpos
+    refine ⟨k.toNat, ?_⟩
+    have : ((k.toNat : Nat) : Int) = k := Int.toNat_of_nonneg hk0
+    have h2 : ((h : Nat) : Int) = ((p * k.toNat + 1 : Nat) : Int) := by
+      push_cast; rw [this]; exact hk
+    exact_mod_cast h2
+  · rintro ⟨k, hk⟩
+    exact ⟨k, by subst hk; push_cast; rfl⟩
+
 end RLT007S3
 
 #print axioms RLT007S3.lt_iff
@@ -468,6 +523,8 @@ end RLT007S3
 #print axioms RLT007S3.small
 #print axioms RLT007S3.tail_mod
 #print axioms RLT007S3.bound_210_fails
+#print axioms RLT007S3.bound_211_holds
+#print axioms RLT007S3.int_class_iff
 """
 OUT["lean/RLT007S3.lean"] = LEAN
 
@@ -483,11 +540,11 @@ def yq(x):
 
 
 checked = f"∀p. ((∃z. S(z) + {BOUND} = p) → {conj_w(H, 'p')})"
-OUT["statements/H45-TAIL-OMITS.yaml"] = f"""# Statement record (RLT-007b stage 3): Lemma 12.1 (Axiom Math, September 3, 2026
+OUT["statements/TAIL-OMITS-H45.yaml"] = f"""# Statement record (RLT-007b stage 3): Lemma 12.1 (Axiom Math, September 3, 2026
 # draft), the primes p ≥ 213: modulo every p with 212 < p, H45 omits the class 1.
 # GENERATED by scripts/gen-rlt007s3.py; pins as `rlt check {ACC}/TAIL.rlt` reports them.
 format: rlt-statement/1
-id: H45-TAIL-OMITS
+id: TAIL-OMITS-H45
 subject: "Lemma 12.1 (Axiom Math, September 3, 2026 draft), primes p ≥ 213: for every p with 212 < p, no element h of H45 satisfies h = (p × k) + 1"
 source:
   registry: AXIOM-BGP212-2026-09-03
@@ -519,6 +576,7 @@ semantic:
     - {{file: lean/RLT007S3.lean, theorem: RLT007S3.tail}}
     - {{file: lean/RLT007S3.lean, theorem: RLT007S3.one_mod_iff}}
     - {{file: lean/RLT007S3.lean, theorem: RLT007S3.tail_mod}}
+    - {{file: lean/RLT007S3.lean, theorem: RLT007S3.int_class_iff}}
 physical:
   applicability: not-applicable
   reason: "a statement in number theory"
@@ -537,8 +595,8 @@ if MODE == "--check":
     for f in sorted(os.listdir("tests/rlt007s3")):
         if f not in ("accept", "reject", "expected.tsv"):
             diff.append(f"tests/rlt007s3/{f} (not produced by the generator)")
-    if sorted(f for f in os.listdir("statements") if f.startswith("H45-TAIL")) != ["H45-TAIL-OMITS.yaml"]:
-        diff.append("statements/H45-TAIL* (an extra or missing record)")
+    if sorted(f for f in os.listdir("statements") if f.startswith("TAIL-OMITS-H45")) != ["TAIL-OMITS-H45.yaml"]:
+        diff.append("statements/TAIL-OMITS-H45* (an extra or missing record)")
     for f in sorted(os.listdir("lean")):
         if f.startswith("RLT007S3") and f"lean/{f}" not in OUT:
             diff.append(f"lean/{f} (not produced by the generator)")
@@ -552,7 +610,7 @@ for d in (ACC, REJ):
     for old in os.listdir(d):
         os.remove(os.path.join(d, old))
 for old in os.listdir("statements"):
-    if old.startswith("H45-TAIL"):
+    if old.startswith("TAIL-OMITS-H45"):
         os.remove(os.path.join("statements", old))
 for path, text in OUT.items():
     with open(path, "w", encoding="utf-8", newline="\n") as fh:

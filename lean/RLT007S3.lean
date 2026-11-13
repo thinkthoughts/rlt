@@ -9,8 +9,11 @@ file proves, in Lean (none of it is an RLT derivation):
     the statement as "h is in the residue class 1 modulo p";
   * tail_mod: every element of H45 has a remainder other than 1 modulo every
     p > 212, prime or not;
-  * bound_210_fails: the statement with 210 < p is false (p = 211, h = 212),
-    so the bound 212 used here is above the least true bound 211;
+  * bound_210_fails, bound_211_holds: the statement fails with 210 < p
+    (p = 211, h = 212) and holds with 211 < p, so 211 is the least true
+    bound; RLT states 212 < p, the bound the classification produces;
+  * int_class_iff: for h ≥ 0 and p > 1, the integer form ∃k ∈ ℤ. h = p·k + 1
+    equals the natural-number form used here;
   * h45_eq: the list below is the transcribed tuple (checked by the generator).
 -/
 
@@ -61,6 +64,39 @@ theorem bound_210_fails : ¬ (∀ p, LT 210 p → ∀ h ∈ H45, ¬ (∃ k, h = 
   intro hall
   exact hall 211 ⟨0, rfl⟩ 212 (by decide) ⟨1, rfl⟩
 
+/-- With bound_210_fails: 211 is the least bound for which the statement holds. -/
+theorem bound_211_holds : ∀ p, LT 211 p → ∀ h ∈ H45, ¬ (∃ k, h = p * k + 1) := by
+  intro p hp h hh
+  rw [lt_iff] at hp
+  rintro ⟨k, hk⟩
+  have hs := small h hh
+  cases k with
+  | zero => simp at hk; omega
+  | succ k =>
+    have : p ≤ p * (k + 1) := Nat.le_mul_of_pos_right p (Nat.succ_pos k)
+    omega
+
+/-- The integer reading of "h is in the class 1 modulo p" equals the natural-number
+    form used by RLT, for h ≥ 0 and p > 1. -/
+theorem int_class_iff (p h : Nat) (hp : 1 < p) :
+    (∃ k : Int, (h : Int) = p * k + 1) ↔ ∃ k : Nat, h = p * k + 1 := by
+  constructor
+  · rintro ⟨k, hk⟩
+    have hk0 : 0 ≤ k := by
+      rcases Int.lt_or_le k 0 with hneg | hpos
+      · have : (p : Int) * k ≤ -(p : Int) := by
+          have := Int.mul_le_mul_of_nonneg_left (show k ≤ -1 by omega) (show (0 : Int) ≤ p by omega)
+          simpa using this
+        omega
+      · exact hpos
+    refine ⟨k.toNat, ?_⟩
+    have : ((k.toNat : Nat) : Int) = k := Int.toNat_of_nonneg hk0
+    have h2 : ((h : Nat) : Int) = ((p * k.toNat + 1 : Nat) : Int) := by
+      push_cast; rw [this]; exact hk
+    exact_mod_cast h2
+  · rintro ⟨k, hk⟩
+    exact ⟨k, by subst hk; push_cast; rfl⟩
+
 end RLT007S3
 
 #print axioms RLT007S3.lt_iff
@@ -71,3 +107,5 @@ end RLT007S3
 #print axioms RLT007S3.small
 #print axioms RLT007S3.tail_mod
 #print axioms RLT007S3.bound_210_fails
+#print axioms RLT007S3.bound_211_holds
+#print axioms RLT007S3.int_class_iff

@@ -5,3 +5,6 @@ tests/rlt007s3/reject/SR03_element_0_replaced_by_1.rlt	1	REJECT at step H1_0f �
 tests/rlt007s3/reject/SR04_statement_class_2.rlt	1	the goal is `∀p. ((∃z. S(z) + 212 = p) → ((((((((((((((((((((((((((((((((((((((((((((¬(∃k. 0 = (p × k) + 2)
 tests/rlt007s3/reject/SR05_statement_without_212.rlt	1	the goal is `∀p. ((∃z. S(z) + 212 = p) → (((((((((((((((((((((((((((((((((((((((((((¬(∃k. 0 = (p × k) + 1)
 tests/rlt007s3/reject/SR06_statement_without_bound.rlt	1	the goal is `∀p. ((((((((((((((((((((((((((((((((((((((((((((¬(∃k. 0 = (p × k) + 1)
+tests/rlt007s3/reject/SR07_statement_bound_211.rlt	1	the goal is `∀p. ((∃z. S(z) + 211 = p) →
+tests/rlt007s3/reject/SR08_statement_conjuncts_reordered.rlt	1	the goal is `∀p. ((∃z. S(z) + 212 = p) → ((((((((((((((((((((((((((((((((((((((((((((¬(∃k. 2 = (p × k) + 1)
+tests/rlt007s3/reject/SR09_proof_p_off_by_one.rlt	1	REJECT at step PZ — step claims

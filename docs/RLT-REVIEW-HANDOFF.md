@@ -20,6 +20,7 @@ Development stops after M3e. The next phase is a broader review of RLT as a usab
 | RLT-006 | merged (e5850d9, 2026-11-12) | the 14 small-prime residue omissions of Lemma 12.1 (Axiom Math, H₄₅): 630 certificates, 14 per-prime theorems; see docs/RLT-006-REPORT.md |
 | RLT-007a | merged (1561668, 2026-11-12) | verification hardening and scheduling; verify.sh 1,622 s → about 1,030 s; see docs/RLT-007a-REPORT.md |
 | RLT-007b stage 1 | merged (eb0e2ef, 2026-11-12) | obligation (a) of Lemma 12.1: 44 per-element distinctness theorems, 4 group summaries, bounds theorem; see docs/RLT-007b-1-REPORT.md |
+| RLT-007b stage 2a | merged (f37bcfc, 2026-11-12) | the primes below 213 under Prime_B, exhaustiveness direction: 6 non-prime certificates, 6 exhaustiveness theorems, 6 order splits, the classification `primes.below_213`; see docs/RLT-007b-2a-REPORT.md. Stage 2b (positive primality) deferred |
 
 **Not yet done, and held for the review:**
 - the `backed by` links (designed in the M3e review §9);
@@ -245,4 +246,25 @@ RLT-007 architecture review (the complete Lemma 12.1 in Robinson's Q; verificati
 - **Lean:** `RLT007S1.lean` has 50 statements, each printed, standard axioms only.
 - **Library:** 106 of 106 entries current and accepted, including `admissible.h45.distinct.g0`–`g3` and `admissible.h45.bounds`.
 - **CI on eb0e2ef:** `check` and `gdt-comparison` both succeed.
+- **Not done, as instructed:** no tag, no release, no deployment, no contact with the paper's authors; branch protection and repository settings unchanged.
+
+## Merge record, 2026-11-12 (RLT-007b stage 2a)
+
+- **Approval:** merge exactly 57c949e.
+- **Pre-merge checks:**
+  - PR #18 head was 57c949e;
+  - `check` and `gdt-comparison` were green on its push and pull_request runs;
+  - both independent audits' corrections were included (`listed_1` … `listed_6`, the by-name Lean axiom gate, SY09 and the rebuilt SY04/SY07/SY08, exact statement reconstruction in `cli/tests/rlt007s2a.rs`, argument checks and the approved-interval check in the generator);
+  - nothing changed under `kernel/`, `syntax/`, `spec/`, `conventions/` or `sources/`, nor in any earlier proof file;
+  - the 19 statements match the six approved intervals and Prime_B exactly (`every_statement_is_exactly_the_approved_one`).
+- **PR #18 merged:** marked ready, then merged as merge commit **f37bcfc** (f37bcfce04809f719307a4fabacf46fd594ac0be), with parents eb0e2ef and 57c949e. The merge tree ae96f24 equals 57c949e's tree.
+- **Fresh clone of main at f37bcfc,** with the pinned sources already fetched:
+  - `cargo test --release`: 287 passed, 0 failed;
+  - `scripts/verify.sh`: `RESULT all checks hold`, exit 0, 28 min 9 s wall (the machine was shared with two audits);
+  - `scripts/check-manual.py`: 33 of 33.
+- **The 19 new theorems, from that run:** kernel accepted 19 of 19; `rlt deps` 7 of 7 with the pinned budgets (C: 18 of 64 checks, chain 2); 9 of 9 rejected cases refused; generator self-test 8 of 8, `--check` 37 outputs, 0 differ.
+- **Lean:** `RLT007S2a.lean` 33 statements and `RLT007S2Design.lean` 20, each printed by name, standard axioms only; the 14 stage-2a references in records checked.
+- **Library:** 125 of 125 entries current and accepted, including the 19 stage-2a entries; the identity registry keeps every line of 5 committed versions.
+- **CI on f37bcfc:** `check` and `gdt-comparison` both succeed.
+- **Direction of the result:** RLT establishes exhaustiveness (every Prime_B number below 213 is listed); the converse is Lean evidence only. Stage 2b is deferred as a separately documented extension.
 - **Not done, as instructed:** no tag, no release, no deployment, no contact with the paper's authors; branch protection and repository settings unchanged.

@@ -1,6 +1,6 @@
 # RLT-007b stage 3 — Correspondence review: the primes p ≥ 213
 
-**Status:** semantic correspondence assessed, 2026-11-12. This is the basis document pinned by SHA-256 in the statement record `H45-TAIL-OMITS`.
+**Status:** semantic correspondence assessed, 2026-11-12. This is the basis document pinned by SHA-256 in the statement record `TAIL-OMITS-H45`.
 
 ## 1. The source claim and the role of this stage
 
@@ -27,15 +27,15 @@ The paper's counting argument for p ≥ 47 needs a pigeonhole principle over an 
 
 **Scope: every p > 212, prime or not.** The statement is arithmetic. It applies to the primes p ≥ 213 by instantiation; nothing in it uses primality. This is exactly the shape the assembly needs: after `primes.below_213` gives 212 < p for a prime outside the 47, TAIL at that p gives the omitted class.
 
-**What the assembly adds.** A residue class r modulo p is meaningful for r < p. That 1 < p follows from 212 < p by a closed computation, and RLT-007d's assembly states it there. It is not part of TAIL.
+**What the assembly adds.** A residue class r modulo p is meaningful for r < p. That 1 < p follows from 212 < p by a closed computation; RLT-007d's assembly will derive it there. It is not part of TAIL.
 
-**Why 212.** The least bound for which the statement is true is 211: for p = 211, the element 212 = 211 × 1 + 1 (Lean `bound_210_fails` refutes the statement with 210 < p). The bound 212 is the one the classification produces (`212 < p` in `primes.below_213`), so TAIL matches it exactly. Proving the slightly stronger 211 < p would add nothing the assembly uses.
+**Why 212.** The least bound for which the statement is true is 211: for p = 211, the element 212 = 211 × 1 + 1, so Lean `bound_210_fails` refutes the statement with 210 < p, and Lean `bound_211_holds` proves it with 211 < p. The bound 212 is the one the classification produces (`212 < p` in `primes.below_213`), so TAIL matches it exactly. Proving the slightly stronger 211 < p would add nothing the assembly uses.
 
 ## 3. Reading over ℕ
 
 H₄₅ consists of nonnegative integers. For p > 1:
 - "h lies in the class 1 modulo p" in the integers means h = p·k + 1 for some integer k;
-- for h ≥ 0 and p > 1, any such k is nonnegative, so the natural-number form ∃k ∈ ℕ. h = p·k + 1 is the same condition;
+- for h ≥ 0 and p > 1, any such k is nonnegative (a negative k gives p·k + 1 ≤ 1 − p < 0), so the natural-number form ∃k ∈ ℕ. h = p·k + 1 is the same condition; Lean `int_class_iff` proves this equivalence;
 - Lean `one_mod_iff` proves (∃k. h = p·k + 1) ↔ h % p = 1 for every p > 1.
 
 So TAIL says: modulo every p > 212, no element of H₄₅ is in the class 1, and Lean `tail_mod` states that form directly (h % p ≠ 1 for every listed h). This is the same reading RLT-006 uses for its classes (docs/RLT-006-CORRESPONDENCE.md §3).
@@ -46,7 +46,7 @@ So TAIL says: modulo every p > 212, no element of H₄₅ is in the class 1, and
 |---|---|---|
 | TAIL under Robinson's Q, unconditional | `tests/rlt007s3/accept/TAIL.rlt`, library id `admissible.h45.omits.tail_1` | **kernel accepted** |
 | The 45 elements are the transcribed tuple, increasing from 0 to 212, without 1 | generator check against item `h45-tuple` | **source transcription checked** |
-| TAIL over ℕ, literally; its residue reading; the bound 210 fails | Lean `tail`, `one_mod_iff`, `tail_mod`, `bound_210_fails` | Lean-checked |
+| TAIL over ℕ, literally; its residue reading over ℕ and over ℤ; the least true bound is 211 | Lean `tail`, `one_mod_iff`, `int_class_iff`, `tail_mod`, `bound_210_fails`, `bound_211_holds` | Lean-checked |
 | TAIL is the "every prime p ≥ 213" case of Lemma 12.1's admissibility, with the class 1 | this review | **semantic correspondence assessed** (`partial`) |
 
 **Assessment: partial.** TAIL settles admissibility for the primes p ≥ 213. The primes 47 to 211 (stage 4) and the assembly with the small primes, the classification and the distinctness and bound statements (RLT-007d) remain. Together these are the components of the full lemma; this stage supplies one of them.
@@ -57,7 +57,8 @@ So TAIL says: modulo every p > 212, no element of H₄₅ is in the class 1, and
 - `tail`: RLT's statement, with `LT` defined exactly as RLT's `<`;
 - `key`: the single-element argument (k = 0 or k ≥ 1);
 - `one_mod_iff` and `tail_mod`: the residue reading;
-- `bound_210_fails`: the bound cannot be lowered to 210;
+- `int_class_iff`: the integer and natural-number forms of the class agree for h ≥ 0, p > 1;
+- `bound_210_fails` and `bound_211_holds`: 211 is the least true bound;
 - `h45_eq`, `small`, `lt_iff`: the list's shape and the reading of `<`.
 
 All are printed and gated by name in verify.sh, with standard axioms only.

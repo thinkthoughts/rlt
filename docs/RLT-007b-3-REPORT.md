@@ -5,14 +5,14 @@
 **Unchanged:**
 - the kernel, the 20 inference rules plus `cite`, ROBINSON-Q and `spec/definitions.rlt`;
 - the resource limits;
-- every earlier proof, report, record and library entry.
+- every earlier proof, record and library entry. Two earlier documents gain notes: the stage-2a report states the direction of its result, and the stage-2 design review records stage 2b as deferred.
 
 ## 1. The theorem
 
     TAIL:  ∀p. (212 < p → ⋀_{h ∈ H₄₅} ¬(∃k. h = (p × k) + 1))
 
 - One file, `tests/rlt007s3/accept/TAIL.rlt`, kernel accepted, unconditional under ROBINSON-Q (Γ = ∅), citing nothing.
-- Library id `admissible.h45.omits.tail_1` (the name in the Option B design), statement record `H45-TAIL-OMITS` (semantic `partial`, current).
+- Library id `admissible.h45.omits.tail_1` (the name in the Option B design), statement record `TAIL-OMITS-H45` (semantic `partial`, current).
 - The conjunction is left-nested over the 45 transcribed elements, the shape of RLT-006's per-prime statements with r = 1 and the modulus a variable.
 
 **Exactly what the assembly needs.**
@@ -42,10 +42,10 @@ Axioms used: all seven of ROBINSON-Q. Rules used: and-intro, cong, exists-elim, 
 `scripts/gen-rlt007s3.py`, deterministic and untrusted (every proof is kernel-checked).
 - **Write mode** produces 10 outputs: the theorem, 6 rejected cases with `expected.tsv`, the Lean file and the record.
 - **`--check`** regenerates in memory and compares, with exact file sets.
-- **`--self-test`** refuses 6 of 6 altered tuples (1 added, 213 for 212, 44 entries, a duplicate, out of order, a negative entry).
-- **Source transcription check** (not kernel-checked), in the generator and independently in verify.sh: the tuple is the transcribed H₄₅, 45 increasing entries from 0 to 212, without 1.
+- **`--self-test`** refuses 6 of 6 altered tuples (1 in place of 2, which only the check for 1 catches; 213 for 212; 44 entries; a duplicate; out of order; a negative entry).
+- **Source transcription check** (not kernel-checked), in the generator and independently in verify.sh: the tuple is the transcribed H₄₅, 45 increasing entries from 0 to 212, without 1. verify.sh also rebuilds the statement from the transcribed tuple and compares it with the goal of TAIL.rlt and with the record's checked goal.
 
-**Rejected cases.** Each states something false, or a statement other than the one proved:
+**Rejected cases.** Each states something false, a statement other than the one proved, or a corrupted proof step:
 
 | Case | Why it is refused |
 |---|---|
@@ -55,29 +55,56 @@ Axioms used: all seven of ROBINSON-Q. Rules used: and-intro, cong, exists-elim, 
 | SR04 the statement changed to the class 2 (false: 2 = p × 0 + 2) | the last step proves the class-1 statement |
 | SR05 the statement with the element 212 dropped | the last step proves the 45-element statement |
 | SR06 the statement with the hypothesis 212 < p dropped (false for p = 1) | the last step proves the bounded statement |
+| SR07 the statement with the stronger bound 211 < p (true, but not the statement proved) | the last step proves the 212 statement |
+| SR08 the statement with its first two conjuncts swapped (no longer the OM_p shape) | the last step proves the listed order |
+| SR09 inside the proof, p = S²¹²(z) claimed instead of S²¹³(z) | refused at step PZ |
+
+The element 214 in SR02 is the first false replacement for 212: with 213 the statement stays true (213 = p × k + 1 needs p = 212).
 
 The trusted Rust test `cli/tests/rlt007s3.rs` (5 tests) rebuilds the statement from H₄₅ written out independently in the test and requires exact equality with the committed goal.
 
 ## 4. Lean comparison
 
-`lean/RLT007S3.lean`, generated, core Lean only: 8 theorems, each printed and gated by name, with standard axioms only.
+`lean/RLT007S3.lean`, generated, core Lean only: 10 theorems, each printed and gated by name, with standard axioms only.
 - `tail`: RLT's statement over ℕ, literally.
 - `key`: one element (k = 0, or k ≥ 1 and p × k ≥ p).
 - `one_mod_iff`: for p > 1, (∃k. h = p × k + 1) ↔ h % p = 1.
 - `tail_mod`: every element of H₄₅ has remainder other than 1 modulo every p > 212.
-- `bound_210_fails`: the statement with 210 < p is false.
+- `int_class_iff`: for h ≥ 0 and p > 1, the integer form ∃k ∈ ℤ. h = p·k + 1 equals the natural-number form.
+- `bound_210_fails` and `bound_211_holds`: the statement fails with 210 < p and holds with 211 < p, so 211 is the least true bound.
 - `h45_eq`, `small`, `lt_iff`: the list's shape and the reading of `<`.
 
-The record names `tail`, `one_mod_iff` and `tail_mod`; the pinned count of Lean references in records is now 47, previously 44.
+The record names `tail`, `one_mod_iff`, `tail_mod` and `int_class_iff`; the pinned count of Lean references in records is now 48, previously 44.
 
 ## 5. Verification
 
-- `cargo test --release`: all suites pass, including the 5 new tests (§7 has the totals).
-- `scripts/verify.sh`: new stage-3 section (self-test, `--check`, the transcription check, acceptance with Γ = ∅, 6 of 6 rejected cases); Lean replay of 21 files with the new file under the by-name gate; the record exits 0; the library has 126 entries over 128 proofs.
+Reported with the final commit in §7.
 
 ## 6. Independent audits
 
-Recorded in §8 after they complete.
+Two independent adversarial audits ran on 1d07707, one mathematical and one on the implementation. Neither found a blocking defect.
+
+| Finding | Change |
+|---|---|
+| "211 is the least true bound" was stated, but only the failure at 210 was proved | Lean `bound_211_holds`; the review cites both |
+| The step from integer residue classes to the natural-number form was argued only in prose | Lean `int_class_iff`, cited in the review and the record |
+| The self-test's "1 added" case was also caught by the endpoint check, so the check for 1 was untested | the case is now 1 in place of 2, caught only by the check for 1 |
+| verify.sh's stage-3 line trusted the generator for which statement was proved | verify.sh rebuilds the statement from the transcription and compares it with TAIL.rlt and the record |
+| SR01's refusal relied on a successor helper silently accepting a negative count | the helper asserts a nonnegative count; the rejected case builds its step explicitly (same refusal) |
+| Missing negative cases: a stronger but true bound, a reordered conjunction, a corrupted proof step | SR07, SR08, SR09 |
+| A sentence described the future assembly in the present tense | reworded |
+| (Found by the full verify.sh run after the fixes, not by the audits.) The record's first name, `H45-TAIL-OMITS`, fell under stage 1's `--check`, which treats every `statements/H45-*` other than `H45-OMITS-*` as a stage-1 record | renamed `TAIL-OMITS-H45`; stage 1's generator is unchanged |
+
+**Notes kept for later stages.**
+- The kernel's goal comparison ignores bound-variable names (a copy of TAIL.rlt with its goal written over q is accepted). The composition design matches statements by fingerprint and printed form, so its checker must compare canonical goals, not the `goal` text of a file.
+- The generator's RLT_BINARY argument is accepted but unused, as in stage 2a; kernel checking is done by verify.sh and the tests.
+
+The auditors verified independently:
+- the statement is true, no stronger than the assembly needs, and has the OM_p shape and order;
+- the 45 elements equal the transcription and the paper's display;
+- the proof's structure (D_n, Q_n, the two branches, the discharge of 212 < p), with nine further adversarial files refused or, where true, accepted as expected (bound 211 accepted; 213 for 212 accepted);
+- `tail` is literally RLT's goal (it proves the statement `rlt lean` emits);
+- `gen-lib.py` reproduces `lib/` exactly, `rlt deps --verify-lib` accepts, the identity registry is append-only, and all 32 earlier records still explain with exit 0.
 
 ## 7. Measured totals
 
