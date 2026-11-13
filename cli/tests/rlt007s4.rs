@@ -224,7 +224,10 @@ fn the_generator_reproduces_every_output_and_refuses_altered_inputs() {
     let t = generator("--self-test");
     let out = String::from_utf8_lossy(&t.stdout);
     assert!(t.status.success(), "{out}");
-    assert!(out.contains("6 of 6 altered inputs refused, each for its own reason"), "{out}");
+    assert!(
+        out.contains("6 of 6 altered inputs refused, each for its own reason"),
+        "{out}"
+    );
     assert!(!out.contains("ACCEPTED"), "{out}");
 }
 
