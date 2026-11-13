@@ -256,7 +256,7 @@ The disjunction in `primes.below_213` is grouped by these ranges, so that each r
 It is written inline with the existing definitions (`x < y` is ∃z. S(z) + x = y; `d ∣ n` is ∃k. n = d × k), so composition adds no definition.
 - Its correspondence with the standard notion of prime is a Lean theorem over ℕ (`pb_iff_std` in `lean/RLT007S2a.lean`), reported as **semantic correspondence assessed**, not as an RLT theorem under Robinson's Q.
 - The guarded form Prime_G is a documented reference definition only. The unguarded form is set aside, because no RLT proof under ROBINSON-Q can establish it for any prime (the countermodel in `lean/RLT007S2Design.lean`).
-- Composition matches statements by fingerprint, so every node that mentions primes (`primes.below_213`, `adm.all`) uses Prime_B literally, with the same bound variable names.
+- Composition matches statements by fingerprint (the canonical kernel form, the same under renaming of bound variables), so every node that mentions primes (`primes.below_213`, `adm.all`) uses Prime_B literally, up to the names of bound variables.
 
 **What `primes.below_213` rests on.** Stage 2a proves it from six exhaustiveness theorems `primes.exhaustive.r1` … `r6` and six order splits `order.split.o1` … `o6`, by `cite`. It is an ordinary unconditional library theorem, so composition treats it as one layer-0 node. The 47 positive primality theorems of stage 2b (Prime_B(q) for each listed q) are a separate result. `adm.all` does not need them: admissibility for every prime needs only that every prime is listed, which is the exhaustiveness direction RLT has established. The converse has Lean evidence only (`listed_1` … `listed_6`).
 
@@ -300,7 +300,7 @@ It is written inline with the existing definitions (`x < y` is ∃z. S(z) + x = 
 
 The rules of §3.1–§3.5 apply unchanged at every edge.
 - **Exact matching.** The discharger's statement must equal the assumption *exactly*, as expanded kernel formulas in canonical form.
-  - **Bound-variable names (stage-3 audit, 2026-11-12).** The kernel's own goal check compares formulas up to the names of bound variables: a copy of stage 3's TAIL.rlt with its goal written over q instead of p is accepted. The composition checker therefore compares the canonical printed statements of discharger and assumption (and their fingerprints), never the `goal` text of a proof file, so that "the same bound variable names" (§6.1a) is enforced by the checker itself.
+  - **Bound-variable names (stage-3 audit, 2026-11-12; requirement of 2026-11-13).** Matching compares canonical checked formulas, never the `goal` text of a proof file, and two statements that differ only by renaming bound variables are the same statement. The library fingerprint already has this property: it hashes the kernel form of the checked goal, and a copy of stage 3's TAIL.rlt with its goal written over q instead of p has the same fingerprint (40214dc5…) as the original, while its printed goal differs. The checker therefore matches discharger and assumption by fingerprint (α-invariant), and reports the printed goals only for reading.
 - **What the discharger's statement is.**
   - For a layer-0 discharger, it is the kernel accepted goal (Γ = ∅).
   - For a composed discharger of layer n ≥ 1, it is the **conclusion** of its assembly theorem, and only once that record has itself passed in this run, with every assumption discharged. A composed result whose own record fails, or has an undischarged assumption, discharges nothing.
