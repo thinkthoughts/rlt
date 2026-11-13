@@ -29,6 +29,7 @@ FILES = (
     + sorted(glob.glob("tests/rlt006/accept/*.rlt"))
     + sorted(glob.glob("tests/rlt007s1/accept/*.rlt"))
     + sorted(glob.glob("tests/rlt007s2a/accept/*.rlt"))
+    + sorted(glob.glob("tests/rlt007s3/accept/*.rlt"))
 )
 NAMED = {
     "tests/accept/R_math29_pairing.rlt": "arith.add.29_1_30",
@@ -81,6 +82,8 @@ NAMED = {
     "tests/rlt007s2a/accept/O_5.rlt": "order.split.o5",
     "tests/rlt007s2a/accept/O_6.rlt": "order.split.o6",
     "tests/rlt007s2a/accept/C.rlt": "primes.below_213",
+    # RLT-007b stage 3: the class 1 is omitted modulo every p > 212.
+    "tests/rlt007s3/accept/TAIL.rlt": "admissible.h45.omits.tail_1",
 }
 PATTERNS = [
     (r"^(\d+) ∣ (\d+)$", "dvd.{0}_{1}"),
