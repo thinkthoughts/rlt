@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: order.split.o3
+title: "∀p. (78 < p → (p < 113 ∨ 112 < p))"
+fingerprint: 5251b88efbc5de6c625d1d120ac6d0f0c4de46cc804cd52771523d2a25a4f9ab
+proof: {path: tests/rlt007s2a/accept/O_3.rlt, sha256: a466481acf617cf575b49c2f6a9a692e81f2e99524c1d4a8caaa0a4bff514d06}
+proof_id: RLT007S2a.O_3
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀p. ((∃z. S(z) + 78 = p) → ((∃z. S(z) + p = 113) ∨ (∃z. S(z) + 112 = p)))"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

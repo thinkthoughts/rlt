@@ -2,3 +2,6 @@ target/
 
 # RLT-006: generated element certificates (scripts/gen-rlt006.py; pinned by tests/rlt006/manifest.sha256)
 tests/rlt006/gen/
+
+# RLT-007b stage 1: generated per-element distinctness theorems (scripts/gen-rlt007s1.py; pinned by tests/rlt007s1/manifest.sha256)
+tests/rlt007s1/gen/

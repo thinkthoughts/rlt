@@ -29,6 +29,10 @@ fn records() -> Vec<String> {
         // RLT-006's 14 records cite generated certificates: cli/tests/rlt006.rs
         // materializes them and explains those records.
         .filter(|n| !n.starts_with("H45-OMITS-"))
+        // RLT-007b stage 1's 5 records: cli/tests/rlt007s1.rs explains them.
+        .filter(|n| !n.starts_with("H45-DISTINCT-") && !n.starts_with("H45-BOUNDS"))
+        // RLT-007b stage 2a's 7 records: cli/tests/rlt007s2a.rs explains them.
+        .filter(|n| !n.starts_with("PRIMES-"))
         .map(|n| format!("statements/{n}"))
         .collect();
     v.sort();

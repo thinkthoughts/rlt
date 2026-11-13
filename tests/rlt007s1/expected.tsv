@@ -1,0 +1,8 @@
+# file	exit	required substring of the verdict (RLT-007b stage 1 rejected cases)
+tests/rlt007s1/reject/SX01_false_pair_2_eq_2.rlt	1	REJECT at step D2 — step claims `¬(2 = 2)`, rule `forall-elim` yields `¬(2 = 12)`
+tests/rlt007s1/reject/SX02_wrong_instance.rlt	1	REJECT at step D2 — step claims `¬(2 = 12)`, rule `forall-elim` yields `¬(2 = 11)`
+tests/rlt007s1/reject/SX03_kchain_step_missing.rlt	1	REJECT at step KE8 — premise `KA7` is not an earlier step
+tests/rlt007s1/reject/SX04_bounds_witness_off_by_one.rlt	1	REJECT at step UpI24 — step claims `187 + 24 = 212`, rule `forall-elim` yields `187 + 24 = 211`
+tests/rlt007s1/reject/SX05_group_cites_other_element.rlt	1	the cited theorem `E10` proves `(((((((((((((((((((((((((((((((¬(56 = 60) ∧ ¬(56 = 66))
+tests/rlt007s1/reject/SX06_group_stale_hash.rlt	2	MALFORMED — citation `E0`: tests/rlt007s1/gen/D_000.rlt has SHA-256
+tests/rlt007s1/reject/SX07_group_missing_theorem.rlt	2	MALFORMED — citation `E0`: cited path `tests/rlt007s1/gen/D_999.rlt`: entity not found

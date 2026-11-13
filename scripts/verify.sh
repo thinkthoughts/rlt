@@ -52,8 +52,8 @@ if [ -z "${RLT_VERIFY_CHILD:-}" ]; then
     fi
     exec 5>&- 2>/dev/null; [ -n "${rlt_relay:-}" ] && wait "$rlt_relay" 2>/dev/null
     rlt_restore
-    rm -rf tests/rlt006/gen "$RLT_RUN_TMP"
-    echo; echo "INTERRUPTED ($2): verification stopped before completion; altered files restored; generated certificates removed; no RESULT" | tee -a verification/RLT-001-results.txt
+    rm -rf tests/rlt006/gen tests/rlt007s1/gen "$RLT_RUN_TMP"
+    echo; echo "INTERRUPTED ($2): verification stopped before completion; altered files restored; generated certificates and theorems removed; no RESULT" | tee -a verification/RLT-001-results.txt
     exit "$1"
   }
   trap 'rlt_stop 130 INT' INT
@@ -185,6 +185,31 @@ if g6_check tests/rlt006/manifest.sha256; then
   echo "630 of 630 certificates generated in $(printf %.1f "$(echo "$g6_t1 - $g6_t0" | bc)") s, each equal to its manifest hash; $(du -sk tests/rlt006/gen | cut -f1) KB on disk ($(ls tests/rlt006/gen | wc -l) files)"
 else
   echo "  UNEXPECTED: tests/rlt006/gen differs from tests/rlt006/manifest.sha256"; fail=1
+fi
+
+echo; echo "== RLT-007b stage 1 generated theorems (materialized before any check; tests/rlt007s1/manifest.sha256)"
+s1_check() {  # manifest → exit 0 only if all 44 present and equal
+  python3 -I - "$1" <<'PY'
+import hashlib, sys
+bad = n = 0
+for line in open(sys.argv[1], encoding="utf-8"):
+    s, p = line.rstrip("\n").split("  ", 1)
+    n += 1
+    try:
+        got = hashlib.sha256(open(p, "rb").read()).hexdigest()
+    except OSError:
+        got = "(missing)"
+    if got != s:
+        bad += 1
+        print(f"  MANIFEST MISMATCH {p}: {got}")
+sys.exit(0 if n == 44 and bad == 0 else 1)
+PY
+}
+python3 -I scripts/gen-rlt007s1.py "$rlt" --materialize-only >/dev/null || { echo "  UNEXPECTED: scripts/gen-rlt007s1.py --materialize-only failed"; fail=1; }
+if s1_check tests/rlt007s1/manifest.sha256; then
+  echo "44 of 44 per-element distinctness theorems generated, each equal to its manifest hash; $(du -sk tests/rlt007s1/gen | cut -f1) KB on disk"
+else
+  echo "  UNEXPECTED: tests/rlt007s1/gen differs from tests/rlt007s1/manifest.sha256"; fail=1
 fi
 
 echo; echo "== cargo test (unit + golden)"
@@ -508,6 +533,115 @@ else
   echo "  UNEXPECTED: certificates/h45 check failed"; echo "$h1_log" | grep '^PROBLEM' | head -5; echo "$h1_self" | grep -E '^ACCEPTED|self-test needs'; fail=1
 fi
 
+echo; echo "== H45 distinctness and bounds, RLT-007b stage 1 (tests/rlt007s1): obligation (a) of Lemma 12.1"
+# Source transcription checks (not kernel-checked): the listing facts.
+s1_tr=$(python3 -I - <<'PY'
+import yaml
+t = yaml.safe_load(open("sources/transcriptions/AXIOM-BGP212-2026-09-03.yaml", encoding="utf-8"))
+it = {i["id"]: i for i in t["items"]}
+import re
+H = it["h45-tuple"]["numbers"]
+L = [it["lemma-12-1"]["extracted"], it["lemma-12-1"]["text"]]
+ok = (len(H) == 45 and all(a < b for a, b in zip(H, H[1:])) and H[0] == 0 and H[-1] == 212
+      and all(re.search(r"(?<![0-9])45-tuple(?![0-9A-Za-z])", t) and re.search(r"diameter 212(?![0-9])", t) for t in L))
+print("ok" if ok else "FAILED")
+PY
+)
+[ "$s1_tr" = ok ] && echo "source transcription checked (not kernel-checked): 45 listed entries, strictly increasing, first 0, last 212; the transcribed Lemma 12.1 names a 45-tuple of diameter 212" || { echo "  UNEXPECTED: source transcription check failed"; fail=1; }
+s1_self=$(python3 -I scripts/gen-rlt007s1.py "$rlt" --self-test); s1_sc=$?
+[ $s1_sc = 0 ] && echo "$(echo "$s1_self" | tail -1)" || { echo "  UNEXPECTED: $s1_self"; fail=1; }
+s1_gc=$(python3 -I scripts/gen-rlt007s1.py "$rlt" --check); s1_gcc=$?
+[ $s1_gcc = 0 ] && echo "$(echo "$s1_gc" | tail -1) (statements, summaries, rejected cases, Lean file, records and manifest reproduced)" || { echo "  UNEXPECTED: $s1_gc"; fail=1; }
+s1_p=$RLT_RUN_TMP/par-s1-check; par_map "$s1_p" '"$rlt" check "$1"' tests/rlt007s1/gen/*.rlt tests/rlt007s1/accept/BOUNDS.rlt || { echo "  UNEXPECTED: a parallel run left no exit code"; fail=1; }
+s1_i=0; s1_ok=0
+for f in tests/rlt007s1/gen/*.rlt tests/rlt007s1/accept/BOUNDS.rlt; do
+  { [ "$(cat "$s1_p/$s1_i.code" 2>/dev/null)" = 0 ] && grep_q -E '^verdict         ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q' "$s1_p/$s1_i.out"; } && s1_ok=$((s1_ok + 1)) || { echo "  UNEXPECTED: $f"; fail=1; }
+  s1_i=$((s1_i + 1))
+done
+rm -rf "$s1_p"
+[ $s1_ok = 45 ] || fail=1
+echo "kernel accepted: $s1_ok of 45 (44 per-element distinctness theorems and the bounds theorem), unconditional under ROBINSON-Q"
+s1_p=$RLT_RUN_TMP/par-s1-deps; par_map "$s1_p" '"$rlt" deps "$1"' tests/rlt007s1/accept/DG_*.rlt || { echo "  UNEXPECTED: a parallel run left no exit code"; fail=1; }
+s1_i=0; s1_ok=0
+for f in tests/rlt007s1/accept/DG_*.rlt; do
+  s1_d=$(cat "$s1_p/$s1_i.out"); s1_dc=$(cat "$s1_p/$s1_i.code" 2>/dev/null); s1_i=$((s1_i + 1))
+  { [ "$s1_dc" = 0 ] && echo "$s1_d" | grep_q '^budget          cited-file checks 11 of 64 · citing-file chain 1 of 8' && echo "$s1_d" | grep_q '^exit            0'; } && s1_ok=$((s1_ok + 1)) || { echo "  UNEXPECTED: $f"; fail=1; }
+done
+rm -rf "$s1_p"
+[ $s1_ok = 4 ] || fail=1
+[ "$(ls tests/rlt007s1/accept | wc -l)" = 5 ] || { echo "  UNEXPECTED: tests/rlt007s1/accept holds $(ls tests/rlt007s1/accept | wc -l) files, not 5"; fail=1; }
+echo "kernel accepted: $s1_ok of 4 group summaries, each citing 11 per-element theorems (11 of 64 cited-file checks)"
+s1_r=0; s1_rn=0
+while IFS=$'\t' read -r f want reason; do
+  case "$f" in \#*|"") continue ;; esac
+  s1_rn=$((s1_rn + 1))
+  s1_log=$("$rlt" check "$f"); s1_code=$?
+  { [ "$s1_code" = "$want" ] && echo "$s1_log" | grep '^verdict' | grep_q -F -- "$reason"; } && s1_r=$((s1_r + 1)) || { echo "  UNEXPECTED: $f exit $s1_code (want $want)"; fail=1; }
+done < tests/rlt007s1/expected.tsv
+{ [ "$s1_rn" = 7 ] && [ "$(ls tests/rlt007s1/reject/*.rlt | wc -l)" = 7 ]; } || { echo "  UNEXPECTED: tests/rlt007s1/expected.tsv lists $s1_rn cases"; fail=1; }
+echo "tests/rlt007s1/reject: $s1_r of $s1_rn give the required exit code and reason"
+# Tamper tests on the generated theorems (restored by regeneration).
+s1_t() {  # $1 description, $2 group file, $3 verdict fragment
+  s1_log=$("$rlt" check "$2"); s1_code=$?
+  { [ $s1_code = 2 ] && echo "$s1_log" | grep '^verdict' | grep_q -F -- "$3" && ! s1_check tests/rlt007s1/manifest.sha256 >/dev/null; } \
+    && echo "refused: $1 (rlt check MALFORMED, manifest mismatch)" || { echo "  UNEXPECTED: $1 was not refused"; fail=1; }
+}
+rm -f tests/rlt007s1/gen/D_060.rlt
+s1_t "a per-element theorem missing" tests/rlt007s1/accept/DG_1.rlt "cited path \`tests/rlt007s1/gen/D_060.rlt\`: entity not found"
+python3 -I scripts/gen-rlt007s1.py "$rlt" --materialize-only >/dev/null
+sed -i '1s/^; RLT-007b/; rlt-007b/' tests/rlt007s1/gen/D_200.rlt
+s1_t "a per-element theorem modified" tests/rlt007s1/accept/DG_3.rlt "tests/rlt007s1/gen/D_200.rlt has SHA-256"
+python3 -I scripts/gen-rlt007s1.py "$rlt" --materialize-only >/dev/null
+s1_check tests/rlt007s1/manifest.sha256 >/dev/null && echo "restored: all 44 per-element theorems equal to the manifest again" || { echo "  UNEXPECTED: per-element theorems not restored"; fail=1; }
+
+echo; echo "== primes below 213 under Prime_B, RLT-007b stage 2a (tests/rlt007s2a): non-primes, exhaustiveness, classification"
+# Prime_B(p) :≡ 1 < p ∧ ∀d. ((1 < d ∧ d < p) → ¬(d ∣ p)), written inline with
+# the existing `lt` and `dvd`; no definition, axiom or rule is added.
+s2_self=$(python3 -I scripts/gen-rlt007s2a.py "$rlt" --self-test); s2_sc=$?
+[ $s2_sc = 0 ] && echo "$(echo "$s2_self" | tail -1)" || { echo "  UNEXPECTED: $s2_self"; fail=1; }
+s2_gc=$(python3 -I scripts/gen-rlt007s2a.py "$rlt" --check); s2_gcc=$?
+[ $s2_gcc = 0 ] && echo "$(echo "$s2_gc" | tail -1) (theorems, rejected cases, Lean file and records reproduced; ranges recomputed by trial division)" || { echo "  UNEXPECTED: $s2_gc"; fail=1; }
+# Source transcription check (not kernel-checked), independent of the generator.
+s2_tr=$(python3 -I - <<'PY'
+import yaml
+t = yaml.safe_load(open("sources/transcriptions/AXIOM-BGP212-2026-09-03.yaml", encoding="utf-8"))
+om = {i["id"]: i for i in t["items"]}["omitted-primes"]["numbers"]
+ps = [p for p in range(213) if p > 1 and all(p % d for d in range(2, p))]
+print("ok" if len(ps) == 47 and om == ps[:14] else "FAILED")
+PY
+)
+[ "$s2_tr" = ok ] && echo "source transcription checked (not kernel-checked): the 14 transcribed primes of Lemma 12.1's proof are the first 14 of the 47 primes below 213" || { echo "  UNEXPECTED: source transcription check failed"; fail=1; }
+s2_files=$(for k in N E O; do for i in 1 2 3 4 5 6; do echo "tests/rlt007s2a/accept/${k}_$i.rlt"; done; done; echo tests/rlt007s2a/accept/C.rlt)
+[ "$(ls -A tests/rlt007s2a/accept | wc -l | tr -d ' ')" = 19 ] || { echo "  UNEXPECTED: tests/rlt007s2a/accept holds $(ls -A tests/rlt007s2a/accept | wc -l | tr -d ' ') files, not 19"; fail=1; }
+s2_p=$RLT_RUN_TMP/par-s2a-check; par_map "$s2_p" '"$rlt" check "$1"' $s2_files || { echo "  UNEXPECTED: a parallel run left no exit code"; fail=1; }
+s2_i=0; s2_ok=0
+for f in $s2_files; do
+  { [ "$(cat "$s2_p/$s2_i.code" 2>/dev/null)" = 0 ] && grep_q -E '^verdict         ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q' "$s2_p/$s2_i.out"; } && s2_ok=$((s2_ok + 1)) || { echo "  UNEXPECTED: $f"; fail=1; }
+  s2_i=$((s2_i + 1))
+done
+rm -rf "$s2_p"
+[ $s2_ok = 19 ] || fail=1
+echo "kernel accepted: $s2_ok of 19 (6 non-prime certificates, 6 exhaustiveness theorems, 6 order splits, the classification), unconditional under ROBINSON-Q"
+s2_p=$RLT_RUN_TMP/par-s2a-deps; par_map "$s2_p" '"$rlt" deps "$1"' tests/rlt007s2a/accept/E_*.rlt tests/rlt007s2a/accept/C.rlt || { echo "  UNEXPECTED: a parallel run left no exit code"; fail=1; }
+s2_i=0; s2_ok=0
+for f in tests/rlt007s2a/accept/E_*.rlt tests/rlt007s2a/accept/C.rlt; do
+  case $f in *C.rlt) s2_b='cited-file checks 18 of 64 · citing-file chain 2 of 8' ;; *) s2_b='cited-file checks 1 of 64 · citing-file chain 1 of 8' ;; esac
+  s2_d=$(cat "$s2_p/$s2_i.out"); s2_dc=$(cat "$s2_p/$s2_i.code" 2>/dev/null); s2_i=$((s2_i + 1))
+  { [ "$s2_dc" = 0 ] && echo "$s2_d" | grep_q "^budget          $s2_b" && echo "$s2_d" | grep_q '^exit            0'; } && s2_ok=$((s2_ok + 1)) || { echo "  UNEXPECTED: $f"; fail=1; }
+done
+rm -rf "$s2_p"
+[ $s2_ok = 7 ] || fail=1
+echo "rlt deps: $s2_ok of 7 citing theorems current (each E_I cites its N_I, 1 of 64 checks; the classification cites 12 theorems, 18 of 64 checks transitively, chain 2 of 8)"
+s2_r=0; s2_rn=0
+while IFS=$'\t' read -r f want reason; do
+  case "$f" in \#*|"") continue ;; esac
+  s2_rn=$((s2_rn + 1))
+  s2_log=$("$rlt" check "$f"); s2_code=$?
+  { [ "$s2_code" = "$want" ] && echo "$s2_log" | grep '^verdict' | grep_q -F -- "$reason"; } && s2_r=$((s2_r + 1)) || { echo "  UNEXPECTED: $f exit $s2_code (want $want)"; fail=1; }
+done < tests/rlt007s2a/expected.tsv
+{ [ "$s2_rn" = 9 ] && [ "$(ls -A tests/rlt007s2a/reject | wc -l | tr -d ' ')" = 9 ]; } || { echo "  UNEXPECTED: tests/rlt007s2a/expected.tsv lists $s2_rn cases"; fail=1; }
+echo "tests/rlt007s2a/reject: $s2_r of $s2_rn give the required exit code and reason"
+
 echo; echo "== statement records and rlt explain, RLT-004b (statements/, tests/explain)"
 ex_tmp=$(mktemp -d)
 cp -r tests/explain "$ex_tmp/before"; cp -r tests/explain-rlt006 "$ex_tmp/before6"
@@ -552,8 +686,10 @@ if [ -n "$ex_lean" ]; then
   # `#print axioms` appended (RLT-006: 16 references, two files).
   ex_nrefs=$(echo "$ex_refs" | grep -c .)
   # Pinned: 8 before RLT-006, plus 16 (om_P for 14 primes,
-  # lemma_12_1_of_rlt_statements, omits_rlt_form).
-  [ "$ex_nrefs" = 24 ] || { echo "  UNEXPECTED: $ex_nrefs distinct Lean references in statement records (24 pinned)"; fail=1; }
+  # lemma_12_1_of_rlt_statements, omits_rlt_form), plus 6 for RLT-007b
+  # stage 1 (dg_0 … dg_3, bounds, obligation_a), plus 14 for stage 2a (c,
+  # e_1 … e_6, listed_1 … listed_6, pb_iff_std).
+  [ "$ex_nrefs" = 44 ] || { echo "  UNEXPECTED: $ex_nrefs distinct Lean references in statement records (44 pinned)"; fail=1; }
   # RLT-007a: the gate files are independent Lean runs, made in parallel.
   # Audit note 5: one Lean call first, so elan installs the toolchain once.
   (cd lean && "$ex_lean" --version >/dev/null 2>&1)
@@ -626,9 +762,9 @@ lean_bin=$(command -v lean || { [ -x "$HOME/.elan/bin/lean" ] && echo "$HOME/.el
 if [ -n "$lean_bin" ]; then
   # Run inside lean/ so elan selects lean/lean-toolchain. Any Lean message
   # other than the #print axioms lines (a warning, `sorry`, an error) fails.
-  # RLT-007a: the 17 files are independent Lean runs, made in parallel; their
+  # RLT-007a: the files (20 since RLT-007b stage 2a) are independent Lean runs, made in parallel; their
   # logs are joined in this fixed order, and any failing run fails the stage.
-  lean_files="RLT001.lean Generated.lean M2Generated.lean M2Readings.lean M3aGenerated.lean M3bGenerated.lean M3bReadings.lean M3cGenerated.lean M3cReadings.lean M3dGenerated.lean M3dReadings.lean M3eGenerated.lean M3eReadings.lean RLT005Direct.lean RLT005Readings.lean RLT006Direct.lean RLT006BGP212.lean"
+  lean_files="RLT001.lean Generated.lean M2Generated.lean M2Readings.lean M3aGenerated.lean M3bGenerated.lean M3bReadings.lean M3cGenerated.lean M3cReadings.lean M3dGenerated.lean M3dReadings.lean M3eGenerated.lean M3eReadings.lean RLT005Direct.lean RLT005Readings.lean RLT006Direct.lean RLT006BGP212.lean RLT007S1.lean RLT007S2a.lean RLT007S2Design.lean"
   lean_log=$(cd lean && "$lean_bin" --version 2>&1); lean_code=$?
   lean_p=$RLT_RUN_TMP/par-lean
   LEAN_BIN=$lean_bin par_map "$lean_p" 'cd lean && "$LEAN_BIN" "$1" 2>&1' $lean_files || lean_code=1
@@ -687,6 +823,27 @@ $(cat "$lean_p/$lean_i.out")"
   done
   # RLT-006: theorem counts pinned; every #print axioms line standard; the
   # vendored lean-bgp212 blocks byte-identical to the pinned upstream lines.
+  # RLT-007b stage 1: 50 theorems (44 per-element, 4 groups, bounds,
+  # obligation (a)), each printed, standard axioms only.
+  s1_n=$(grep -cE '^theorem ' lean/RLT007S1.lean); s1_pr=$(grep -c '^#print axioms ' lean/RLT007S1.lean)
+  s1_listed=$(echo "$lean_log" | grep -cE "^'RLT007S1\.[^']*' (depends on axioms|does not depend on any axioms)")
+  s1_bad=$(echo "$lean_log" | grep -E "^'RLT007S1\." | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound' | sort -u)
+  { [ "$s1_n" = 50 ] && [ "$s1_pr" = 50 ] && [ "$s1_listed" = 50 ] && [ -z "$s1_bad" ]; } && echo "RLT007S1.lean: $s1_n statements, each printed, standard axioms only (RLT-007b stage 1 Lean comparison; not RLT theorems)" || { echo "RLT007S1.lean: axiom gate FAILED ($s1_n theorems, 50 pinned, $s1_pr printed, $s1_listed listed; non-standard: $s1_bad)"; fail=1; }
+  # RLT-007b stage 2a: the comparison (33 theorems) and the design evidence
+  # for decision B (20: the countermodel and the equivalences). Checked by
+  # name: every declared theorem has its own `#print axioms` line in the file
+  # and its own line in Lean's output, with standard axioms only.
+  for rf_pin in RLT007S2a:33 RLT007S2Design:20; do
+    rf=${rf_pin%%:*}; s2_want=${rf_pin#*:}
+    s2_names=$(sed -n 's/^theorem \([A-Za-z0-9_]*\).*/\1/p' "lean/$rf.lean")
+    s2_n=$(echo "$s2_names" | grep -c .); s2_ok=0
+    for nm in $s2_names; do
+      { grep_q -xF "#print axioms $rf.$nm" "lean/$rf.lean" && echo "$lean_log" | grep_q -E "^'$rf\.$nm' (depends on axioms|does not depend on any axioms)"; } && s2_ok=$((s2_ok + 1))
+    done
+    s2_decl=$(grep -cE '^[[:space:]]*(@\[[^]]*\][[:space:]]*)?(private[[:space:]]+)?(theorem|lemma)[[:space:]]' "lean/$rf.lean"); s2_pr=$(grep -c '^#print axioms ' "lean/$rf.lean")
+    s2_bad=$(echo "$lean_log" | grep -E "^'$rf\." | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound' | sort -u)
+    { [ "$s2_n" = "$s2_want" ] && [ "$s2_decl" = "$s2_n" ] && [ "$s2_pr" = "$s2_n" ] && [ "$s2_ok" = "$s2_n" ] && [ -z "$s2_bad" ]; } && echo "$rf.lean: $s2_n statements, each printed by name, standard axioms only (RLT-007b stage 2a Lean comparison; not RLT theorems)" || { echo "$rf.lean: axiom gate FAILED ($s2_n theorems, $s2_want pinned, $s2_decl declared, $s2_pr printed, $s2_ok listed by name; non-standard: $s2_bad)"; fail=1; }
+  done
   for rf_pin in RLT006Direct:29 RLT006BGP212:12; do
     rf=${rf_pin%%:*}; r6_want=${rf_pin#*:}
     r6_n=$(grep -cE '^[[:space:]]*(theorem|lemma) ' "lean/$rf.lean")

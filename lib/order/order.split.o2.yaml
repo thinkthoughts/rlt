@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: order.split.o2
+title: "∀p. (40 < p → (p < 79 ∨ 78 < p))"
+fingerprint: 3a7cb623b722f359b03ce1c57da64671fb4c72aecb3c1f7ddb6ac4f9a153ba1e
+proof: {path: tests/rlt007s2a/accept/O_2.rlt, sha256: 9e3011d5c1bd9e6c6072de4800d4dc64713f06be2318deec080a71e53468be5b}
+proof_id: RLT007S2a.O_2
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀p. ((∃z. S(z) + 40 = p) → ((∃z. S(z) + p = 79) ∨ (∃z. S(z) + 78 = p)))"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []
