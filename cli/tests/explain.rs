@@ -35,6 +35,8 @@ fn records() -> Vec<String> {
         .filter(|n| !n.starts_with("PRIMES-"))
         // RLT-007b stage 3's record: cli/tests/rlt007s3.rs explains it.
         .filter(|n| !n.starts_with("TAIL-OMITS-"))
+        // RLT-007b stage 4's 33 records: cli/tests/rlt007s4.rs explains them.
+        .filter(|n| !n.starts_with("OMITS-H45-"))
         .map(|n| format!("statements/{n}"))
         .collect();
     v.sort();

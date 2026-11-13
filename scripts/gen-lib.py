@@ -30,6 +30,7 @@ FILES = (
     + sorted(glob.glob("tests/rlt007s1/accept/*.rlt"))
     + sorted(glob.glob("tests/rlt007s2a/accept/*.rlt"))
     + sorted(glob.glob("tests/rlt007s3/accept/*.rlt"))
+    + sorted(glob.glob("tests/rlt007s4/accept/*.rlt"))
 )
 NAMED = {
     "tests/accept/R_math29_pairing.rlt": "arith.add.29_1_30",
@@ -162,7 +163,7 @@ for lid, fp, files in sorted(entries):
     for c in n["children"]:
         if (c["path"], c["sha256"]) in by_pin:
             uses.append(by_pin[(c["path"], c["sha256"])])
-        elif c["path"].startswith(("tests/rlt006/gen/", "tests/rlt007s1/gen/")):
+        elif c["path"].startswith(("tests/rlt006/gen/", "tests/rlt007s1/gen/", "tests/rlt007s4/gen/")):
             uses.append(f"(unlisted {c['path']})")
         else:
             sys.exit(f"{files[0]} cites {c['path']}, which is neither in the library nor a generated certificate")
