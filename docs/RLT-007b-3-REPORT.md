@@ -55,9 +55,11 @@ Axioms used: all seven of ROBINSON-Q. Rules used: and-intro, cong, exists-elim, 
 | SR04 the statement changed to the class 2 (false: 2 = p × 0 + 2) | the last step proves the class-1 statement |
 | SR05 the statement with the element 212 dropped | the last step proves the 45-element statement |
 | SR06 the statement with the hypothesis 212 < p dropped (false for p = 1) | the last step proves the bounded statement |
-| SR07 the statement with the stronger bound 211 < p (true, but not the statement proved) | the last step proves the 212 statement |
+| SR07 the statement with the stronger bound 211 < p | the last step proves the 212 statement (see the note below) |
 | SR08 the statement with its first two conjuncts swapped (no longer the OM_p shape) | the last step proves the listed order |
 | SR09 inside the proof, p = S²¹²(z) claimed instead of S²¹³(z) | refused at step PZ |
+
+**SR07 and the bound 211.** SR07 states a mathematically valid theorem: with 211 < p the statement is true (Lean `bound_211_holds`), and an RLT proof of it, generated with the bound 211, is accepted by the kernel (the mathematical audit checked this). It is a stronger theorem than the approved one. SR07 is refused for a different reason: its file carries the proof of the approved statement (212 < p) under the written goal 211 < p, and the kernel accepts a file only when the last step proves exactly the written goal. So SR07 checks that the committed proof establishes the approved specification and that a changed specification, even a true and stronger one, is never accepted on the strength of that proof. The approved statement keeps 212 < p because that is the bound the stage-2a classification supplies; the stronger 211 would add nothing the assembly uses.
 
 The element 214 in SR02 is the first false replacement for 212: with 213 the statement stays true (213 = p × k + 1 needs p = 212).
 
