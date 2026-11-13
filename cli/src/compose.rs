@@ -386,7 +386,26 @@ pub fn compose(root: &Path, bundle_path: &str) -> Composition {
             format!("axiom set `{}` is not registered", b.axiom_set)
         );
     };
-    let _ = ax_file;
+    // The mathematical context itself: the axiom file's content and every
+    // registered convention, as pinned in this binary.
+    let axp = Pin {
+        path: ax_file.to_string(),
+        sha256: ax_sha.to_string(),
+    };
+    match file_sha(root, &axp) {
+        Ok((h, _)) if h == *ax_sha => {}
+        Ok((h, _)) => refuse!(
+            "incompatible",
+            format!(
+                "{ax_file} has SHA-256 {h}, not the pinned {ax_sha}: the axioms of {} differ",
+                b.axiom_set
+            )
+        ),
+        Err((k, m)) => refuse!(&k, m),
+    }
+    if let Err(e) = crate::pinned_conventions(root) {
+        refuse!("incompatible", format!("conventions: {e}"));
+    }
     let Some((_, conv_digest, _)) = PINNED_CONVENTIONS
         .iter()
         .find(|(x, _, _)| *x == b.convention)
@@ -411,9 +430,9 @@ pub fn compose(root: &Path, bundle_path: &str) -> Composition {
     match file_sha(root, &b.definitions) {
         Ok((h, _)) if h == b.definitions.sha256 => {}
         Ok((h, _)) => refuse!(
-            "stale",
+            "incompatible",
             format!(
-                "{} has SHA-256 {h}, not the pinned {}",
+                "{} has SHA-256 {h}, not the pinned {}: the definitions differ",
                 b.definitions.path, b.definitions.sha256
             )
         ),

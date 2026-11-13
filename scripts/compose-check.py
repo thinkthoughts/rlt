@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """RLT-007d independent composition checker (Python; shares no matching code with Rust).
 
-Usage: compose-check.py RLT_BINARY BUNDLE [--quiet]
+Usage: compose-check.py RLT_BINARY BUNDLE [--quiet] [--root DIR]
 
 What it uses from Rust: only `rlt check FILE`, i.e. kernel acceptance and the
 kernel's printed formulas (the trusted base). Everything else is implemented
@@ -33,6 +33,11 @@ import yaml
 APPROVED_AXIOMS = {"ROBINSON-Q": "4ad55192222576e3901abc4ee7ea5a6760b64ff212e8c55796ab9847e423b00c"}
 APPROVED_CONVENTION = "NAT-DEF"
 APPROVED_DEFS = ("spec/definitions.rlt", "122e37fc627b136023a1a5ffac0344162ed77ae95312248a9f6a76c2b639ecda")
+APPROVED_AXIOM_FILE = "spec/robinson-q.rlt"
+# NAT-DEF's interpretation and explanation digests: SHA-256 of the canonical
+# text (below) of conventions/nat-def.yaml without, and of, its explanation.
+APPROVED_CONVENTION_DIGESTS = ("935f9635e563cab1d60cd4b5d7ffbed121933eb59e790edd9fb7c21d088bd208",
+                               "a6a720b2d61f91e92bfaaf86f2947ec7bcab5a267d83a68c1766898c213b0524")
 INTERVALS = [(0, 40), (41, 78), (79, 112), (113, 156), (157, 190), (191, 212)]
 TRANSCRIPTION = "sources/transcriptions/AXIOM-BGP212-2026-09-03.yaml"
 CODES = {"malformed": 2, "missing": 2, "stale": 3}
@@ -61,7 +66,7 @@ def S(t):
     return ("n", t[1] + 1) if t[0] == "n" else ("S", t)
 
 
-TOK = re.compile(r"\s*(∀|∃|¬|∧|∨|→|=|\+|×|\(|\)|\.|S\(|[0-9]+|[A-Za-z_][A-Za-z_0-9']*)")
+TOK = re.compile(r"\s*(⊥|∀|∃|¬|∧|∨|→|=|\+|×|\(|\)|\.|S\(|[0-9]+|[A-Za-z_][A-Za-z_0-9']*)")
 
 
 def tokens(s):
@@ -114,6 +119,9 @@ class Parser:
         if tk == "¬":
             self.eat()
             return ("not", self.unary())
+        if tk == "⊥":
+            self.eat()
+            return ("false",)
         if tk == "(":
             save = self.i
             try:
@@ -174,6 +182,8 @@ def canon(f, env=()):
         return (k, canon(f[1], env), canon(f[2], env))
     if k == "not":
         return (k, canon(f[1], env))
+    if k == "false":
+        return f
     if k == "=":
         return (k, cterm(f[1], env), cterm(f[2], env))
     raise ValueError(k)
@@ -254,6 +264,82 @@ def approved():
 
 
 # ---------------------------------------------------------------------------
+# Statement fingerprints, recomputed here (format rlt-statement-fingerprint/1).
+def yaml_canon(y):
+    """Canonical text of a YAML value: typed, length-prefixed, maps sorted."""
+    if isinstance(y, bool):
+        return "b1" if y else "b0"
+    if isinstance(y, int):
+        return f"i{y};"
+    if isinstance(y, float):
+        raise Refuse("incompatible", "conventions: a real number in a convention record")
+    if isinstance(y, str):
+        return f"s{len(y.encode('utf-8'))}:{y}"
+    if y is None:
+        return "n"
+    if isinstance(y, list):
+        return "[" + "".join(yaml_canon(x) for x in y) + "]"
+    if isinstance(y, dict):
+        items = sorted((yaml_canon(k), yaml_canon(v)) for k, v in y.items())
+        return "{" + "".join(f"{k}={v}" for k, v in items) + "}"
+    raise Refuse("incompatible", "conventions: an unreadable value")
+
+
+def convention_digests(path="conventions/nat-def.yaml"):
+    y = yaml.safe_load(open(path, encoding="utf-8"))
+    interp = {k: v for k, v in y.items() if k != "explanation"}
+    h = lambda t: hashlib.sha256(t.encode("utf-8")).hexdigest()
+    return h(yaml_canon(interp)), h(yaml_canon(y["explanation"]))
+
+
+def kterm(t):
+    """A canonical term in the fingerprint's prefix form: symbol/arity."""
+    k = t[0]
+    if k == "b":
+        return f"#{t[1]}"
+    if k == "n":
+        out = "(0/0)"
+        for _ in range(t[1]):
+            out = f"(S/1 {out})"
+        return out
+    if k == "S":
+        return f"(S/1 {kterm(t[1])})"
+    if k in ("+", "*"):
+        return f"({k}/2 {kterm(t[1])} {kterm(t[2])})"
+    raise ValueError(f"a free variable `{t[1]}` in a statement")
+
+
+def kform(f):
+    k = f[0]
+    if k == "=":
+        return f"(= {kterm(f[1])} {kterm(f[2])})"
+    if k == "false":
+        return "false"
+    if k == "not":  # ¬A is A → ⊥ in the kernel
+        return f"(imp {kform(f[1])} false)"
+    if k in ("and", "or", "imp"):
+        return f"({k} {kform(f[1])} {kform(f[2])})"
+    if k in ("all", "ex"):
+        return f"({'forall' if k == 'all' else 'exists'} {kform(f[1])})"
+    raise ValueError(k)
+
+
+def fingerprint(c):
+    """SHA-256 of the statement's parts: convention, axiom set, definitions
+    used, the checked goal and the assumptions, each from this run."""
+    conv = convention_digests()[0]
+    t = "rlt-statement-fingerprint/1\n"
+    t += f"convention {c.convention} {conv}\n"
+    t += f"axiom-set {c.axiom[0]} {APPROVED_AXIOM_FILE} {sha_file(APPROVED_AXIOM_FILE)}\n"
+    t += (f"definitions {APPROVED_DEFS[0]} {sha_file(APPROVED_DEFS[0])} used {','.join(c.defs_used)}\n"
+          if c.defs_used else "definitions none\n")
+    t += f"goal {kform(canon(parse(c.proved)))}\n"
+    asm = sorted({kform(canon(parse(g))) for g in c.gamma.values()})
+    t += "assumptions none\n" if not asm else "".join(f"assumption {a}\n" for a in asm)
+    return hashlib.sha256(t.encode("utf-8")).hexdigest()
+
+
+# ---------------------------------------------------------------------------
 # Kernel runs: `rlt check FILE`, read from its printed report.
 class Check:
     def __init__(self, rlt, path):
@@ -273,6 +359,7 @@ class Check:
         d = (field("definitions") or [""])[0]
         m = re.search(r"\((\S+) sha256 ([0-9a-f]{64})\)", d)
         self.defs = (m.group(1), m.group(2)) if m else None
+        self.defs_used = d.split(" — ", 1)[0].split(", ") if m else []
         g = (field("assumptions") or ["Γ = ∅"])[0]
         self.gamma = {}
         if g.strip() != "Γ = ∅":
@@ -427,7 +514,11 @@ def compose(rlt, bundle, report):
     if (y["definitions"]["path"], y["definitions"]["sha256"]) != APPROVED_DEFS:
         raise Refuse("incompatible", "definitions are not the approved file")
     if sha_file(APPROVED_DEFS[0]) != APPROVED_DEFS[1]:
-        raise Refuse("stale", "spec/definitions.rlt changed")
+        raise Refuse("incompatible", "spec/definitions.rlt differs from the approved definitions")
+    if sha_file(APPROVED_AXIOM_FILE) != APPROVED_AXIOMS["ROBINSON-Q"]:
+        raise Refuse("incompatible", f"{APPROVED_AXIOM_FILE} differs from the approved axioms of ROBINSON-Q")
+    if convention_digests() != APPROVED_CONVENTION_DIGESTS:
+        raise Refuse("incompatible", "conventions/nat-def.yaml differs from the approved NAT-DEF")
 
     ids = {}
     for n in nodes:
@@ -483,7 +574,11 @@ def compose(rlt, bundle, report):
             if not re.fullmatch(r"[a-z0-9_]+(\.[a-z0-9_]+)+", n["library"]) or not os.path.isfile(p):
                 raise Refuse("missing", f"node `{n['id']}`: `{n['library']}` is not a library id")
             e = yaml.safe_load(open(p, encoding="utf-8"))
-            ident = register("lib/identities.tsv", 3).get(n["library"])
+            idents = register("lib/identities.tsv", 3)
+            fps = [v[0] for v in idents.values()]
+            if len(fps) != len(set(fps)):
+                raise Refuse("malformed", "lib/identities.tsv: one fingerprint under two ids")
+            ident = idents.get(n["library"])
             if ident is None or ident[0] != e["fingerprint"] or (not e.get("history") and ident[1] != e["proof"]["sha256"]):
                 raise Refuse("malformed", f"node `{n['id']}`: lib/ entry `{n['library']}` disagrees with lib/identities.tsv")
             if not e.get("citable") or e.get("assumptions"):
@@ -536,6 +631,9 @@ def compose(rlt, bundle, report):
                 cls = ("stale" if re.search(r"citation `[^`]*`: \S+ has SHA-256", c.verdict)
                        else "missing" if re.search(r"citation `[^`]*`: cited path `[^`]*`: entity not found", c.verdict) else "kernel")
                 raise Refuse(cls, f"node `{n['id']}`: not accepted ({c.verdict[:80]})")
+            fp = fingerprint(c)
+            if fp != n["fingerprint"]:
+                raise Refuse("stale", f"node `{n['id']}`: the statement checked in this run has fingerprint {fp}, not the pinned {n['fingerprint']}")
             if c.gamma:
                 raise Refuse("conditional", f"node `{n['id']}`: rests on assumptions")
             if c.parts_problem():
@@ -587,17 +685,25 @@ def compose(rlt, bundle, report):
 
 
 def main():
-    if len(sys.argv) not in (3, 4):
-        sys.exit("usage: compose-check.py RLT_BINARY BUNDLE [--quiet]")
-    rlt, bundle = os.path.abspath(sys.argv[1]), sys.argv[2]
-    os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    args = sys.argv[1:]
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if "--root" in args:
+        i = args.index("--root")
+        root = os.path.abspath(args[i + 1])
+        del args[i:i + 2]
+    quiet = "--quiet" in args
+    args = [a for a in args if a != "--quiet"]
+    if len(args) != 2:
+        sys.exit("usage: compose-check.py RLT_BINARY BUNDLE [--quiet] [--root DIR]")
+    rlt, bundle = os.path.abspath(args[0]), args[1]
+    os.chdir(root)
     report = [f"compose-check   {bundle}"]
     try:
         compose(rlt, bundle, report)
         verdict, code = "verdict COMPOSED", 0
     except Refuse as r:
         verdict, code = f"verdict REFUSED ({r.cls}) — {r.msg}", CODES.get(r.cls, 1)
-    if len(sys.argv) == 3:
+    if not quiet:
         print("\n".join(report))
     print(verdict)
     print(f"exit {code}")

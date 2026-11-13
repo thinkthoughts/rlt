@@ -64,7 +64,7 @@ This is the semantic cut rule across files; inside one file the kernel performs 
 | Kernel, 20 rules, Q's 7 axioms, limits, parser, `rlt check`, `canonical()`, fingerprints | trusted already; unchanged |
 | `rlt compose` | new trusted code: reads the bundle and the register, checks the graph, re-checks every proof through the existing check function, compares canonical formulas. It builds no formula, applies no rule and creates no kernel theorem |
 | The bundle and the two registers | reviewed records; every pin re-verified, every statement re-derived by the kernel in the run |
-| `lib/` and `lib/identities.tsv` | the existing library: `rlt compose` recomputes each component's fingerprint; the Python checker compares entries with the append-only identity registry (checked against history by `scripts/verify.sh`) but does not recompute fingerprints |
+| `lib/` and `lib/identities.tsv` | the existing library: both checkers recompute each component's fingerprint from the statement checked in the run (the Python checker with its own implementation of the fingerprint format) and compare it with the bundle's pin, the entry and the append-only identity registry |
 | Generator, Python checker, Lean file, reports | untrusted or independent evidence |
 
 ## 4. Implementation
@@ -92,12 +92,13 @@ This is the semantic cut rule across files; inside one file the kernel performs 
 4. *Layer-0 re-checks use `rlt check` on the registered proof* plus a recomputed fingerprint, rather than `rlt deps` (same pins, half the time); the library's own consistency stays with `rlt deps --verify-lib` in `scripts/verify.sh`.
 5. *The Python checker reads `rlt check` reports* rather than `rlt deps --format json` reports (same kernel output; no shared matching code).
 6. *Assemblies are checked before components.* Every proof is still re-checked in the run; the discharges are compared once every statement is known. A statement that is not the approved one is refused within seconds (N44, the full bundle with a weaker `adm.all`).
-7. *Refusal classes for a component's citations:* a cited file whose SHA-256 differs is **stale** (exit 3), an absent one **missing** (exit 2); both are exercised in `scripts/verify.sh`.
-8. *Pinned files lie inside the repository:* a path with `.` or `..` components, or reached through a symbolic link, is refused as malformed.
+7. *The mathematical context is checked first:* the bundle's axiom set, convention and definitions must be the pinned ones, and the axiom file, the definitions file and the conventions must hold their pinned content (incompatible otherwise).
+8. *Refusal classes for a component's citations:* a cited file whose SHA-256 differs is **stale** (exit 3), an absent one **missing** (exit 2); both are exercised in `scripts/verify.sh`.
+9. *Pinned files lie inside the repository:* a path with `.` or `..` components, or reached through a symbolic link, is refused as malformed.
 
 ## 5. Independent verification
 
-**Python checker** (`scripts/compose-check.py`). Uses Rust only through `rlt check`. Its own bundle reader, structural rules, parser for the kernel's printed formulas, de Bruijn canonical form, and approved statements rebuilt from the transcription and the interval table (not from the probes). Same classes and exit codes.
+**Python checker** (`scripts/compose-check.py`). Uses Rust only through `rlt check`. Its own bundle reader, structural rules, parser for the kernel's printed formulas, de Bruijn canonical form, and approved statements rebuilt from the transcription and the interval table (not from the probes). It **recomputes every component's statement fingerprint** itself: the convention's interpretation digest from `conventions/nat-def.yaml` (its own canonical YAML text), the SHA-256 of `spec/robinson-q.rlt` and `spec/definitions.rlt`, the definitions the run used, the checked goal and the assumptions in the fingerprint's prefix form; all 54 agree with the library. Same classes and exit codes.
 
 **Agreement.**
 
@@ -123,9 +124,11 @@ This is the semantic cut rule across files; inside one file the kernel performs 
 | mismatch | an assumption discharged by the wrong component; two rows swapped |
 | specification | **true but different**: a stronger tail (211 < p); a component probe over 44 elements; a weaker tail without r < p; range 6 without 211; a weaker tail with a matching probe of its own; the full bundle with a weaker `adm.all` (r < p dropped); the lemma's name for the tail alone; also a non-probe, a probe the kernel refuses, an unregistered node, the registered probe copied to another path |
 
+**Library identities and mathematical context** (scratch copies, `cli/tests/rlt007d.rs`), refused alike by both checkers: a made-up fingerprint consistent across entry, registry and bundle (stale: the recomputed fingerprint differs); another theorem's fingerprint, consistent everywhere (malformed: one fingerprint under two ids); an entry disagreeing with the registry, and a registry line with another first-proof hash (malformed); the axiom file of Robinson's Q, the definitions file, NAT-DEF's executable fields and NAT-DEF's explanation each with other content (incompatible).
+
 **Further refusals in `scripts/verify.sh`:** a file cited by a component changed (stale, exit 3) and then absent (missing, exit 2), by both checkers, with the file restored afterwards.
 
-**Rust tests** (`cli/tests/rlt007d.rs`, 9 tests): the 62 registered probes equal statements rebuilt in the test from the paper's §12 (both encodings checked by the kernel); true-but-different variants differ canonically (a stronger and a weaker tail, range 6 without 211, `adm.all` without r < p or from 1 < p, an omission with a conjunct dropped or repeated); the full bundle composes with every node equal to its rebuilt statement; the controls compose and no composed node is called unconditional; every negative case; the probe-shape checks; a pinned file reached through a symbolic link (inside or outside the repository) is refused by both checkers; Python agreement; the generator reproduces every output.
+**Rust tests** (`cli/tests/rlt007d.rs`, 10 tests): the 62 registered probes equal statements rebuilt in the test from the paper's §12 (both encodings checked by the kernel); true-but-different variants differ canonically (a stronger and a weaker tail, range 6 without 211, `adm.all` without r < p or from 1 < p, an omission with a conjunct dropped or repeated); the full bundle composes with every node equal to its rebuilt statement; the controls compose and no composed node is called unconditional; every negative case; the probe-shape checks; a pinned file reached through a symbolic link (inside or outside the repository) is refused by both checkers; Python agreement; the generator reproduces every output.
 
 **Lean** (`lean/RLT007D.lean`): see `docs/RLT-007d-CORRESPONDENCE.md` §6. 17 theorems, standard axioms only; the 62 node statements symbol for symbol; `rlt_lt_iff` and `rlt_dvd_iff` tie RLT's `<` and `∣` to Lean's; `lemma_12_1_holds` concludes Lemma 12.1 in Lean outright.
 
@@ -166,7 +169,7 @@ Two independent audits on e2436bf (mathematical; implementation), corrections in
 | Probe-shape checks untested in Rust | `probe_parts` unit-tested |
 | Python report lacked the disclaimer | added |
 
-Re-audit of 99e3e29: every item fixed, Rust and Python agreeing on every adversarial row. Remaining notes, recorded here: Python checks library fingerprints through the append-only identity registry, not by recomputation (trusted-boundary table, §3); the named-result check comes last, so a misnamed full-size bundle is refused after its kernel work (time only); the stale/missing classification reads the kernel's citation message, guarded by the verify.sh tamper test; a byte-order mark is now refused by both (N51).
+Re-audit of 99e3e29: every item fixed, Rust and Python agreeing on every adversarial row. The Python checker now recomputes fingerprints (acceptance review, §5). Remaining notes: the named-result check comes last, so a misnamed full-size bundle is refused after its kernel work (time only); the stale/missing classification reads the kernel's citation message, guarded by the verify.sh tamper test; a byte-order mark is now refused by both (N51).
 
 ## 8. Verification
 

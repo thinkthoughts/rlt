@@ -570,3 +570,170 @@ fn a_pinned_file_reached_through_a_symbolic_link_is_refused() {
     let _ = std::fs::remove_dir_all(&t);
     let _ = std::fs::remove_dir_all(&outside);
 }
+
+/// A scratch copy of the repository (no target/, .git or generated
+/// certificates), for changes the committed tree must never see.
+fn scratch(tag: &str) -> PathBuf {
+    let s = std::env::temp_dir().join(format!("rlt007d-{tag}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&s);
+    std::fs::create_dir_all(&s).unwrap();
+    let st = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "tar --exclude=./target --exclude=./.git --exclude='./tests/*/gen' -cf - . | tar -xf - -C {}",
+            s.display()
+        ))
+        .current_dir(root())
+        .status()
+        .unwrap();
+    assert!(st.success());
+    s
+}
+
+fn edit(path: &Path, from: &str, to: &str) {
+    let t = std::fs::read_to_string(path).unwrap();
+    assert!(t.contains(from), "{}: `{from}`", path.display());
+    std::fs::write(path, t.replacen(from, to, 1)).unwrap();
+}
+
+#[test]
+fn wrong_library_identities_and_other_contexts_are_refused_alike() {
+    // Each case alters a scratch copy, runs `rlt compose` and the Python
+    // checker (which recomputes every fingerprint itself) on the tail
+    // control, requires the same class and exit from both, and restores.
+    let s = scratch("ctx");
+    let lib = s.join("lib/admissible/admissible.h45.omits.tail_1.yaml");
+    let ids = s.join("lib/identities.tsv");
+    let bundle = s.join("tests/rlt007d/accept/tail.yaml");
+    let files = [
+        lib.clone(),
+        ids.clone(),
+        bundle.clone(),
+        s.join("spec/robinson-q.rlt"),
+        s.join("spec/definitions.rlt"),
+        s.join("conventions/nat-def.yaml"),
+    ];
+    let saved: Vec<String> = files
+        .iter()
+        .map(|f| std::fs::read_to_string(f).unwrap())
+        .collect();
+    let tail_fp = "40214dc570c1dfc5e7a5e91c52d550fc757a391f96de471dce3e0394c7d5b708";
+    let bounds_fp = rlt_cli::deps::load_library(&root())
+        .unwrap()
+        .get("admissible.h45.bounds")
+        .unwrap()
+        .fingerprint
+        .clone();
+    // Library identity, consistent everywhere but wrong: the entry, the
+    // identity registry and the bundle all name another fingerprint.
+    let consistent = |fp: &str| {
+        edit(&lib, tail_fp, fp);
+        edit(&ids, tail_fp, fp);
+        edit(&bundle, tail_fp, fp);
+    };
+    type Case<'a> = (&'a str, Box<dyn Fn() + 'a>, i32, &'a str);
+    let cases: Vec<Case> = vec![
+        (
+            "a made-up fingerprint, consistent everywhere",
+            Box::new(|| consistent(&"a1".repeat(32))),
+            3,
+            "stale",
+        ),
+        (
+            "another theorem's fingerprint, consistent everywhere",
+            Box::new(|| consistent(&bounds_fp)),
+            2,
+            "malformed",
+        ),
+        (
+            "an entry disagreeing with the identity registry",
+            Box::new(|| {
+                edit(&lib, tail_fp, &"b2".repeat(32));
+                edit(&bundle, tail_fp, &"b2".repeat(32));
+            }),
+            2,
+            "malformed",
+        ),
+        (
+            "a registry line with another first-proof hash",
+            Box::new(|| {
+                edit(
+                    &ids,
+                    &format!("{tail_fp}\t53e7"),
+                    &format!("{tail_fp}\t63e7"),
+                )
+            }),
+            2,
+            "malformed",
+        ),
+        (
+            "Robinson's Q with an axiom file of other content",
+            Box::new(|| edit(&s.join("spec/robinson-q.rlt"), "(axiom", ";\n(axiom")),
+            1,
+            "incompatible",
+        ),
+        (
+            "other definitions",
+            Box::new(|| edit(&s.join("spec/definitions.rlt"), "(define", ";\n(define")),
+            1,
+            "incompatible",
+        ),
+        (
+            "NAT-DEF reading other definitions",
+            Box::new(|| {
+                edit(
+                    &s.join("conventions/nat-def.yaml"),
+                    "definitions: [\"<\", \"∣\", \"free235\"]",
+                    "definitions: [\"<\", \"∣\"]",
+                )
+            }),
+            1,
+            "incompatible",
+        ),
+        (
+            "NAT-DEF with other explanation",
+            Box::new(|| {
+                edit(
+                    &s.join("conventions/nat-def.yaml"),
+                    "title: Written",
+                    "title: Typed",
+                )
+            }),
+            1,
+            "incompatible",
+        ),
+    ];
+    let rel = "tests/rlt007d/accept/tail.yaml";
+    for (what, alter, code, class) in cases {
+        alter();
+        let c = compose(&s, rel);
+        assert_eq!(c.exit, code, "{what}: {}", render_text(&c));
+        assert_eq!(
+            c.refusal.as_ref().map(|r| r.0.as_str()),
+            Some(class),
+            "{what}: {:?}",
+            c.refusal
+        );
+        let o = run(&[
+            "python3",
+            "-I",
+            "scripts/compose-check.py",
+            env!("CARGO_BIN_EXE_rlt"),
+            rel,
+            "--quiet",
+            "--root",
+            &s.display().to_string(),
+        ]);
+        let out = String::from_utf8_lossy(&o.stdout);
+        assert_eq!(o.status.code(), Some(code), "{what}: python\n{out}");
+        assert!(
+            out.contains(&format!("verdict REFUSED ({class})")),
+            "{what}: {out}"
+        );
+        for (f, t) in files.iter().zip(&saved) {
+            std::fs::write(f, t).unwrap();
+        }
+        assert_eq!(compose(&s, rel).exit, ACCEPT, "{what}: restored");
+    }
+    let _ = std::fs::remove_dir_all(&s);
+}
