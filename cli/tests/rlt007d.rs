@@ -432,7 +432,7 @@ fn expected() -> Vec<(String, i32, String, String)> {
 fn every_negative_case_is_refused_for_its_class_and_reason() {
     materialized();
     let e = expected();
-    assert_eq!(e.len(), 51);
+    assert_eq!(e.len(), 52);
     let mut classes = std::collections::BTreeSet::new();
     for (b, code, class, reason) in &e {
         let c = compose(&root(), b);
@@ -606,6 +606,7 @@ fn wrong_library_identities_and_other_contexts_are_refused_alike() {
     let ids = s.join("lib/identities.tsv");
     let bundle = s.join("tests/rlt007d/accept/tail.yaml");
     let files = [
+        s.join("conventions/nat-dec.yaml"),
         lib.clone(),
         ids.clone(),
         bundle.clone(),
@@ -697,6 +698,30 @@ fn wrong_library_identities_and_other_contexts_are_refused_alike() {
                     &s.join("conventions/nat-def.yaml"),
                     "title: Written",
                     "title: Typed",
+                )
+            }),
+            1,
+            "incompatible",
+        ),
+        (
+            "another convention (NAT-DEC) with other explanation",
+            Box::new(|| {
+                edit(
+                    &s.join("conventions/nat-dec.yaml"),
+                    "title: ",
+                    "title: Other ",
+                )
+            }),
+            1,
+            "incompatible",
+        ),
+        (
+            "NAT-DEF with a YAML anchor",
+            Box::new(|| {
+                edit(
+                    &s.join("conventions/nat-def.yaml"),
+                    "executable:",
+                    "executable: &E",
                 )
             }),
             1,

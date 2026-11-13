@@ -24,6 +24,7 @@ import hashlib
 import os
 import re
 import subprocess
+import tempfile
 import sys
 
 import yaml
@@ -66,7 +67,7 @@ def S(t):
     return ("n", t[1] + 1) if t[0] == "n" else ("S", t)
 
 
-TOK = re.compile(r"\s*(⊥|∀|∃|¬|∧|∨|→|=|\+|×|\(|\)|\.|S\(|[0-9]+|[A-Za-z_][A-Za-z_0-9']*)")
+TOK = re.compile(r"\s*(⊥|∀|∃|¬|∧|∨|→|=|\+|×|\(|\)|\.|S\(|[0-9]+|[A-Za-z_][A-Za-z_0-9'′]*)")
 
 
 def tokens(s):
@@ -160,7 +161,7 @@ class Parser:
             return t
         if tk.isdigit():
             return num(int(tk))
-        if re.fullmatch(r"[A-Za-z_][A-Za-z_0-9']*", tk) and tk != "S":
+        if re.fullmatch(r"[A-Za-z_][A-Za-z_0-9'′]*", tk) and tk != "S":
             return ("v", tk)
         raise ValueError(f"unexpected {tk!r}")
 
@@ -519,6 +520,16 @@ def compose(rlt, bundle, report):
         raise Refuse("incompatible", f"{APPROVED_AXIOM_FILE} differs from the approved axioms of ROBINSON-Q")
     if convention_digests() != APPROVED_CONVENTION_DIGESTS:
         raise Refuse("incompatible", "conventions/nat-def.yaml differs from the approved NAT-DEF")
+    # The whole context as the checker loads it (every convention, the axiom
+    # set, the definitions): a one-step probe written here must be accepted.
+    with tempfile.TemporaryDirectory() as d:
+        probe = os.path.join(d, "context.rlt")
+        with open(probe, "w", encoding="utf-8") as f:
+            f.write('(rlt-proof\n  (id RLT007D.CONTEXT)\n  (convention NAT-DEF)\n  (goal "0 < 1")\n  (assume s "0 < 1")\n'
+                    '  (mode conditional)\n  (axioms ROBINSON-Q)\n  (steps\n    (G (lt 0 1) (hyp s))))\n')
+        c = Check(rlt, probe)
+        if not c.accepted():
+            raise Refuse("incompatible", f"the checker refuses the context: {c.verdict[:120]}")
 
     ids = {}
     for n in nodes:
@@ -699,7 +710,10 @@ def main():
     os.chdir(root)
     report = [f"compose-check   {bundle}"]
     try:
-        compose(rlt, bundle, report)
+        try:
+            compose(rlt, bundle, report)
+        except ValueError as e:  # a printed formula this reader cannot read
+            raise Refuse("kernel", f"unreadable kernel output: {e}")
         verdict, code = "verdict COMPOSED", 0
     except Refuse as r:
         verdict, code = f"verdict REFUSED ({r.cls}) — {r.msg}", CODES.get(r.cls, 1)

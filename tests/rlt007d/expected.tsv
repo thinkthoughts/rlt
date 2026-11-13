@@ -49,4 +49,5 @@ tests/rlt007d/negative/N47_yaml_repeated_key/bundle.yaml	2	malformed	duplicated 
 tests/rlt007d/negative/N48_dot_path/bundle.yaml	2	malformed	is not a repository-relative path
 tests/rlt007d/negative/N49_id_not_a_string/bundle.yaml	2	malformed	`id` must be a string
 tests/rlt007d/negative/N51_byte_order_mark/bundle.yaml	2	malformed	unknown key
+tests/rlt007d/negative/N52_component_with_primed_names/bundle.yaml	1	specification	node `tail`: its statement is not, canonically, the approved specification
 tests/rlt007d/negative/N50_registered_probe_copied/bundle.yaml	1	specification	is not the approved specification

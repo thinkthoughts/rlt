@@ -53,7 +53,7 @@ With approximate times (about 5, 3 and 3.5 minutes for the three checks on two C
 ## 8. Trust boundaries
 
 - **Trusted kernel:** Robinson's Q (7 axioms, pinned by SHA-256), 20 inference rules plus `cite`, resource limits; `docs/KERNEL-SOUNDNESS.md`.
-- **Composition checker:** `rlt compose`, new trusted code that re-checks every proof and compares canonical formulas; it constructs no formula and applies no rule. Soundness argument: the cut rule with induction on layers. Cross-checked by the Python implementation, 51 negative cases and two independent audits.
+- **Composition checker:** `rlt compose`, new trusted code that re-checks every proof and compares canonical formulas; it constructs no formula and applies no rule. Soundness argument: the cut rule with induction on layers. Cross-checked by the Python implementation, 52 negative cases and two independent audits.
 - **Source-transcription boundary:** the 45 numbers, their order and the 14 classes come from the reviewed transcription; the reading of the six statements as Lemma 12.1 is a reviewed correspondence (semantic correspondence assessed).
 
 ## Intended length

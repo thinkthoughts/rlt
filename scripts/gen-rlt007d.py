@@ -567,6 +567,10 @@ neg("N48_dot_path", "malformed", "is not a repository-relative path",
     text=tail_txt.replace(f"      path: {ASM}/ADM_TAIL.rlt", f"      path: ./{ASM}/ADM_TAIL.rlt", 1))
 neg("N49_id_not_a_string", "malformed", "`id` must be a string", text=tail_txt.replace("id: admissible.h45.tail_only", "id: 7", 1))
 neg("N51_byte_order_mark", "malformed", "unknown key", text="\ufeff" + tail_txt)
+# A component whose printed statement uses a primed bound name (k′): read by
+# both checkers, and refused because it is not the approved statement.
+neg("N52_component_with_primed_names", "specification", "node `tail`: its statement is not, canonically, the approved specification",
+    tb(nd("tail", library="matchable.not.8", fingerprint=lib_fp("matchable.not.8")), T1))
 cp = f"{NEG}/N50_registered_probe_copied/SPEC.rlt"
 neg("N50_registered_probe_copied", "specification", "is not the approved specification",
     tb(T0, nd("adm.tail", spec={"path": cp, "sha256": sha(OUT[f"{SPEC}/SPEC_adm_tail.rlt"])})),

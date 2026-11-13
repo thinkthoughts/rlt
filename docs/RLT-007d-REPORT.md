@@ -54,7 +54,7 @@ This is the semantic cut rule across files; inside one file the kernel performs 
 |---|---|
 | Is the composition rule valid? | yes, by the argument above (cut rule; induction on layers) |
 | Did the kernel accept every component and assembly? | **kernel accepted**: each proof re-checked in the run by the unchanged kernel |
-| Did the checker implement the rule correctly? | new trusted code (`cli/src/compose.rs`), cross-checked by an independent implementation (§5), 51 negative cases and audits (§7) |
+| Did the checker implement the rule correctly? | new trusted code (`cli/src/compose.rs`), cross-checked by an independent implementation (§5), 52 negative cases and audits (§7) |
 | Do the six statements say Lemma 12.1? | **source transcription checked** and **semantic correspondence assessed** (`docs/RLT-007d-CORRESPONDENCE.md`) |
 
 **Trusted boundary.**
@@ -106,7 +106,7 @@ This is the semantic cut rule across files; inside one file the kernel performs 
 |---|---|---|
 | full bundle `compose/h45.yaml` | COMPOSED, exit 0 | COMPOSED, exit 0; all six results equal to the statements rebuilt from the transcription |
 | controls: tail; tail with the assumption over q instead of p; range 6 | COMPOSED | COMPOSED |
-| 51 negative cases | each refused with the listed class, exit and reason | each refused with the same class and exit |
+| 52 negative cases | each refused with the listed class, exit and reason | each refused with the same class and exit |
 
 **Negative cases** (`tests/rlt007d/expected.tsv`), by class:
 
@@ -122,9 +122,9 @@ This is the semantic cut rule across files; inside one file the kernel performs 
 | incompatible | axiom set PEANO-ARITH; convention NAT-DEC; another definitions file; an unregistered axiom set |
 | kernel | an assembly the kernel refuses |
 | mismatch | an assumption discharged by the wrong component; two rows swapped |
-| specification | **true but different**: a stronger tail (211 < p); a component probe over 44 elements; a weaker tail without r < p; range 6 without 211; a weaker tail with a matching probe of its own; the full bundle with a weaker `adm.all` (r < p dropped); the lemma's name for the tail alone; also a non-probe, a probe the kernel refuses, an unregistered node, the registered probe copied to another path |
+| specification | a component whose printed statement uses primed bound names (k′), read by both and refused as not the approved statement; **true but different**: a stronger tail (211 < p); a component probe over 44 elements; a weaker tail without r < p; range 6 without 211; a weaker tail with a matching probe of its own; the full bundle with a weaker `adm.all` (r < p dropped); the lemma's name for the tail alone; also a non-probe, a probe the kernel refuses, an unregistered node, the registered probe copied to another path |
 
-**Library identities and mathematical context** (scratch copies, `cli/tests/rlt007d.rs`), refused alike by both checkers: a made-up fingerprint consistent across entry, registry and bundle (stale: the recomputed fingerprint differs); another theorem's fingerprint, consistent everywhere (malformed: one fingerprint under two ids); an entry disagreeing with the registry, and a registry line with another first-proof hash (malformed); the axiom file of Robinson's Q, the definitions file, NAT-DEF's executable fields and NAT-DEF's explanation each with other content (incompatible).
+**Library identities and mathematical context** (scratch copies, `cli/tests/rlt007d.rs`), refused alike by both checkers: a made-up fingerprint consistent across entry, registry and bundle (stale: the recomputed fingerprint differs); another theorem's fingerprint, consistent everywhere (malformed: one fingerprint under two ids); an entry disagreeing with the registry, and a registry line with another first-proof hash (malformed); the axiom file of Robinson's Q, the definitions file, NAT-DEF's executable fields, NAT-DEF's explanation, another convention's explanation (NAT-DEC), and a YAML anchor in NAT-DEF, each refused as incompatible. Besides its own digests, the Python checker has the kernel check a one-step context probe in phase 1, so every convention the checker loads is covered.
 
 **Further refusals in `scripts/verify.sh`:** a file cited by a component changed (stale, exit 3) and then absent (missing, exit 2), by both checkers, with the file restored afterwards.
 
@@ -141,7 +141,7 @@ On the local workspace (2 CPUs), release build:
 | `rlt compose compose/h45.yaml` (62 proofs re-checked with every cited file, 62 probes) | 4 min 38 s | 4 min 36 s |
 | `scripts/compose-check.py` on the same bundle (kernel runs in parallel) | 2 min 31 s | 4 min 54 s |
 | both, in parallel, plus the three controls (`scripts/verify.sh`) | 6 min 18 s | — |
-| 51 negative cases, both checkers | about 4 min | — |
+| 52 negative cases, both checkers | about 4 min | — |
 | `lean RLT007D.lean` | 3 min 24 s | — |
 | `cargo test --test rlt007d` (9 tests) | 7 min 44 s | — |
 | the eight assemblies, `rlt check` each | 1.9 s in all | — |
@@ -169,14 +169,14 @@ Two independent audits on e2436bf (mathematical; implementation), corrections in
 | Probe-shape checks untested in Rust | `probe_parts` unit-tested |
 | Python report lacked the disclaimer | added |
 
-Re-audit of 99e3e29: every item fixed, Rust and Python agreeing on every adversarial row. The Python checker now recomputes fingerprints (acceptance review, §5). Remaining notes: the named-result check comes last, so a misnamed full-size bundle is refused after its kernel work (time only); the stale/missing classification reads the kernel's citation message, guarded by the verify.sh tamper test; a byte-order mark is now refused by both (N51).
+Re-audit of 99e3e29: every item fixed, Rust and Python agreeing on every adversarial row. The Python checker now recomputes fingerprints (acceptance review, §5). Its targeted re-audit (b5e0a33) found the Python fingerprint independent and equal to the registered one on all 141 NAT-DEF library entries it could read, and two items, both corrected: primed bound names (k′) were unreadable to Python (now read; N52; any unreadable output is a refusal), and a tampered convention other than NAT-DEF was classed differently (now incompatible in both through the context probe). Remaining notes: the named-result check comes last, so a misnamed full-size bundle is refused after its kernel work (time only); the stale/missing classification reads the kernel's citation message, guarded by the verify.sh tamper test; a byte-order mark is now refused by both (N51).
 
 ## 8. Verification
 
 - `scripts/gen-rlt007d.py --check`: 145 outputs, 0 differ.
-- `cargo test --test rlt007d`: 9 of 9; Rust and Python agree on all 51 negative cases and 3 controls.
-- Full `scripts/verify.sh` at 99e3e29 (local): every stage passed except two lines, both corrected or environmental: the RLT-007d report check still expected the earlier summary wording (corrected; re-run by hand on the final binary: report check passes), and the vendored lean-bgp212 comparison needs `SOURCE_CHECKOUTS_DIR`, which CI provides. Results there: cargo test all passed; RLT-007d section — full bundle and controls composed by both checkers, 51 of 51 negatives (50 at that commit), tamper refusals stale and missing, file restored; Lean replay 23 files, `RLT007D.lean` 17 statements, standard axioms only.
-- CI at 3f61ab8: `check` passed in 46 min 37 s ("RESULT all checks hold": full bundle and controls composed by both checkers in 243 s, 51 of 51 negatives, both tamper refusals, `RLT007D.lean` 17 statements); `gdt-comparison` passed. (99e3e29 failed only on the outdated report line, corrected in 3f61ab8.)
+- `cargo test --test rlt007d`: 9 of 9; Rust and Python agree on all 52 negative cases and 3 controls.
+- Full `scripts/verify.sh` at 99e3e29 (local): every stage passed except two lines, both corrected or environmental: the RLT-007d report check still expected the earlier summary wording (corrected; re-run by hand on the final binary: report check passes), and the vendored lean-bgp212 comparison needs `SOURCE_CHECKOUTS_DIR`, which CI provides. Results there: cargo test all passed; RLT-007d section — full bundle and controls composed by both checkers, 52 of 52 negatives (50 at that commit), tamper refusals stale and missing, file restored; Lean replay 23 files, `RLT007D.lean` 17 statements, standard axioms only.
+- CI at 3f61ab8: `check` passed in 46 min 37 s ("RESULT all checks hold": full bundle and controls composed by both checkers in 243 s, 52 of 52 negatives, both tamper refusals, `RLT007D.lean` 17 statements); `gdt-comparison` passed. (99e3e29 failed only on the outdated report line, corrected in 3f61ab8.)
 - Earlier proofs: `scripts/compare-reports.sh` with main 838954f's binary and tree: 2,744 proof-file reports and every record command byte-identical (0 differences). The kernel, the 20 rules, Q's axioms and the limits are unchanged.
 
 ## 9. Wording for the paper's authors

@@ -880,7 +880,7 @@ while IFS=$'\t' read -r b want cls reason; do
   cd_i=$((cd_i + 2))
 done < tests/rlt007d/expected.tsv
 rm -rf "$cd_p"
-{ [ "$cd_n" = 51 ] && [ "$(ls -A tests/rlt007d/negative | wc -l | tr -d ' ')" = 51 ]; } || { echo "  UNEXPECTED: tests/rlt007d/expected.tsv lists $cd_n cases"; fail=1; }
+{ [ "$cd_n" = 52 ] && [ "$(ls -A tests/rlt007d/negative | wc -l | tr -d ' ')" = 52 ]; } || { echo "  UNEXPECTED: tests/rlt007d/expected.tsv lists $cd_n cases"; fail=1; }
 echo "tests/rlt007d/negative: $cd_ok of $cd_n refused by rlt compose with the required class, exit and reason, and by compose-check with the same class and exit"
 # A file cited by a component, changed and then absent: refused as stale,
 # then as missing, by both checkers; then restored (also on any exit).
