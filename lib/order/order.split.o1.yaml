@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: order.split.o1
+title: "∀p. (p < 41 ∨ 40 < p)"
+fingerprint: af6e8238f7dd653d772c8b97ba1d29e8014ef87a3d67be0f2dec506e99596236
+proof: {path: tests/rlt007s2a/accept/O_1.rlt, sha256: c5372c9a7c3cb07efff9b703342ff180f62a30f02f9690f980a7f088fb943c21}
+proof_id: RLT007S2a.O_1
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀p. ((∃z. S(z) + p = 41) ∨ (∃z. S(z) + 40 = p))"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

@@ -1,0 +1,16 @@
+format: rlt-lib/1
+id: primes.exhaustive.r6
+title: "∀p. (((190 < p ∧ p < 213) ∧ (1 < p ∧ ∀d. ((1 < d ∧ d < p) → ¬(d ∣ p)))) → (p = 191 ∨ (p = 193 ∨ (p = 197 ∨ (p = 199 ∨ p = 211)))))"
+fingerprint: 65fce9cdeec69b7f976515e396e5d545fd51478dc737a346c6953424c76d06bb
+proof: {path: tests/rlt007s2a/accept/E_6.rlt, sha256: a877e0287b397fb87ef454a42c2ee07885ae943f82a2f343ef62b9cca34dc125}
+proof_id: RLT007S2a.E_6
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀p. ((((∃z. S(z) + 190 = p) ∧ (∃z. S(z) + p = 213)) ∧ ((∃z. S(z) + 1 = p) ∧ (∀d. (((∃z. S(z) + 1 = d) ∧ (∃z. S(z) + d = p)) → ¬(∃k. p = d × k))))) → (p = 191 ∨ (p = 193 ∨ (p = 197 ∨ (p = 199 ∨ p = 211)))))"
+assumptions: []
+citable: true
+uses:
+  - primes.nonprime.i6
+statement_records:
+  - statements/PRIMES-RANGE-6.yaml
+history: []

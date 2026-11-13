@@ -1,6 +1,16 @@
 # RLT-007b stage 2 — Classification of the primes below 213: design review
 
-**Status:** design review with measured prototypes, 2026-11-12, on branch `rlt-007b-2` (draft). No stage-2 theorem is committed yet.
+**Status:** design review with measured prototypes, 2026-11-12, on branch `rlt-007b-2` (draft). The decisions of §7 were approved on 2026-11-12 (recorded in §0). Stage 2a is implemented on this branch (`docs/RLT-007b-2a-REPORT.md`).
+
+## 0. Decisions approved on 2026-11-12
+
+1. **Definition B, bounded primality**, for stage 2 and the composition design: Prime_B(p) :≡ 1 < p ∧ ∀d. ((1 < d ∧ d < p) → ¬(d ∣ p)), with the existing meanings of `<` and `∣`. G (§2.2) stays documented as a reference definition. The correspondence of B, G and the standard definition is a Lean result over ℕ (`primeB_iff`, `primeG_iff`; in stage 2a `pb_iff_std`, `pg_iff_std`), not an RLT theorem under Robinson's Q. The countermodel of §2.1 is kept as the record of why the unguarded definition was set aside.
+2. **The six intervals of §1**, with their complete prime lists; one quantified, kernel-checked exhaustiveness theorem per range; together they classify every natural number below 213.
+3. **Split implementation.** Stage 2a: exhaustiveness and non-prime certificates (implemented). Stage 2b: the 47 positive primality theorems under Prime_B, after stage-2a review, merged only with separate approval. Stage-2a exhaustiveness, stage-2b primality and the eventual assembly stay three distinct results.
+
+Where this review writes "Prime" below, the approved reading is Prime_B. The recommendation of G in §2.2 and §7 is kept as the review's history.
+
+**Implementation note (stage 2a).** The single order-split theorem of §3 became six relative splits O_1 … O_6 (`p < 41 ∨ 40 < p`, and `a − 1 < p → (p < b + 1 ∨ b < p)`), because one absolute split with all bounds measured 1.21 million nodes, above the 1,000,000 limit. Family (2) is six certificates, one per interval.
 
 **Main finding.** The definition of "prime" written in the RLT-007b design cannot carry requirement (1), "each listed number's primality". That requirement comes from the stage-2 instruction of 2026-11-12, item B.1. Section 2 proves why and proposes two replacements; choosing one needs approval, because later stages and the composition design state their theorems with it.
 
@@ -45,7 +55,7 @@ The proof is a model of Q in which the statement is false:
 - The elements are the naturals plus a copy of the integers, ns(i).
 - S, + and × are standard on the naturals, and S(ns(i)) = ns(i + 1).
 - x + ns(i) = ns(i); 0 × ns(i) = 7; (m + 1) × ns(i) = ns((m + 1)·i); ns(j) × y = ns(j) for every y ≠ 0.
-- - Also ns(j) + n = ns(j + n) for a numeral n, and ns(j) × 0 = 0.
+- Also ns(j) + n = ns(j + n) for a numeral n, and ns(j) × 0 = 0.
 - **In this model:** 0 × ns(0) = 7, so 0 "divides" 7, and 0 is neither 1 nor 7. Replacing 7 by any numeral q in the definition of 0 × ns(i) gives the same failure for q; Lean checks q = 7.
 
 **Checked in Lean.** `lean/RLT007S2Design.lean`, using core Lean only:
@@ -98,7 +108,7 @@ In the countermodel the non-standard elements are positive but divide no numeral
 ### 2.3 The classification in Lean
 
 - `classification` decides that for every p < 213, the bounded definition holds exactly when p is in R₁ ++ … ++ R₆.
-- `ranges_facts` decides that the 47 listed primes have no repeats and are all below 213, and that each range equals the primes of its interval. All four Lean theorems use standard axioms only:
+- `ranges_facts` decides that the 47 listed primes have no repeats and are all below 213, and that each range equals the primes of its interval. All seven Lean theorems in the table use standard axioms only:
 
 | Theorem | Axioms |
 |---|---|

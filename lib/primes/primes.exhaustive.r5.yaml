@@ -1,0 +1,16 @@
+format: rlt-lib/1
+id: primes.exhaustive.r5
+title: "∀p. (((156 < p ∧ p < 191) ∧ (1 < p ∧ ∀d. ((1 < d ∧ d < p) → ¬(d ∣ p)))) → (p = 157 ∨ (p = 163 ∨ (p = 167 ∨ (p = 173 ∨ (p = 179 ∨ p = 181))))))"
+fingerprint: ac79a1efecf82334f8f26aa41c9920f028fd2d3bcd8d46611155cee4755c04f3
+proof: {path: tests/rlt007s2a/accept/E_5.rlt, sha256: 02992db5c3347ccc479ec9fb51675b3727ce49ad7d2e82f8f4a24bb653a1be2d}
+proof_id: RLT007S2a.E_5
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀p. ((((∃z. S(z) + 156 = p) ∧ (∃z. S(z) + p = 191)) ∧ ((∃z. S(z) + 1 = p) ∧ (∀d. (((∃z. S(z) + 1 = d) ∧ (∃z. S(z) + d = p)) → ¬(∃k. p = d × k))))) → (p = 157 ∨ (p = 163 ∨ (p = 167 ∨ (p = 173 ∨ (p = 179 ∨ p = 181))))))"
+assumptions: []
+citable: true
+uses:
+  - primes.nonprime.i5
+statement_records:
+  - statements/PRIMES-RANGE-5.yaml
+history: []

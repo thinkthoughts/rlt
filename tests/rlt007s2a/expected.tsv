@@ -1,0 +1,10 @@
+# file	exit	required substring of the verdict (RLT-007b stage 2a rejected cases)
+tests/rlt007s2a/reject/SY01_nonprime_certificate_for_prime_37.rlt	1	REJECT at step X37_W — step claims `37 = 5 × 7`, rule `symm` yields `35 = 5 × 7`
+tests/rlt007s2a/reject/SY02_range_1_omitting_37.rlt	2	MALFORMED — citation `N`: tests/rlt007s2a/reject/SY01_nonprime_certificate_for_prime_37.rlt is not an accepted theorem (REJECT at step X37_W
+tests/rlt007s2a/reject/SY03_range_2_interval_widened_to_79.rlt	1	REJECT at step V79_f — premise `NO_CERTIFICATE_FOR_79` is not an earlier step
+tests/rlt007s2a/reject/SY04_order_split_gap_at_41.rlt	1	REJECT at step G — step claims `∀p. ((∃z. S(z) + p = 41) ∨ (∃z. S(z) + 41 = p))`, rule `forall-intro` yields `∀p. ((∃z. S(z) + p = 41) ∨ (∃z. S(z) + 40 = p))`
+tests/rlt007s2a/reject/SY05_classification_stale_citation.rlt	2	MALFORMED — citation `E6`: tests/rlt007s2a/accept/E_6.rlt has SHA-256
+tests/rlt007s2a/reject/SY06_classification_missing_citation.rlt	2	MALFORMED — citation `E6`: cited path `tests/rlt007s2a/accept/E_7.rlt`: entity not found
+tests/rlt007s2a/reject/SY07_zero_one_certificate_applied_to_2.rlt	1	REJECT at step X2_b — step claims `0 = S(z0) + 1`, rule `symm` yields `2 = S(z0) + 1`
+tests/rlt007s2a/reject/SY08_range_6_step_hypothesis_altered.rlt	1	REJECT at step V192_p — subst: motive does not match premise
+tests/rlt007s2a/reject/SY09_range_6_statement_with_weakened_prime.rlt	1	the goal is `∀p. ((((∃z. S(z) + 190 = p) ∧ (∃z. S(z) + p = 213)) ∧ ((∃z. S(z) + 1 = p) ∧ (∀d. (((∃z. S(z) + 0 = d) ∧

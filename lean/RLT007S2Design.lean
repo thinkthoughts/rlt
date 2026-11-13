@@ -1,12 +1,13 @@
 /-
-Design evidence for RLT-007b stage 2 (core Lean only); not yet in the verify.sh gate.
+Design evidence for RLT-007b stage 2 (core Lean only); replayed by verify.sh, with
+all 20 theorems printed and gated by name (standard axioms only).
 Run: cd lean && lean RLT007S2Design.lean
 Part 1: a model of Robinson's Q in which 0 × a = 7 for a nonstandard a, so the
 unbounded definition ∀d. (∃k. 7 = d × k) → d = 1 ∨ d = 7 fails for 7.
 Part 2: over ℕ, the bounded definition equals the standard one.
 Part 3: decided classification of the primes below 213 under the bounded definition.
 -/
-namespace S2Def
+namespace RLT007S2Design
 
 inductive M where
   | std : Nat → M
@@ -143,13 +144,10 @@ theorem lt_iff (x y : Nat) : (∃ z, (z + 1) + x = y) ↔ x < y :=
   ⟨fun ⟨z, h⟩ => by omega, fun h => ⟨y - x - 1, by omega⟩⟩
 theorem dvd_iff (d n : Nat) : (∃ k, n = d * k) ↔ d ∣ n := Iff.rfl
 
-end S2Def
+end RLT007S2Design
 
-#print axioms S2Def.unbounded_fails_for_7
-#print axioms S2Def.primeB_iff
-#print axioms S2Def.model_of_Q
 
-namespace S2Def
+namespace RLT007S2Design
 
 /-- The 47 primes below 213, grouped as the six approved ranges. -/
 def R1 : List Nat := [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37]
@@ -180,9 +178,25 @@ theorem classification : ∀ p, p < 213 →
     ((1 < p ∧ ∀ d, d < p → 1 < d → ¬ d ∣ p) ↔ p ∈ R1 ++ R2 ++ R3 ++ R4 ++ R5 ++ R6) := by
   decide
 
-end S2Def
+end RLT007S2Design
 
-#print axioms S2Def.classification
-#print axioms S2Def.ranges_facts
-#print axioms S2Def.primeG_iff
-#print axioms S2Def.guarded_ns_not_dvd_7
+#print axioms RLT007S2Design.iter_std
+#print axioms RLT007S2Design.iter_ns
+#print axioms RLT007S2Design.iter_succ
+#print axioms RLT007S2Design.q1
+#print axioms RLT007S2Design.q2
+#print axioms RLT007S2Design.q3
+#print axioms RLT007S2Design.add_zero
+#print axioms RLT007S2Design.add_succ
+#print axioms RLT007S2Design.mul_zero
+#print axioms RLT007S2Design.mul_succ
+#print axioms RLT007S2Design.model_of_Q
+#print axioms RLT007S2Design.unbounded_fails_for_7
+#print axioms RLT007S2Design.primeB_iff
+#print axioms RLT007S2Design.primeG_iff
+#print axioms RLT007S2Design.guarded_ns_not_dvd_7
+#print axioms RLT007S2Design.lt_iff
+#print axioms RLT007S2Design.dvd_iff
+#print axioms RLT007S2Design.primeB_bounded
+#print axioms RLT007S2Design.ranges_facts
+#print axioms RLT007S2Design.classification

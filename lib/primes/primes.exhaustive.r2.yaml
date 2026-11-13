@@ -1,0 +1,16 @@
+format: rlt-lib/1
+id: primes.exhaustive.r2
+title: "∀p. (((40 < p ∧ p < 79) ∧ (1 < p ∧ ∀d. ((1 < d ∧ d < p) → ¬(d ∣ p)))) → (p = 41 ∨ (p = 43 ∨ (p = 47 ∨ (p = 53 ∨ (p = 59 ∨ (p = 61 ∨ (p = 67 ∨ (p = 71 ∨ p = 73)))))))))"
+fingerprint: bd9cd32678c51e435053b60b76f3315e7385a07c7fdfbee8e1a55cd09e1fc7ef
+proof: {path: tests/rlt007s2a/accept/E_2.rlt, sha256: c3f92ed471ebfaa89ac3e2596ef5926a6d0943e45c4fca145c633070c39ac1cb}
+proof_id: RLT007S2a.E_2
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀p. ((((∃z. S(z) + 40 = p) ∧ (∃z. S(z) + p = 79)) ∧ ((∃z. S(z) + 1 = p) ∧ (∀d. (((∃z. S(z) + 1 = d) ∧ (∃z. S(z) + d = p)) → ¬(∃k. p = d × k))))) → (p = 41 ∨ (p = 43 ∨ (p = 47 ∨ (p = 53 ∨ (p = 59 ∨ (p = 61 ∨ (p = 67 ∨ (p = 71 ∨ p = 73)))))))))"
+assumptions: []
+citable: true
+uses:
+  - primes.nonprime.i2
+statement_records:
+  - statements/PRIMES-RANGE-2.yaml
+history: []

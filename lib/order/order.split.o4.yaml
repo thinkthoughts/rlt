@@ -1,0 +1,14 @@
+format: rlt-lib/1
+id: order.split.o4
+title: "∀p. (112 < p → (p < 157 ∨ 156 < p))"
+fingerprint: 4b297ce0c4f48c0e3fe0dfef5edb3c298cf6f147da63515a4c747c5bbcd44205
+proof: {path: tests/rlt007s2a/accept/O_4.rlt, sha256: f19f0ab683edbb2a1891f377095a25fbb09bf3c343ceda781638cc2b01a36176}
+proof_id: RLT007S2a.O_4
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀p. ((∃z. S(z) + 112 = p) → ((∃z. S(z) + p = 157) ∨ (∃z. S(z) + 156 = p)))"
+assumptions: []
+citable: true
+uses: []
+statement_records: []
+history: []

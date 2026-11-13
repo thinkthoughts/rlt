@@ -1,0 +1,27 @@
+format: rlt-lib/1
+id: primes.below_213
+title: "∀p. ((1 < p ∧ ∀d. ((1 < d ∧ d < p) → ¬(d ∣ p))) → ((p = 2 ∨ (p = 3 ∨ (p = 5 ∨ (p = 7 ∨ (p = 11 ∨ (p = 13 ∨ (p = 17 ∨ (p = 19 ∨ (p = 23 ∨ (p = 29 ∨ (p = 31 ∨ p = 37))))))))))) ∨ ((p = 41 ∨ (p = 43 ∨ (p = 47 ∨ (p = 53 ∨ (p = 59 ∨ (p = 61 ∨ (p = 67 ∨ (p = 71 ∨ p = 73)))))))) ∨ ((p = 79 ∨ (p = 83 ∨ (p = 89 ∨ (p = 97 ∨ (p = 101 ∨ (p = 103 ∨ (p = 107 ∨ p = 109))))))) ∨ ((p = 113 ∨ (p = 127 ∨ (p = 131 ∨ (p = 137 ∨ (p = 139 ∨ (p = 149 ∨ p = 151)))))) ∨ ((p = 157 ∨ (p = 163 ∨ (p = 167 ∨ (p = 173 ∨ (p = 179 ∨ p = 181))))) ∨ ((p = 191 ∨ (p = 193 ∨ (p = 197 ∨ (p = 199 ∨ p = 211)))) ∨ 212 < p)))))))"
+fingerprint: 93cd2f298466704514b4627a52563903bc0a4661d7c1aa55b353801a6e0efe5f
+proof: {path: tests/rlt007s2a/accept/C.rlt, sha256: 220f3cf541e3be8e93ce8830d5e13a78cffde7d35399c1fc959e3dab334a4fb0}
+proof_id: RLT007S2a.C
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "∀p. (((∃z. S(z) + 1 = p) ∧ (∀d. (((∃z. S(z) + 1 = d) ∧ (∃z. S(z) + d = p)) → ¬(∃k. p = d × k)))) → ((p = 2 ∨ (p = 3 ∨ (p = 5 ∨ (p = 7 ∨ (p = 11 ∨ (p = 13 ∨ (p = 17 ∨ (p = 19 ∨ (p = 23 ∨ (p = 29 ∨ (p = 31 ∨ p = 37))))))))))) ∨ ((p = 41 ∨ (p = 43 ∨ (p = 47 ∨ (p = 53 ∨ (p = 59 ∨ (p = 61 ∨ (p = 67 ∨ (p = 71 ∨ p = 73)))))))) ∨ ((p = 79 ∨ (p = 83 ∨ (p = 89 ∨ (p = 97 ∨ (p = 101 ∨ (p = 103 ∨ (p = 107 ∨ p = 109))))))) ∨ ((p = 113 ∨ (p = 127 ∨ (p = 131 ∨ (p = 137 ∨ (p = 139 ∨ (p = 149 ∨ p = 151)))))) ∨ ((p = 157 ∨ (p = 163 ∨ (p = 167 ∨ (p = 173 ∨ (p = 179 ∨ p = 181))))) ∨ ((p = 191 ∨ (p = 193 ∨ (p = 197 ∨ (p = 199 ∨ p = 211)))) ∨ (∃z. S(z) + 212 = p))))))))"
+assumptions: []
+citable: true
+uses:
+  - order.split.o1
+  - order.split.o2
+  - order.split.o3
+  - order.split.o4
+  - order.split.o5
+  - order.split.o6
+  - primes.exhaustive.r1
+  - primes.exhaustive.r2
+  - primes.exhaustive.r3
+  - primes.exhaustive.r4
+  - primes.exhaustive.r5
+  - primes.exhaustive.r6
+statement_records:
+  - statements/PRIMES-BELOW-213.yaml
+history: []
