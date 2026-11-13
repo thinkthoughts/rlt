@@ -1,6 +1,6 @@
 # RLT-007d — Option B: composition architecture review
 
-**Status:** architecture specification for review, 2026-11-12. Option B is approved for planning; it remains design only, and nothing is implemented. Reporting terms aligned with the four approved labels (§6.8). **Prime_B (approved 2026-11-12):** every statement here that mentions primes uses the bounded definition Prime_B (§6.1a), consistently with stage 2. **Revised the same day** (§4a–§6) for the formula-size limit; §6 supersedes the depth-one rule of §3.5 where they differ. Nothing is implemented. The composition checker will be built only after this revised architecture is reviewed and approved.
+**Status:** architecture specification for review, 2026-11-12. Option B is approved for planning; it remains design only, and nothing is implemented. Reporting terms aligned with the four approved labels (§6.8). **Components on main (reconciled 2026-11-12 with main at f37bcfc):** stage 1 (distinctness and bounds, eb0e2ef) and stage 2a (`primes.below_213`, f37bcfc) are merged; stage 3 (`tail_1`) is on draft PR #19; stage 4 is to come. Stage 2b (positive primality) is deferred; nothing in this design depends on it. **Prime_B (approved 2026-11-12):** every statement here that mentions primes uses the bounded definition Prime_B (§6.1a), consistently with stage 2. **Revised the same day** (§4a–§6) for the formula-size limit; §6 supersedes the depth-one rule of §3.5 where they differ. Nothing is implemented. The composition checker will be built only after this revised architecture is reviewed and approved.
 
 **Unchanged by this design:**
 - the kernel and its 20 inference rules plus `cite`;
@@ -232,8 +232,8 @@ Layer 0 holds the components. Every node is an unconditional, citable library th
 |---|---|---|
 | `admissible.h45.distinct.g0` … `g3` | grouped pairwise distinctness | 1 |
 | `admissible.h45.bounds` | ⋀_h (∃z. z + 0 = h) ∧ (∃z. z + h = 212) | 1 |
-| `primes.below_213` | ∀p. (Prime_B(p) → (R₁(p) ∨ (R₂(p) ∨ … (R₆(p) ∨ 212 < p)))), where each Rᵢ(p) is the right-nested disjunction p = q₁ ∨ (… ∨ p = qₖ) over the primes of range i | 2a |
-| `admissible.h45.omits.tail_1` | ∀p. (212 < p → ⋀_h ¬(∃k. h = (p × k) + 1)) | 3 |
+| `primes.below_213` | ∀p. (Prime_B(p) → (R₁(p) ∨ (R₂(p) ∨ … (R₆(p) ∨ 212 < p)))), where each Rᵢ(p) is the right-nested disjunction p = q₁ ∨ (… ∨ p = qₖ) over the primes of range i | 2a (merged, f37bcfc) |
+| `admissible.h45.omits.tail_1` | ∀p. (212 < p → ⋀_h ¬(∃k. h = (p × k) + 1)), left-nested over H₄₅ in the listed order | 3 (PR #19) |
 | `admissible.h45.omits.P_R` (47 of them) | ⋀_h ¬(∃k. h = (P × k) + R): 14 from RLT-006, 33 from stage 4 | RLT-006, 4 |
 
 **The six prime ranges** (approved 2026-11-12, with their intervals; together the intervals partition 0 … 212):
@@ -258,7 +258,9 @@ It is written inline with the existing definitions (`x < y` is ∃z. S(z) + x = 
 - The guarded form Prime_G is a documented reference definition only. The unguarded form is set aside, because no RLT proof under ROBINSON-Q can establish it for any prime (the countermodel in `lean/RLT007S2Design.lean`).
 - Composition matches statements by fingerprint, so every node that mentions primes (`primes.below_213`, `adm.all`) uses Prime_B literally, with the same bound variable names.
 
-**What `primes.below_213` rests on.** Stage 2a proves it from six exhaustiveness theorems `primes.exhaustive.r1` … `r6` and six order splits `order.split.o1` … `o6`, by `cite`. It is an ordinary unconditional library theorem, so composition treats it as one layer-0 node. The 47 positive primality theorems of stage 2b (Prime_B(q) for each listed q) are a separate result. `adm.all` does not need them: admissibility for every prime needs only that every prime is listed, which is the classification.
+**What `primes.below_213` rests on.** Stage 2a proves it from six exhaustiveness theorems `primes.exhaustive.r1` … `r6` and six order splits `order.split.o1` … `o6`, by `cite`. It is an ordinary unconditional library theorem, so composition treats it as one layer-0 node. The 47 positive primality theorems of stage 2b (Prime_B(q) for each listed q) are a separate result. `adm.all` does not need them: admissibility for every prime needs only that every prime is listed, which is the exhaustiveness direction RLT has established. The converse has Lean evidence only (`listed_1` … `listed_6`).
+
+**What `adm.tail` adds to `tail_1`.** `tail_1` quantifies over every p > 212, prime or not. `adm.tail` instantiates it at p and supplies the witness r = 1 with 1 < p (from 212 < p by a closed computation), giving Adm(p). The primes enter only through `primes.below_213` in `adm.all`.
 
 **Layer 1:** conditional assembly theorems, each checked by the kernel.
 
