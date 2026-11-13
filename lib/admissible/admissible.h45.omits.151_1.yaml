@@ -1,0 +1,60 @@
+format: rlt-lib/1
+id: admissible.h45.omits.151_1
+title: "((((((((((((((((((((((((((((((((((((((((((((¬(∃k. 0 = (151 × k) + 1) ∧ ¬(∃k. 2 = (151 × k) + 1)) ∧ ¬(∃k. 12 = (151 × k) + 1)) ∧ ¬(∃k. 14 = (151 × k) + 1)) ∧ ¬(∃k. 24 = (151 × k) + 1)) ∧ ¬(∃k. 26 = (151 × k) + 1)) ∧ ¬(∃k. 30 = (151 × k) + 1)) ∧ ¬(∃k. 36 = (151 × k) + 1)) ∧ ¬(∃k. 44 = (151 × k) + 1)) ∧ ¬(∃k. 50 = (151 × k) + 1)) ∧ ¬(∃k. 54 = (151 × k) + 1)) ∧ ¬(∃k. 56 = (151 × k) + 1)) ∧ ¬(∃k. 60 = (151 × k) + 1)) ∧ ¬(∃k. 66 = (151 × k) + 1)) ∧ ¬(∃k. 72 = (151 × k) + 1)) ∧ ¬(∃k. 74 = (151 × k) + 1)) ∧ ¬(∃k. 80 = (151 × k) + 1)) ∧ ¬(∃k. 84 = (151 × k) + 1)) ∧ ¬(∃k. 92 = (151 × k) + 1)) ∧ ¬(∃k. 96 = (151 × k) + 1)) ∧ ¬(∃k. 102 = (151 × k) + 1)) ∧ ¬(∃k. 110 = (151 × k) + 1)) ∧ ¬(∃k. 114 = (151 × k) + 1)) ∧ ¬(∃k. 116 = (151 × k) + 1)) ∧ ¬(∃k. 122 = (151 × k) + 1)) ∧ ¬(∃k. 126 = (151 × k) + 1)) ∧ ¬(∃k. 134 = (151 × k) + 1)) ∧ ¬(∃k. 140 = (151 × k) + 1)) ∧ ¬(∃k. 144 = (151 × k) + 1)) ∧ ¬(∃k. 150 = (151 × k) + 1)) ∧ ¬(∃k. 156 = (151 × k) + 1)) ∧ ¬(∃k. 162 = (151 × k) + 1)) ∧ ¬(∃k. 164 = (151 × k) + 1)) ∧ ¬(∃k. 170 = (151 × k) + 1)) ∧ ¬(∃k. 176 = (151 × k) + 1)) ∧ ¬(∃k. 180 = (151 × k) + 1)) ∧ ¬(∃k. 182 = (151 × k) + 1)) ∧ ¬(∃k. 186 = (151 × k) + 1)) ∧ ¬(∃k. 192 = (151 × k) + 1)) ∧ ¬(∃k. 194 = (151 × k) + 1)) ∧ ¬(∃k. 200 = (151 × k) + 1)) ∧ ¬(∃k. 204 = (151 × k) + 1)) ∧ ¬(∃k. 206 = (151 × k) + 1)) ∧ ¬(∃k. 210 = (151 × k) + 1)) ∧ ¬(∃k. 212 = (151 × k) + 1))"
+fingerprint: edb8e0ee3b338652a37c38f2e8b29ec07d5a2586406c9298baee6b5cc730f254
+proof: {path: tests/rlt007s4/accept/OM_151.rlt, sha256: 54f4d21dc40579b69a60dc7de09ac68482b7d2d1551e12de123fe25612e4a3f8}
+proof_id: RLT007S4.OM_151
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "(((((((((((((((((((((((((((((((((((((((((((¬(∃k. 0 = (151 × k) + 1) ∧ ¬(∃k. 2 = (151 × k) + 1)) ∧ ¬(∃k. 12 = (151 × k) + 1)) ∧ ¬(∃k. 14 = (151 × k) + 1)) ∧ ¬(∃k. 24 = (151 × k) + 1)) ∧ ¬(∃k. 26 = (151 × k) + 1)) ∧ ¬(∃k. 30 = (151 × k) + 1)) ∧ ¬(∃k. 36 = (151 × k) + 1)) ∧ ¬(∃k. 44 = (151 × k) + 1)) ∧ ¬(∃k. 50 = (151 × k) + 1)) ∧ ¬(∃k. 54 = (151 × k) + 1)) ∧ ¬(∃k. 56 = (151 × k) + 1)) ∧ ¬(∃k. 60 = (151 × k) + 1)) ∧ ¬(∃k. 66 = (151 × k) + 1)) ∧ ¬(∃k. 72 = (151 × k) + 1)) ∧ ¬(∃k. 74 = (151 × k) + 1)) ∧ ¬(∃k. 80 = (151 × k) + 1)) ∧ ¬(∃k. 84 = (151 × k) + 1)) ∧ ¬(∃k. 92 = (151 × k) + 1)) ∧ ¬(∃k. 96 = (151 × k) + 1)) ∧ ¬(∃k. 102 = (151 × k) + 1)) ∧ ¬(∃k. 110 = (151 × k) + 1)) ∧ ¬(∃k. 114 = (151 × k) + 1)) ∧ ¬(∃k. 116 = (151 × k) + 1)) ∧ ¬(∃k. 122 = (151 × k) + 1)) ∧ ¬(∃k. 126 = (151 × k) + 1)) ∧ ¬(∃k. 134 = (151 × k) + 1)) ∧ ¬(∃k. 140 = (151 × k) + 1)) ∧ ¬(∃k. 144 = (151 × k) + 1)) ∧ ¬(∃k. 150 = (151 × k) + 1)) ∧ ¬(∃k. 156 = (151 × k) + 1)) ∧ ¬(∃k. 162 = (151 × k) + 1)) ∧ ¬(∃k. 164 = (151 × k) + 1)) ∧ ¬(∃k. 170 = (151 × k) + 1)) ∧ ¬(∃k. 176 = (151 × k) + 1)) ∧ ¬(∃k. 180 = (151 × k) + 1)) ∧ ¬(∃k. 182 = (151 × k) + 1)) ∧ ¬(∃k. 186 = (151 × k) + 1)) ∧ ¬(∃k. 192 = (151 × k) + 1)) ∧ ¬(∃k. 194 = (151 × k) + 1)) ∧ ¬(∃k. 200 = (151 × k) + 1)) ∧ ¬(∃k. 204 = (151 × k) + 1)) ∧ ¬(∃k. 206 = (151 × k) + 1)) ∧ ¬(∃k. 210 = (151 × k) + 1)) ∧ ¬(∃k. 212 = (151 × k) + 1)"
+assumptions: []
+citable: true
+uses:
+  - (unlisted tests/rlt007s4/gen/D_151_000.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_002.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_012.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_014.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_024.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_026.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_030.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_036.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_044.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_050.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_054.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_056.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_060.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_066.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_072.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_074.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_080.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_084.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_092.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_096.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_102.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_110.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_114.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_116.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_122.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_126.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_134.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_140.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_144.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_150.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_156.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_162.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_164.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_170.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_176.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_180.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_182.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_186.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_192.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_194.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_200.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_204.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_206.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_210.rlt)
+  - (unlisted tests/rlt007s4/gen/D_151_212.rlt)
+statement_records:
+  - statements/OMITS-H45-151.yaml
+history: []

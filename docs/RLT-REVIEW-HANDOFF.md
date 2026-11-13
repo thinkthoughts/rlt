@@ -21,6 +21,7 @@ Development stops after M3e. The next phase is a broader review of RLT as a usab
 | RLT-007a | merged (1561668, 2026-11-12) | verification hardening and scheduling; verify.sh 1,622 s → about 1,030 s; see docs/RLT-007a-REPORT.md |
 | RLT-007b stage 1 | merged (eb0e2ef, 2026-11-12) | obligation (a) of Lemma 12.1: 44 per-element distinctness theorems, 4 group summaries, bounds theorem; see docs/RLT-007b-1-REPORT.md |
 | RLT-007b stage 2a | merged (f37bcfc, 2026-11-12) | the primes below 213 under Prime_B, exhaustiveness direction: 6 non-prime certificates, 6 exhaustiveness theorems, 6 order splits, the classification `primes.below_213`; see docs/RLT-007b-2a-REPORT.md. Stage 2b (positive primality) deferred |
+| RLT-007b stage 3 | merged (4e4ca04, 2026-11-12) | the uniform omission for p > 212: ∀p. (212 < p → ⋀_h ¬(∃k. h = (p × k) + 1)), one file, 1,750 steps; see docs/RLT-007b-3-REPORT.md |
 
 **Not yet done, and held for the review:**
 - the `backed by` links (designed in the M3e review §9);
@@ -267,4 +268,19 @@ RLT-007 architecture review (the complete Lemma 12.1 in Robinson's Q; verificati
 - **Library:** 125 of 125 entries current and accepted, including the 19 stage-2a entries; the identity registry keeps every line of 5 committed versions.
 - **CI on f37bcfc:** `check` and `gdt-comparison` both succeed.
 - **Direction of the result:** RLT establishes exhaustiveness (every Prime_B number below 213 is listed); the converse is Lean evidence only. Stage 2b is deferred as a separately documented extension.
+- **Not done, as instructed:** no tag, no release, no deployment, no contact with the paper's authors; branch protection and repository settings unchanged.
+
+## Merge record, 2026-11-12 (RLT-007b stage 3)
+
+- **Approval:** merge exactly aa7db42 (after 7070cff was held: it carried an unreviewed run log, restored in aa7db42, which also adds the SR07 clarification).
+- **Pre-merge checks:** PR #19 head aa7db42, mergeable; `check` and `gdt-comparison` green on its push and pull_request runs; the diff limited to the stage-3 files, the test and library counts, verify.sh and documentation; nothing under `kernel/`, `syntax/`, `cli/src`, `spec/`, `conventions/`, `sources/` or `verification/` changed.
+- **PR #19 merged:** marked ready, then merged as merge commit **4e4ca04** (4e4ca04c3feac4e24741dc3657932def81fc3441), with parents f37bcfc and aa7db42. The merge tree e98d313 equals aa7db42's tree.
+- **Fresh clone of main at 4e4ca04:**
+  - `cargo test --release`: 292 passed, 0 failed;
+  - `scripts/verify.sh`: `RESULT all checks hold`, exit 0, 30 min 25 s wall (the machine was shared with stage-4 work);
+  - `scripts/check-manual.py`: 33 of 33.
+- **The tail theorem, from that run:** TAIL.rlt accepted, unconditional under ROBINSON-Q, 1,750 steps; its statement and record rebuilt from the transcription; 9 of 9 rejected cases; self-test 6 of 6; `--check` 13 outputs, 0 differ.
+- **Record and library:** `TAIL-OMITS-H45` exits 0 (current, semantic partial); `admissible.h45.omits.tail_1` among 126 of 126 entries current and accepted; the identity registry keeps every line of 6 committed versions. `RLT007S3.lean`: 10 statements, each printed by name, standard axioms only; the 4 references checked.
+- **CI on 4e4ca04:** `check` and `gdt-comparison` both succeed.
+- **SR07 (kept):** the bound 211 gives a true, stronger theorem; SR07 is refused because the committed proof establishes the approved statement (212 < p), and a changed specification is never accepted on the strength of that proof.
 - **Not done, as instructed:** no tag, no release, no deployment, no contact with the paper's authors; branch protection and repository settings unchanged.

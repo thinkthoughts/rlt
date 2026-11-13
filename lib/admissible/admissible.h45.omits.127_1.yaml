@@ -1,0 +1,60 @@
+format: rlt-lib/1
+id: admissible.h45.omits.127_1
+title: "((((((((((((((((((((((((((((((((((((((((((((¬(∃k. 0 = (127 × k) + 1) ∧ ¬(∃k. 2 = (127 × k) + 1)) ∧ ¬(∃k. 12 = (127 × k) + 1)) ∧ ¬(∃k. 14 = (127 × k) + 1)) ∧ ¬(∃k. 24 = (127 × k) + 1)) ∧ ¬(∃k. 26 = (127 × k) + 1)) ∧ ¬(∃k. 30 = (127 × k) + 1)) ∧ ¬(∃k. 36 = (127 × k) + 1)) ∧ ¬(∃k. 44 = (127 × k) + 1)) ∧ ¬(∃k. 50 = (127 × k) + 1)) ∧ ¬(∃k. 54 = (127 × k) + 1)) ∧ ¬(∃k. 56 = (127 × k) + 1)) ∧ ¬(∃k. 60 = (127 × k) + 1)) ∧ ¬(∃k. 66 = (127 × k) + 1)) ∧ ¬(∃k. 72 = (127 × k) + 1)) ∧ ¬(∃k. 74 = (127 × k) + 1)) ∧ ¬(∃k. 80 = (127 × k) + 1)) ∧ ¬(∃k. 84 = (127 × k) + 1)) ∧ ¬(∃k. 92 = (127 × k) + 1)) ∧ ¬(∃k. 96 = (127 × k) + 1)) ∧ ¬(∃k. 102 = (127 × k) + 1)) ∧ ¬(∃k. 110 = (127 × k) + 1)) ∧ ¬(∃k. 114 = (127 × k) + 1)) ∧ ¬(∃k. 116 = (127 × k) + 1)) ∧ ¬(∃k. 122 = (127 × k) + 1)) ∧ ¬(∃k. 126 = (127 × k) + 1)) ∧ ¬(∃k. 134 = (127 × k) + 1)) ∧ ¬(∃k. 140 = (127 × k) + 1)) ∧ ¬(∃k. 144 = (127 × k) + 1)) ∧ ¬(∃k. 150 = (127 × k) + 1)) ∧ ¬(∃k. 156 = (127 × k) + 1)) ∧ ¬(∃k. 162 = (127 × k) + 1)) ∧ ¬(∃k. 164 = (127 × k) + 1)) ∧ ¬(∃k. 170 = (127 × k) + 1)) ∧ ¬(∃k. 176 = (127 × k) + 1)) ∧ ¬(∃k. 180 = (127 × k) + 1)) ∧ ¬(∃k. 182 = (127 × k) + 1)) ∧ ¬(∃k. 186 = (127 × k) + 1)) ∧ ¬(∃k. 192 = (127 × k) + 1)) ∧ ¬(∃k. 194 = (127 × k) + 1)) ∧ ¬(∃k. 200 = (127 × k) + 1)) ∧ ¬(∃k. 204 = (127 × k) + 1)) ∧ ¬(∃k. 206 = (127 × k) + 1)) ∧ ¬(∃k. 210 = (127 × k) + 1)) ∧ ¬(∃k. 212 = (127 × k) + 1))"
+fingerprint: 7b2c9afccc0fdab0e63b429cf1d8a3bdf9830152ff193f1a47cc1827d4cd5c0c
+proof: {path: tests/rlt007s4/accept/OM_127.rlt, sha256: ff927112ad84fae7bfe4caabd899c24bb3e1de6b610830a13e58aba29fc75a8c}
+proof_id: RLT007S4.OM_127
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "(((((((((((((((((((((((((((((((((((((((((((¬(∃k. 0 = (127 × k) + 1) ∧ ¬(∃k. 2 = (127 × k) + 1)) ∧ ¬(∃k. 12 = (127 × k) + 1)) ∧ ¬(∃k. 14 = (127 × k) + 1)) ∧ ¬(∃k. 24 = (127 × k) + 1)) ∧ ¬(∃k. 26 = (127 × k) + 1)) ∧ ¬(∃k. 30 = (127 × k) + 1)) ∧ ¬(∃k. 36 = (127 × k) + 1)) ∧ ¬(∃k. 44 = (127 × k) + 1)) ∧ ¬(∃k. 50 = (127 × k) + 1)) ∧ ¬(∃k. 54 = (127 × k) + 1)) ∧ ¬(∃k. 56 = (127 × k) + 1)) ∧ ¬(∃k. 60 = (127 × k) + 1)) ∧ ¬(∃k. 66 = (127 × k) + 1)) ∧ ¬(∃k. 72 = (127 × k) + 1)) ∧ ¬(∃k. 74 = (127 × k) + 1)) ∧ ¬(∃k. 80 = (127 × k) + 1)) ∧ ¬(∃k. 84 = (127 × k) + 1)) ∧ ¬(∃k. 92 = (127 × k) + 1)) ∧ ¬(∃k. 96 = (127 × k) + 1)) ∧ ¬(∃k. 102 = (127 × k) + 1)) ∧ ¬(∃k. 110 = (127 × k) + 1)) ∧ ¬(∃k. 114 = (127 × k) + 1)) ∧ ¬(∃k. 116 = (127 × k) + 1)) ∧ ¬(∃k. 122 = (127 × k) + 1)) ∧ ¬(∃k. 126 = (127 × k) + 1)) ∧ ¬(∃k. 134 = (127 × k) + 1)) ∧ ¬(∃k. 140 = (127 × k) + 1)) ∧ ¬(∃k. 144 = (127 × k) + 1)) ∧ ¬(∃k. 150 = (127 × k) + 1)) ∧ ¬(∃k. 156 = (127 × k) + 1)) ∧ ¬(∃k. 162 = (127 × k) + 1)) ∧ ¬(∃k. 164 = (127 × k) + 1)) ∧ ¬(∃k. 170 = (127 × k) + 1)) ∧ ¬(∃k. 176 = (127 × k) + 1)) ∧ ¬(∃k. 180 = (127 × k) + 1)) ∧ ¬(∃k. 182 = (127 × k) + 1)) ∧ ¬(∃k. 186 = (127 × k) + 1)) ∧ ¬(∃k. 192 = (127 × k) + 1)) ∧ ¬(∃k. 194 = (127 × k) + 1)) ∧ ¬(∃k. 200 = (127 × k) + 1)) ∧ ¬(∃k. 204 = (127 × k) + 1)) ∧ ¬(∃k. 206 = (127 × k) + 1)) ∧ ¬(∃k. 210 = (127 × k) + 1)) ∧ ¬(∃k. 212 = (127 × k) + 1)"
+assumptions: []
+citable: true
+uses:
+  - (unlisted tests/rlt007s4/gen/D_127_000.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_002.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_012.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_014.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_024.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_026.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_030.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_036.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_044.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_050.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_054.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_056.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_060.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_066.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_072.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_074.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_080.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_084.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_092.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_096.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_102.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_110.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_114.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_116.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_122.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_126.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_134.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_140.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_144.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_150.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_156.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_162.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_164.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_170.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_176.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_180.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_182.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_186.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_192.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_194.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_200.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_204.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_206.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_210.rlt)
+  - (unlisted tests/rlt007s4/gen/D_127_212.rlt)
+statement_records:
+  - statements/OMITS-H45-127.yaml
+history: []

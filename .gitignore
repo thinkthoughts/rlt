@@ -5,3 +5,6 @@ tests/rlt006/gen/
 
 # RLT-007b stage 1: generated per-element distinctness theorems (scripts/gen-rlt007s1.py; pinned by tests/rlt007s1/manifest.sha256)
 tests/rlt007s1/gen/
+
+# RLT-007b stage 4: generated element certificates (scripts/gen-rlt007s4.py; pinned by tests/rlt007s4/manifest.sha256)
+tests/rlt007s4/gen/
