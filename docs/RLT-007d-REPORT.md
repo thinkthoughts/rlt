@@ -173,8 +173,8 @@ Re-audit of 99e3e29: every item fixed, Rust and Python agreeing on every adversa
 - `scripts/gen-rlt007d.py --check`: 145 outputs, 0 differ.
 - `cargo test --test rlt007d`: 9 of 9; Rust and Python agree on all 51 negative cases and 3 controls.
 - Full `scripts/verify.sh` at 99e3e29 (local): every stage passed except two lines, both corrected or environmental: the RLT-007d report check still expected the earlier summary wording (corrected; re-run by hand on the final binary: report check passes), and the vendored lean-bgp212 comparison needs `SOURCE_CHECKOUTS_DIR`, which CI provides. Results there: cargo test all passed; RLT-007d section — full bundle and controls composed by both checkers, 51 of 51 negatives (50 at that commit), tamper refusals stale and missing, file restored; Lean replay 23 files, `RLT007D.lean` 17 statements, standard axioms only.
-- CI: see the PR for the final commit; e2436bf passed (check and gdt-comparison).
-- Earlier proofs: `scripts/compare-reports.sh` against main 838954f (see the PR).
+- CI at 3f61ab8: `check` passed in 46 min 37 s ("RESULT all checks hold": full bundle and controls composed by both checkers in 243 s, 51 of 51 negatives, both tamper refusals, `RLT007D.lean` 17 statements); `gdt-comparison` passed. (99e3e29 failed only on the outdated report line, corrected in 3f61ab8.)
+- Earlier proofs: `scripts/compare-reports.sh` with main 838954f's binary and tree: 2,744 proof-file reports and every record command byte-identical (0 differences). The kernel, the 20 rules, Q's axioms and the limits are unchanged.
 
 ## 9. Wording for the paper's authors
 
