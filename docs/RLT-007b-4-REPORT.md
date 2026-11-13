@@ -47,7 +47,7 @@ These match the RLT-007c prototype (324,133 nodes; 729,571 steps).
 `scripts/gen-rlt007s4.py`, deterministic and untrusted:
 - **Write mode** produces 1,561 outputs; **`--materialize-only`** writes only `tests/rlt007s4/gen/` (used by verify.sh and the tests before checking); **`--check`** regenerates in memory and compares everything, including the 1,485 generated files, with exact file sets.
 - **`tests/rlt007s4/manifest.sha256`** pins every certificate; each summary also pins its 45 citations by SHA-256.
-- **`--self-test`** refuses 7 of 7 altered inputs: an occupied class (2 mod 47); an omitted class that is not the least (7 mod 53); a class outside 0 … p − 1; a prime missing (101); a composite added (91); an altered tuple element (48 for 50); 44 tuple entries.
+- **`--self-test`** refuses 6 of 6 altered inputs, each for exactly its own reason (so each check is exercised on its own): an occupied class (2 mod 47); an omitted class that is not the least (9 mod 53); a class outside 0 … p − 1 (211 mod 211); a prime missing (101); a composite added (91, with its least omitted class); two tuple elements swapped (residues unchanged, so only the tuple check applies).
 
 **Rejected cases** (each refused for a pinned reason):
 
@@ -61,15 +61,17 @@ These match the RLT-007c prototype (324,133 nodes; 729,571 steps).
 | SQ06 OM_211 citing a missing certificate | entity not found (malformed) |
 | SQ07 OM_47 whose written statement names the class 2 | the last step proves the class 1 |
 
+**Statement guards** (`tests/rlt007s4/guard/`). The kernel accepts any true statement it is given a proof of, so a summary with a conjunct dropped, reordered or repeated, cited from genuine certificates, is accepted (the mathematical audit showed this). Three guard files are such summaries; verify.sh and the Rust tests require that the kernel accepts each and that the independent statement rebuild refuses it. That rebuild, not the kernel, fixes the approved statement.
+
 **verify.sh**, new stage-4 section and early materialization:
 - 1,485 certificates materialized and compared with the manifest before any check;
 - self-test, `--check`;
-- an independent check (not the generator) that rebuilds the tuple, the 33 primes, the least classes and every summary and record statement;
+- an independent check (not the generator) that rebuilds the tuple, the 33 primes, the least classes and every summary and record statement, and checks each Lean `om_P` against its summary symbol for symbol;
 - all 1,485 certificates checked; the 33 summaries through `rlt deps` with the 45-of-64 budget pinned;
-- 7 of 7 rejected cases;
+- 7 of 7 rejected cases; 3 of 3 statement guards;
 - tamper tests: a missing certificate, a modified certificate, an altered manifest hash, and a record with an altered source pin (refused by `rlt explain` because its commit differs from the registry's).
 
-The trusted Rust test `cli/tests/rlt007s4.rs` (9 tests) rebuilds every certificate goal and every summary statement from H₄₅ written out in the test and from the primes and classes it computes itself.
+The trusted Rust test `cli/tests/rlt007s4.rs` (10 tests) rebuilds every certificate goal and every summary statement from H₄₅ written out in the test and from the primes and classes it computes itself.
 
 ## 5. Lean comparison
 
@@ -81,6 +83,23 @@ The trusted Rust test `cli/tests/rlt007s4.rs` (9 tests) rebuilds every certifica
 
 The records name `om_P` and `table_facts`; the pinned count of Lean references in records is now 82, previously 48.
 
-## 6. Verification, audits and totals
+## 6. Independent audits
+
+Two independent adversarial audits ran on fa59aab, one mathematical and one on the implementation. Neither found a blocking defect.
+
+| Finding | Change |
+|---|---|
+| A cli test (`m3a.rs`, the result-kind sweep) walked `tests/` including the 1,485 generated certificates and the summaries, twice each in one thread: about 12 extra minutes per verify and CI run | the sweep skips `tests/rlt007s4`, as `deps.rs` does (stage 4 is checked by its own suite and verify.sh); measured by the auditor: 13 min 50 s → 1 min 21 s |
+| The self-test's "not the least" case (7 mod 53) was refused as occupied, and the altered-element case only through an occupied class, so two checks were never exercised alone | each case must be refused for exactly its own reason; 9 mod 53, and a tuple swap that leaves the residues unchanged |
+| The kernel accepts a true summary of another shape (a conjunct dropped); no test showed that the statement rebuild catches it | three guard files, accepted by the kernel and refused by the rebuild, in verify.sh and the Rust tests |
+| The review said r_p < p "is part of the decided table" for the assembly | stated as an RLT-007d obligation (a closed computation), Lean-decided here |
+| Nothing mechanically checked the Lean `om_P` against the RLT goals | verify.sh compares them symbol for symbol |
+| Wording: the primes are "the primes ≥ 47" of R2 … R6 (41 and 43 are RLT-006's); `below_213_covered` uses Lean's own trial-division predicate | corrected and stated |
+
+**Notes kept.** SQ07's pinned reason is the opening of the expected goal; the generators accept but do not use their RLT_BINARY argument, as before; the altered-manifest tamper test is simple by nature (the missing and modified certificate tests are the substantive ones).
+
+**The auditors verified independently:** the 33 primes, classes, omission and leastness; all 1,485 certificate goals and all 33 summary goals and citations; all certificates and summaries accepted by the kernel; five tampered proofs refused for the right reasons; the Lean statements equal the RLT goals; `gen-lib.py` reproduces `lib/`; `rlt deps --verify-lib` 159 of 159; all 65 records explain with exit 0; nothing outside the stage's scope changed.
+
+## 7. Verification and totals
 
 Recorded with the final commit.

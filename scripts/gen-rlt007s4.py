@@ -12,8 +12,9 @@ The summaries have exactly the shape of RLT-006's per-prime theorems.
 
 Inputs:
   * H₄₅ from the reviewed transcription (item `h45-tuple`);
-  * the primes 47 … 211: the primes of the approved stage-2a ranges R2 … R6
-    (docs/RLT-007b-2-DESIGN.md §0), recomputed here by trial division;
+  * the primes 47 … 211: the primes ≥ 47 of the approved stage-2a ranges
+    R2 … R6 (41 and 43, also in R2, are RLT-006's), recomputed here by trial
+    division;
   * the classes r_p: for each p the least class omitted by H₄₅ (the choice
     measured in RLT-007c); recomputed here and refused on any difference.
     The paper lists classes only for p ≤ 43 and argues p ≥ 47 by counting, so
@@ -34,6 +35,9 @@ Outputs:
   tests/rlt007s4/manifest.sha256     SHA-256 of the 1,485 files
   tests/rlt007s4/accept/OM_PPP.rlt   33 per-prime summaries
   tests/rlt007s4/reject/*.rlt        rejected cases; tests/rlt007s4/expected.tsv
+  tests/rlt007s4/guard/*.rlt         summaries the kernel accepts (true statements)
+                                     whose statement is not the approved one; the
+                                     independent statement rebuild must refuse them
   statements/OMITS-H45-PPP.yaml      33 statement records
   lean/RLT007S4.lean                 Lean comparison
 
@@ -92,21 +96,23 @@ def input_checks(h, table):
 if MODE == "--self-test":
     def alt_class(p, r):
         return [(q, r if q == p else s) for q, s in TABLE]
+    # Each case must be refused for exactly its own reason and no other, so
+    # that every check is exercised on its own.
     cases = [
-        ("an occupied class (2 mod 47)", H, alt_class(47, 2)),
-        ("an omitted class that is not the least (7 mod 53)", H, alt_class(53, 7)),
-        ("a class outside 0 … p − 1 (211 mod 211)", H, alt_class(211, 211)),
-        ("a prime missing (101)", H, [q for q in TABLE if q[0] != 101]),
-        ("a composite added (91, class 1)", H, sorted(TABLE + [(91, 1)])),
-        ("an altered tuple element (48 in place of 50)", H[:9] + [48] + H[10:], TABLE),
-        ("44 tuple entries", H[:-1], TABLE),
+        ("an occupied class (2 mod 47)", H, alt_class(47, 2), "the class 2 mod 47 is occupied"),
+        ("an omitted class that is not the least (9 mod 53)", H, alt_class(53, 9), "the class 9 mod 53 is not the least omitted class"),
+        ("a class outside 0 … p − 1 (211 mod 211)", H, alt_class(211, 211), "the class 211 is not a residue mod 211"),
+        ("a prime missing (101)", H, [q for q in TABLE if q[0] != 101], "the primes are not exactly"),
+        ("a composite added (91, with its least omitted class 3)", H, sorted(TABLE + [(91, 3)]), "the primes are not exactly"),
+        ("two tuple elements swapped (2 and 12; the residues are unchanged)", [H[0], H[2], H[1]] + H[3:], TABLE, "the tuple is not 45 increasing entries"),
     ]
     n = 0
-    for name, hh, tt in cases:
+    for name, hh, tt, want in cases:
         r = input_checks(hh, tt)
-        print(f"{'refused ' if r else 'ACCEPTED'} {name}: {'; '.join(r)}")
-        n += 1 if r else 0
-    print(f"generator self-test: {n} of {len(cases)} altered inputs refused")
+        ok = len(r) == 1 and want in r[0]
+        print(f"{'refused ' if ok else 'NOT ISOLATED' if r else 'ACCEPTED'} {name}: {'; '.join(r)}")
+        n += 1 if ok else 0
+    print(f"generator self-test: {n} of {len(cases)} altered inputs refused, each for its own reason")
     sys.exit(0 if n == len(cases) else 1)
 
 bad = input_checks(H, TABLE)
@@ -358,6 +364,33 @@ rej("SQ07_summary_class_changed_in_statement",
     proof("SQ07", "REJECT CASE: OM_47 whose written statement names the class 2; the steps prove the class 1",
           goal.replace(") + 1)", ") + 2)"), st, cites=cites),
     1, "the goal is `(((((((((((((((((((((((((((((((((((((((((((¬(∃k. 0 = (47 × k) + 2)")
+# Statement guards: kernel-valid summaries with a statement other than the
+# approved one. Only the independent statement rebuild (verify.sh, the Rust
+# tests) can refuse them; these files show that it does.
+def summary_h(pid, comment, p, r, hs):
+    cites, st, lab, conj = [], [], None, None
+    for i, h in enumerate(hs):
+        cites.append((f"E{i}", gen_path(p, h), sha(OUT[gen_path(p, h)])))
+        g = claim(p, h, r)
+        st.append(f"(f{i} {g} (cite E{i}))")
+        if conj is None:
+            conj, lab = g, f"f{i}"
+        else:
+            conj = f"(and {conj} {g})"
+            st.append(f"(c{i} {conj} (and-intro {lab} f{i}))")
+            lab = f"c{i}"
+    st[-1] = st[-1].replace(f"({lab} ", "(G ", 1)
+    goal = written(p, hs[0], r)
+    for h in hs[1:]:
+        goal = f"({goal} ∧ {written(p, h, r)})"
+    return proof(pid, "STATEMENT GUARD: " + comment, goal, st, cites=cites)
+
+
+GUARD = "tests/rlt007s4/guard"
+OUT[f"{GUARD}/G01_om211_without_212.rlt"] = summary_h("G01", "OM_211 with the conjunct for 212 dropped (true, but not the approved statement)", 211, 3, H[:-1])
+OUT[f"{GUARD}/G02_om211_first_two_swapped.rlt"] = summary_h("G02", "OM_211 with the conjuncts for 0 and 2 swapped (true, not the listed order)", 211, 3, [H[1], H[0]] + H[2:])
+OUT[f"{GUARD}/G03_om211_210_in_place_of_212.rlt"] = summary_h("G03", "OM_211 with 210 repeated in place of 212 (true, not the approved statement)", 211, 3, H[:-1] + [210])
+
 OUT["tests/rlt007s4/expected.tsv"] = ("# file\texit\trequired substring of the verdict (RLT-007b stage 4 rejected cases)\n"
                                      + "\n".join(rows) + "\n")
 
@@ -497,12 +530,12 @@ if MODE == "--check":
     for path, text in sorted(OUT.items()):
         if not os.path.isfile(path) or open(path, encoding="utf-8", newline="").read() != text:
             diff.append(path)
-    for d in (GEN, ACC, REJ):
+    for d in (GEN, ACC, REJ, "tests/rlt007s4/guard"):
         for f in sorted(os.listdir(d)) if os.path.isdir(d) else []:
             if f"{d}/{f}" not in OUT:
                 diff.append(f"{d}/{f} (not produced by the generator)")
     for f in sorted(os.listdir("tests/rlt007s4")):
-        if f not in ("gen", "accept", "reject", "manifest.sha256", "expected.tsv"):
+        if f not in ("gen", "accept", "reject", "guard", "manifest.sha256", "expected.tsv"):
             diff.append(f"tests/rlt007s4/{f} (not produced by the generator)")
     stmts = sorted(f for f in os.listdir("statements") if f.startswith("OMITS-H45-"))
     if stmts != sorted(os.path.basename(x) for x in OUT if x.startswith("statements/")):
@@ -515,7 +548,7 @@ if MODE == "--check":
     print(f"scripts/gen-rlt007s4.py --check: {len(OUT)} outputs, {len(diff)} differ")
     sys.exit(0 if not diff else 1)
 
-for d in (GEN, ACC, REJ):
+for d in (GEN, ACC, REJ, "tests/rlt007s4/guard"):
     os.makedirs(d, exist_ok=True)
     for old in os.listdir(d):
         os.remove(os.path.join(d, old))

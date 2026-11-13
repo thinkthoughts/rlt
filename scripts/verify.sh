@@ -730,10 +730,17 @@ for p in ps:
     g = re.search(r'\(goal "([^"]*)"\)', open(f"tests/rlt007s4/accept/OM_{p:03d}.rlt", encoding="utf-8").read()).group(1)
     rec = yaml.safe_load(open(f"statements/OMITS-H45-{p:03d}.yaml", encoding="utf-8"))["kernel"]["checked_goal"]
     ok = ok and g == w and rec == w[1:-1]
+# Lean: each om_P states the summary symbol for symbol (`∃k.` read as `∃ k,`, `×` as `*`).
+lean = open("lean/RLT007S4.lean", encoding="utf-8").read()
+for p in ps:
+    g = re.search(r'\(goal "([^"]*)"\)', open(f"tests/rlt007s4/accept/OM_{p:03d}.rlt", encoding="utf-8").read()).group(1)
+    lw = g.replace("∃k. ", "∃ k, ").replace(" × ", " * ").replace(f"({p} * k) + ", f"{p} * k + ")
+    m = re.search(rf"theorem om_{p} :\n    (.*) := by", lean)
+    ok = ok and m is not None and m.group(1) == lw
 print("ok" if ok and len(ps) == 33 else "FAILED")
 PY
 )
-[ "$s4_tr" = ok ] && echo "source transcription checked (not kernel-checked): the tuple; the 33 primes 47 … 211 and their least omitted classes recomputed; every summary and record statement rebuilt from them" || { echo "  UNEXPECTED: source or statement check failed"; fail=1; }
+[ "$s4_tr" = ok ] && echo "source transcription checked (not kernel-checked): the tuple; the 33 primes 47 … 211 and their least omitted classes recomputed; every summary and record statement rebuilt from them; each Lean om_P is the summary symbol for symbol" || { echo "  UNEXPECTED: source or statement check failed"; fail=1; }
 [ "$(ls -A tests/rlt007s4/accept | wc -l | tr -d ' ')" = 33 ] || { echo "  UNEXPECTED: tests/rlt007s4/accept holds $(ls -A tests/rlt007s4/accept | wc -l | tr -d ' ') files, not 33"; fail=1; }
 s4_t0=$(date +%s.%N); s4_ok=0
 s4_p=$RLT_RUN_TMP/par-s4-check; par_map "$s4_p" '"$rlt" check "$1"' tests/rlt007s4/gen/*.rlt || { echo "  UNEXPECTED: a parallel run left no exit code"; fail=1; }
@@ -766,6 +773,26 @@ while IFS=$'\t' read -r f want reason; do
 done < tests/rlt007s4/expected.tsv
 { [ "$s4_rn" = 7 ] && [ "$(ls -A tests/rlt007s4/reject | wc -l | tr -d ' ')" = 7 ]; } || { echo "  UNEXPECTED: tests/rlt007s4/expected.tsv lists $s4_rn cases"; fail=1; }
 echo "tests/rlt007s4/reject: $s4_r of $s4_rn give the required exit code and reason"
+# Statement guards: summaries the kernel accepts (true statements of another
+# shape) that the independent statement rebuild must refuse.
+s4_g=0
+for f in tests/rlt007s4/guard/*.rlt; do
+  s4_gl=$("$rlt" check "$f"); s4_gk=$?
+  s4_gr=$(python3 -I - "$f" <<'PY'
+import re, sys, yaml
+t = yaml.safe_load(open("sources/transcriptions/AXIOM-BGP212-2026-09-03.yaml", encoding="utf-8"))
+h = {i["id"]: i for i in t["items"]}["h45-tuple"]["numbers"]
+w = f"¬(∃k. {h[0]} = (211 × k) + 3)"
+for x in h[1:]:
+    w = f"({w} ∧ ¬(∃k. {x} = (211 × k) + 3))"
+g = re.search(r'\(goal "([^"]*)"\)', open(sys.argv[1], encoding="utf-8").read()).group(1)
+print("refused" if g != w else "MATCHES")
+PY
+)
+  { [ $s4_gk = 0 ] && [ "$s4_gr" = refused ]; } && s4_g=$((s4_g + 1)) || { echo "  UNEXPECTED: $f (kernel exit $s4_gk, rebuild $s4_gr)"; fail=1; }
+done
+[ "$s4_g" = 3 ] && [ "$(ls -A tests/rlt007s4/guard | wc -l | tr -d ' ')" = 3 ] || fail=1
+echo "statement guards: $s4_g of 3 kernel-accepted summaries of another shape (a conjunct dropped, reordered, repeated) refused by the statement rebuild"
 # Tamper tests on the generated certificates (restored by regeneration).
 s4_tt() {  # description, verdict fragment
   s4_log=$("$rlt" check tests/rlt007s4/accept/OM_211.rlt); s4_code=$?

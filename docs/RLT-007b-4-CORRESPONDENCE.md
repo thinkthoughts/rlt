@@ -34,13 +34,13 @@ For each prime p with class r = r_p:
 
     OM_p:  ⋀_{h ∈ H₄₅} ¬(∃k. h = (p × k) + r)
 
-- left-nested over the 45 transcribed elements in the listed order, exactly the shape of RLT-006's 14 per-prime statements;
+- left-nested over the 45 transcribed elements in the listed order, exactly the shape of RLT-006's 14 per-prime statements. The kernel would also accept a true statement of another shape (a conjunct dropped, repeated or reordered, cited from genuine certificates); the approved statement is fixed by the independent statement rebuild in verify.sh and `cli/tests/rlt007s4.rs`, which refuses the three guard files in `tests/rlt007s4/guard/`;
 - each conjunct is a separate kernel-checked certificate D_p_h, cited by OM_p (45 of 64 cited-file checks, chain 1);
 - the statements use no definition (`<` and `∣` do not occur).
 
-**Reading over ℕ.** With 0 ≤ r < p and h ≥ 0, ∃k ∈ ℕ. h = p·k + r says h ≡ r (mod p), and the integer form agrees (for h ≥ 0 any such integer k is nonnegative). Lean `omit_iff` proves ¬(∃k. h = p·k + r) ↔ h % p ≠ r for r < p. So OM_p says: the reductions of H₄₅ modulo p omit the class r_p. That r_p < p is part of the decided table; the assembly uses it as the witness for Adm(p).
+**Reading over ℕ.** With 0 ≤ r < p and h ≥ 0, ∃k ∈ ℕ. h = p·k + r says h ≡ r (mod p), and the integer form agrees (for h ≥ 0 any such integer k is nonnegative). Lean `omit_iff` proves ¬(∃k. h = p·k + r) ↔ h % p ≠ r for r < p. So OM_p says: the reductions of H₄₅ modulo p omit the class r_p. That r_p < p is checked by the generator and decided in Lean (`table_facts`); it is not an RLT theorem of this stage. In the composition design Adm(p) is ∃r. (r < p ∧ …), so each RLT-007d range assembly must prove r_p < p by a closed computation, as `adm.tail` does for 1 < p.
 
-**Scope.** Each statement is about one numeral p. That p is prime is not part of OM_p; it enters the assembly through stage 2a's listing. Lean `below_213_covered` decides that every prime below 213 is either in RLT-006's transcribed table or in this one.
+**Scope.** Each statement is about one numeral p. That p is prime is not part of OM_p; it enters the assembly through stage 2a's listing. Lean `below_213_covered` decides that every prime below 213 is either in RLT-006's transcribed table or in this one; it uses Lean's own trial-division predicate, which agrees with Prime_B over ℕ (stage 2a's `pb_iff_std`).
 
 ## 4. What is established, and how
 

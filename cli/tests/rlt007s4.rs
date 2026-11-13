@@ -151,6 +151,36 @@ fn the_33_summaries_state_exactly_the_approved_omissions() {
     assert_eq!(files, 33);
 }
 
+fn approved(p: u32, r: u32) -> String {
+    let om = |h: u32| format!("¬(∃k. {h} = ({p} × k) + {r})");
+    let mut c = om(H45[0]);
+    for &h in &H45[1..] {
+        c = format!("({c} ∧ {})", om(h));
+    }
+    c
+}
+
+/// The kernel accepts a true summary of another shape; only the statement
+/// rebuild refuses it. The three guard files show both halves.
+#[test]
+fn statement_guards_pass_the_kernel_and_fail_the_rebuild() {
+    materialized();
+    let mut n = 0;
+    for e in std::fs::read_dir(root().join("tests/rlt007s4/guard")).unwrap() {
+        let f = e.unwrap().path();
+        let rel = f
+            .strip_prefix(root())
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+        let r = check_file(&root(), &f);
+        assert!(r.text.contains(VERDICT), "{rel}:\n{}", r.text);
+        assert_ne!(goal(&rel), approved(211, 3), "{rel}");
+        n += 1;
+    }
+    assert_eq!(n, 3);
+}
+
 #[test]
 fn summaries_are_accepted_within_the_citation_budget() {
     materialized();
@@ -194,7 +224,7 @@ fn the_generator_reproduces_every_output_and_refuses_altered_inputs() {
     let t = generator("--self-test");
     let out = String::from_utf8_lossy(&t.stdout);
     assert!(t.status.success(), "{out}");
-    assert!(out.contains("7 of 7 altered inputs refused"), "{out}");
+    assert!(out.contains("6 of 6 altered inputs refused, each for its own reason"), "{out}");
     assert!(!out.contains("ACCEPTED"), "{out}");
 }
 
