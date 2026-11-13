@@ -1,6 +1,6 @@
 # RLT-007d — Option B: composition architecture review
 
-**Status:** architecture specification for review, 2026-11-12. **Revised the same day** (§4a–§6) for the formula-size limit; §6 supersedes the depth-one rule of §3.5 where they differ. Nothing is implemented. The composition checker will be built only after this revised architecture is reviewed and approved.
+**Status:** architecture specification for review, 2026-11-12. Option B is approved for planning; it remains design only, and nothing is implemented. Reporting terms aligned with the four approved labels (§6.8). **Note for stage 2:** the definition of Prime used in §6.1 (`primes.below_213`) is under review in `docs/RLT-007b-2-DESIGN.md`. **Revised the same day** (§4a–§6) for the formula-size limit; §6 supersedes the depth-one rule of §3.5 where they differ. Nothing is implemented. The composition checker will be built only after this revised architecture is reviewed and approved.
 
 **Unchanged by this design:**
 - the kernel and its 20 inference rules plus `cite`;
@@ -11,7 +11,7 @@
 
 ## 1. What composition does
 
-Composition joins two kinds of kernel-checked theorem into one claim:
+Composition joins two kinds of kernel accepted theorem into one claim:
 
 - **An assembly theorem** 𝒜, checked by the kernel in conditional mode: Γ ⊢ φ.
   - φ is the complete statement, here Lemma 12.1 as specified in `docs/RLT-007b-DESIGN.md` §1.
@@ -163,7 +163,7 @@ This is the semantic form of the cut rule. Inside one file, the kernel's `cite` 
 5. **A Lean cross-check:** extend `lemma_12_1_of_rlt_statements` so that Lean derives the paper's Lemma 12.1 from the literal component statements. This is an independent check of the assembly step's *mathematics*, outside RLT's trust base.
 6. **The soundness argument (§3.6)** added to `docs/KERNEL-SOUNDNESS.md` as a section on composition, reviewed with the code.
 
-### 3.8 Reporting "kernel-checked" versus "discharged by composition"
+### 3.8 Reporting "kernel accepted" versus "discharged by composition"
 
 **Three kinds of claim, never merged:**
 
@@ -171,12 +171,12 @@ This is the semantic form of the cut rule. Inside one file, the kernel's `cite` 
 |---|---|---|
 | `rlt check` | each component | "ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q" (unchanged) |
 | `rlt check` | the assembly | "ACCEPT — conditional theorem: Γ ⊢ φ" with Γ listed (unchanged) |
-| `rlt compose` | the composed claim | "COMPOSED — φ holds in every model of ROBINSON-Q: the conditional theorem ⟨assembly⟩ is kernel-checked, and each of its n assumptions is discharged by a kernel-checked unconditional theorem (composition check rlt-composition/1)". Exit 0 only if every check holds |
+| `rlt compose` | the composed claim | "discharged by composition: φ holds in every model of ROBINSON-Q; the conditional theorem ⟨assembly⟩ is kernel accepted, and each of its n assumptions is discharged by a kernel accepted unconditional theorem (composition check rlt-composition/1)". Exit 0 only if every check holds. The labels are those of §6.8 |
 
 **Records and listings:**
-- **Library.** The assembly's entry has `status: composed` and `citable: false`. `rlt deps --verify-lib` lists it separately from kernel-checked entries.
-- **Statement record.** `kernel.mode: conditional` with Γ, plus a new `composition:` block naming the record and its result. `rlt explain` prints both lines, "kernel-checked: conditional" and "discharged by composition: n of n", and never prints "unconditional theorem" for the assembly.
-- **Reports and README.** They state the trust boundary in one sentence: every mathematical step is kernel-checked; joining the files is a composition check outside the kernel, justified by §3.6.
+- **Library.** The assembly's entry has `status: composed` and `citable: false`. `rlt deps --verify-lib` lists it separately from kernel accepted entries.
+- **Statement record.** `kernel.mode: conditional` with Γ, plus a new `composition:` block naming the record and its result. `rlt explain` prints both lines, "kernel accepted: conditional" and "discharged by composition: n of n", and never prints "unconditional theorem" for the assembly.
+- **Reports and README.** They state the trust boundary in one sentence: every mathematical step is kernel accepted; joining the files is a composition check outside the kernel, justified by §3.6.
 
 ## 4. Costs
 
@@ -209,7 +209,7 @@ So no single assembly file can work. The options differ in how the work is divid
 |---|---|---|
 | Idea | Several conditional theorems, each within the limits. Each layer's assumptions are discharged by components or by lower layers | One top theorem whose statement is small enough, assumptions discharged in one step |
 | Can it carry the admissibility part (∀p. Prime(p) → Adm(p))? | **Yes.** Six range assemblies (about 450,000–510,000 nodes each, estimated), then one small top assembly | **No.** The per-prime case split alone needs about 2.9 million nodes, so this part needs layers whatever the statement |
-| Can it carry distinctness? | Yes, as four group statements | Only by replacing pairwise distinctness with a smaller equivalent. For example "strictly increasing", ⋀ hᵢ < hᵢ₊₁, about 9,400 in numeral total. That equivalence over ℕ would be a correspondence reading, not a kernel-checked step |
+| Can it carry distinctness? | Yes, as four group statements | Only by replacing pairwise distinctness with a smaller equivalent. For example "strictly increasing", ⋀ hᵢ < hᵢ₊₁, about 9,400 in numeral total. That equivalence over ℕ would be a correspondence reading, semantic correspondence assessed, not kernel accepted |
 | Statement fidelity | Each statement stays in the source's own terms | The final statement is a reformulation, and needs its own correspondence review |
 | New trusted logic | Composition across more than one layer (§6) | Depth one would suffice for the top, but the admissibility layers are needed regardless |
 
@@ -263,8 +263,8 @@ The disjunction in `primes.below_213` is grouped by these ranges, so that each r
 | `admissible.h45.adm.all` | `primes.below_213`, `adm.range_1` … `adm.range_6`, `adm.tail` (8 assumptions, each a few thousand nodes) | ∀p. (Prime(p) → Adm(p)) |
 
 **The named result `admissible.h45.lemma_12_1`** is a composition record, not a formula. It lists the six top-level statements:
-- `distinct.g0` … `g3` (layer 0, kernel-checked);
-- `bounds` (layer 0, kernel-checked);
+- `distinct.g0` … `g3` (layer 0, kernel accepted; merged in RLT-007b stage 1 at eb0e2ef);
+- `bounds` (layer 0, kernel accepted; merged likewise);
 - `adm.all` (layer 2, discharged by composition).
 
 **Edge count.**
@@ -288,7 +288,7 @@ The disjunction in `primes.below_213` is grouped by these ranges, so that each r
 The rules of §3.1–§3.5 apply unchanged at every edge.
 - **Exact matching.** The discharger's statement must equal the assumption *exactly*, as expanded kernel formulas in canonical form.
 - **What the discharger's statement is.**
-  - For a layer-0 discharger, it is the kernel-checked goal (Γ = ∅).
+  - For a layer-0 discharger, it is the kernel accepted goal (Γ = ∅).
   - For a composed discharger of layer n ≥ 1, it is the **conclusion** of its assembly theorem, and only once that record has itself passed in this run, with every assumption discharged. A composed result whose own record fails, or has an undischarged assumption, discharges nothing.
 - **Duplicates, unused assumptions and substitution** are refused as in §3.5. An unused declared assumption is refused unless the record marks it `unused: true` with a written justification, which is shown in the report.
 
@@ -351,14 +351,22 @@ Each γ ∈ Γ_v is discharged by a node u of layer less than n that passed. By 
 - a second implementation, independent of the first, that recomputes the topological order and every edge comparison from `rlt deps --format json`;
 - a Lean cross-check that derives the paper's Lemma 12.1 from the literal layer-0 statements, mirroring the DAG.
 
-### 6.8 Reporting terminology (fixed)
+### 6.8 Reporting terminology (approved 2026-11-12)
 
-| Object | Wording |
-|---|---|
-| layer-0 component | "kernel-checked: unconditional theorem under ROBINSON-Q" |
-| assembly theorem | "kernel-checked: conditional theorem Γ ⊢ φ" |
-| composed node (layer ≥ 1) that passes | "**discharged by composition** (layer n): φ holds in every model of ROBINSON-Q; its conditional theorem is kernel-checked and each of its m assumptions is discharged by a passing node of a lower layer" |
-| the named result | "Lemma 12.1 (H₄₅): 5 statements kernel-checked, 1 statement discharged by composition; transcription checks: 45 listed elements, endpoints 0 and 212 listed, strictly increasing order (pinned PDF transcription, not kernel-checked)" |
+Every reported result carries exactly one of four status labels. No other label is used for a mathematical claim.
+
+| Label | Applies to | Meaning |
+|---|---|---|
+| **kernel accepted** | every layer-0 component; every assembly theorem (as a conditional theorem Γ ⊢ φ) | `rlt check` accepted the proof file under ROBINSON-Q: an unconditional theorem (Γ = ∅) or a conditional one with Γ listed |
+| **discharged by composition** | each passing composed node of layer n ≥ 1 | its assembly theorem is kernel accepted, and each of its m assumptions is exactly the statement of a passing node of a lower layer (§6.2–§6.6). So φ holds in every model of ROBINSON-Q, by the argument of §6.6; there is no single proof object for φ |
+| **source transcription checked** | listing facts taken from the paper: 45 listed elements, strictly increasing, endpoints 0 and 212; the transcribed lemma text | compared with the pinned PDF transcription by the generators and verify.sh (`check_excerpts.py` ties the transcription to the PDF); not kernel-checked |
+| **semantic correspondence assessed** | the reading of the RLT statements as the paper's claims | a reviewed correspondence document, pinned by SHA-256 in each statement record |
+
+**Report lines:**
+- *Layer-0 component:* "kernel accepted: unconditional theorem under ROBINSON-Q".
+- *Assembly theorem:* "kernel accepted: conditional theorem Γ ⊢ φ (m assumptions)".
+- *Composed node:* "discharged by composition (layer n): m of m assumptions discharged by passing lower-layer nodes".
+- *Named result:* "Lemma 12.1 (H₄₅): 5 statements kernel accepted, 1 statement discharged by composition; source transcription checked: 45 listed elements, strictly increasing, endpoints 0 and 212; semantic correspondence assessed: docs/…".
 
 Nothing composed is ever labelled "unconditional theorem". `citable` remains false for composed nodes. They discharge assumptions only through composition records, never through `cite`.
 
