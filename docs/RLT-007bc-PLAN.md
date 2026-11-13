@@ -52,7 +52,7 @@
 
 ## Stage 3 — RLT-007b-3: the 45 uniform certificates for p ≥ 213 (obligation (d), uniform part)
 
-**Superseded in part (2026-11-12).** Stage 3 (PR #19) proves the summary statement `admissible.h45.omits.tail_1` directly, in one file of 1,750 steps and 495,022 nodes, with no per-element certificates and no citations; see `docs/RLT-007b-3-REPORT.md` on that branch. The planned negative case "a bound of 211 < p" is a true statement (the least true bound is 211), so stage 3 uses 210 < p, which is false (212 = 211 × 1 + 1). The table is kept as the original plan.
+**Superseded in part (2026-11-12).** Stage 3 (merged at 4e4ca04) proves the summary statement `admissible.h45.omits.tail_1` directly, in one file of 1,750 steps and 495,022 nodes, with no per-element certificates and no citations; see `docs/RLT-007b-3-REPORT.md`. The planned negative case "a bound of 211 < p" is a true statement (the least true bound is 211), so stage 3 uses 210 < p, which is false (212 = 211 × 1 + 1). The table is kept as the original plan.
 
 | | |
 |---|---|
