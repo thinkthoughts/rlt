@@ -10,7 +10,7 @@
 > Lemma 12.1. The set H₄₅ is an admissible 45-tuple of diameter 212.
 
 **Obligation (a)** is the part of the lemma that concerns the tuple itself:
-- **"45-tuple":** 45 distinct integers. §2 (PDF page 3, transcription item `admissible-definition`) defines an admissible set as "a finite set H = {h₁, …, h_k} of distinct integers", and a k-tuple is such a set with k elements.
+- **"45-tuple":** 45 distinct integers. §2 (PDF page 3, transcription item `admissible-definition`) defines an admissible set as "a finite set H = {h₁, …, h_k} of distinct integers", and this review reads "k-tuple" as such a set with k elements, following the paper's notation {h₁, …, h_k}.
 - **"diameter 212":** max H₄₅ − min H₄₅ = 212. The paper uses "diameter" without defining it; this review adopts the standard reading for a finite set of integers, largest element minus smallest element.
 
 Admissibility for every prime is obligations (b)–(d), handled in RLT-006 and in later stages.

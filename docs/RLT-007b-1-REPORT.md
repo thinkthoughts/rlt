@@ -133,7 +133,7 @@ Each was refused by the kernel or by `verify-lib`, `explain` or `--check`.
 |---|---|
 | The self-test never isolated the 45-entry length check | New case: 46 strictly increasing entries from 0 to 212 |
 | The lemma-text check read only the reviewed `text`, which is not compared with the PDF | Both `extracted` (PDF-compared) and `text` are checked, with whole-number matching ("145-tuple" and "diameter 2120" are refused) |
-| `--check` ignored extra files in `gen/`, `accept/` and `lean/`, and other stage-1 records | Exact file sets throughout. verify.sh requires exactly 5 files in `accept/`. The deps-agrees-with-check comparison now runs on the 12 committed files |
+| `--check` ignored extra files in `gen/`, `accept/` and `lean/`, and other stage-1 records | Exact file sets throughout. verify.sh requires exactly 5 files in `accept/`. The comparison of `rlt deps` with `rlt check` (check report and exit code) now runs on the 12 committed files |
 | SX05's expected reason was short | Pinned to "the cited theorem `E10` proves …" |
 | Report wording: the lemma check's source, the axiom gate, the generator's inputs | Reworded (§1, §3, §5) |
 | The correspondence did not say how "diameter" is read | It now says the reading is adopted, and cites the definition on PDF page 3 |
