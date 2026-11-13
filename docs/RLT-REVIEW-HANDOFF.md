@@ -22,6 +22,7 @@ Development stops after M3e. The next phase is a broader review of RLT as a usab
 | RLT-007b stage 1 | merged (eb0e2ef, 2026-11-12) | obligation (a) of Lemma 12.1: 44 per-element distinctness theorems, 4 group summaries, bounds theorem; see docs/RLT-007b-1-REPORT.md |
 | RLT-007b stage 2a | merged (f37bcfc, 2026-11-12) | the primes below 213 under Prime_B, exhaustiveness direction: 6 non-prime certificates, 6 exhaustiveness theorems, 6 order splits, the classification `primes.below_213`; see docs/RLT-007b-2a-REPORT.md. Stage 2b (positive primality) deferred |
 | RLT-007b stage 3 | merged (4e4ca04, 2026-11-12) | the uniform omission for p > 212: ∀p. (212 < p → ⋀_h ¬(∃k. h = (p × k) + 1)), one file, 1,750 steps; see docs/RLT-007b-3-REPORT.md |
+| RLT-007b stage 4 | merged (838954f, 2026-11-13) | the 33 primes 47 … 211: 1,485 generated certificates (manifest-pinned) and 33 per-prime theorems; see docs/RLT-007b-4-REPORT.md |
 
 **Not yet done, and held for the review:**
 - the `backed by` links (designed in the M3e review §9);
@@ -283,4 +284,18 @@ RLT-007 architecture review (the complete Lemma 12.1 in Robinson's Q; verificati
 - **Record and library:** `TAIL-OMITS-H45` exits 0 (current, semantic partial); `admissible.h45.omits.tail_1` among 126 of 126 entries current and accepted; the identity registry keeps every line of 6 committed versions. `RLT007S3.lean`: 10 statements, each printed by name, standard axioms only; the 4 references checked.
 - **CI on 4e4ca04:** `check` and `gdt-comparison` both succeed.
 - **SR07 (kept):** the bound 211 gives a true, stronger theorem; SR07 is refused because the committed proof establishes the approved statement (212 < p), and a changed specification is never accepted on the strength of that proof.
+- **Not done, as instructed:** no tag, no release, no deployment, no contact with the paper's authors; branch protection and repository settings unchanged.
+
+## Merge record, 2026-11-13 (RLT-007b stage 4)
+
+- **Approval:** merge exactly e67a789.
+- **Pre-merge checks:** PR #20 head e67a789, mergeable; `check` and `gdt-comparison` green on its push and pull_request runs; both audits' corrections included (the `m3a.rs` sweep skip, the statement guards, the self-test with one reason per case, the Lean symbol check, the correspondence corrections); the diff against main has no verification-run log (`verification/RLT-001-results.txt` identical to main); nothing under `kernel/`, `syntax/`, `cli/src`, `spec/`, `conventions/` or `sources/` changed, and no earlier proof.
+- **PR #20 merged:** marked ready, then merged as merge commit **838954f** (838954f5fcdc7d727cc0b3df3dce5a94f5485d8f), with parents 4e4ca04 and e67a789. The merge tree 5328157 equals e67a789's tree.
+- **Fresh clone of main at 838954f:**
+  - `cargo test --release`: 302 passed, 0 failed;
+  - `scripts/verify.sh`: `RESULT all checks hold`, exit 0, 60 min 9 s wall on a 2-processor machine (85 min CPU);
+  - `scripts/check-manual.py`: 33 of 33.
+- **Stage 4, from that run:** 1,485 of 1,485 certificates generated equal to the manifest and accepted; 33 of 33 per-prime theorems current at 45 of 64 checks, chain 1; 7 of 7 rejected cases; 3 of 3 statement guards; the tamper tests; all 33 records exit 0; `RLT007S4.lean` 37 statements, standard axioms only.
+- **Library:** 159 of 159 entries current and accepted; the identity registry keeps every line of 7 committed versions.
+- **CI on 838954f:** `check` (34 min 55 s) and `gdt-comparison` both succeed.
 - **Not done, as instructed:** no tag, no release, no deployment, no contact with the paper's authors; branch protection and repository settings unchanged.
