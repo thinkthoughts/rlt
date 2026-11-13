@@ -102,4 +102,22 @@ Two independent adversarial audits ran on fa59aab, one mathematical and one on t
 
 ## 7. Verification and totals
 
-Recorded with the final commit.
+At eb25839 (after the audit fixes), the full `scripts/verify.sh` run in CI (`check`, pull_request run) ends with `RESULT all checks hold`:
+- `cargo test --release`: 302 of 302 tests pass, previously 292 (10 new in `cli/tests/rlt007s4.rs`); fmt and clippy clean.
+- Stage 4: 1,485 certificates generated in 0.6 s and equal to the manifest (52,752 KB on disk); self-test 6 of 6; `--check` 1,564 outputs, 0 differ; the independent rebuild of every statement and of each Lean `om_P`; 1,485 of 1,485 certificates accepted (58.7 s on the runner); 33 of 33 summaries current at 45 of 64 checks, chain 1 (52.8 s); 7 of 7 rejected cases; 3 of 3 statement guards; the four tamper tests.
+- Records: all 33 `OMITS-H45-PPP` exit 0; the Lean-reference gate checks 82 references.
+- Library: 159 of 159 entries current and accepted; identities append-only.
+- Lean: `RLT007S4.lean` 37 statements, each printed by name, standard axioms only.
+
+**Verification time.** The CI `check` job took 34 min 14 s at eb25839, against 41 min at fa59aab (before the `m3a.rs` skip) and about 20 min on main before stage 4; the job's timeout is 90 min. On this 2-processor machine a full local run took 108 min at fa59aab while two audits shared it. What stage 4 adds, roughly: checking the 1,485 certificates and the 33 summaries (each re-checks its 45 citations), explaining the 33 records (text and JSON, each re-checking the citations), the library check, the stage-4 Rust tests, and about 2–4 minutes of Lean.
+
+| Total | Value |
+|---|---|
+| Proofs | 1,485 certificates + 33 summaries |
+| Checked steps | 729,571 + 2,937 |
+| Largest file | 324,133 nodes (a certificate); 332,533 (a summary) |
+| Disk | about 52 MB generated (not committed); 1.9 MB committed summaries |
+| Citation budget | 45 of 64 per summary, chain 1 |
+| Rejected cases / guards | 7 / 3 |
+| Lean theorems | 37 |
+| Records / library entries | 33 / 33 (159 in all) |
