@@ -18,6 +18,9 @@ path = "src/lib.rs"
 rlt-kernel = { path = "../kernel" }
 rlt-syntax = { path = "../syntax" }
 sha2 = "0.10"
+# RLT-007d: `rlt compose` reads its bundle through rlt-syntax's YAML loader
+# and needs the value type; the same version rlt-syntax already uses.
+yaml-rust2 = "0.10"
 
 [dev-dependencies]
 yaml-rust2 = "0.10"

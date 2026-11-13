@@ -36,6 +36,7 @@ if [ -z "${RLT_VERIFY_CHILD:-}" ]; then
   RLT_RUN_TMP=$(mktemp -d); export RLT_RUN_TMP
   rlt_restore() {
     [ -f tests/rlt006/gen/O_43_212.rlt.away ] && mv tests/rlt006/gen/O_43_212.rlt.away tests/rlt006/gen/O_43_212.rlt
+    [ -f target/verify-7d-O_1.rlt ] && mv target/verify-7d-O_1.rlt tests/rlt007s2a/accept/O_1.rlt
     rm -f sources/transcriptions/_verify_tamper.yaml
     if [ -f "$RLT_RUN_TMP/r6backup/before/COMPLETE" ]; then
       for x in tests/rlt006/accept tests/rlt006/reject tests/rlt006/expected.tsv tests/rlt006/manifest.sha256 certificates/h45 lean/RLT006Direct.lean; do
@@ -116,6 +117,7 @@ grep_q() { grep "$@" >/dev/null; }
 r6_backup=""
 rlt006_cleanup() {
   [ -f tests/rlt006/gen/O_43_212.rlt.away ] && mv tests/rlt006/gen/O_43_212.rlt.away tests/rlt006/gen/O_43_212.rlt
+  [ -f target/verify-7d-O_1.rlt ] && mv target/verify-7d-O_1.rlt tests/rlt007s2a/accept/O_1.rlt
   rm -f sources/transcriptions/_verify_tamper.yaml
   if [ -n "$r6_backup" ] && [ -f "$r6_backup/before/COMPLETE" ]; then
     for x in tests/rlt006/accept tests/rlt006/reject tests/rlt006/expected.tsv tests/rlt006/manifest.sha256 certificates/h45 lean/RLT006Direct.lean; do
@@ -816,6 +818,87 @@ s4_xl=$("$rlt" explain "$s4_rd/OMITS-H45-211.yaml" 2>&1); s4_xc=$?; rm -rf "$s4_
 { [ "$s4_xc" = 2 ] && echo "$s4_xl" | grep_q -F "source: commit 3b307ae2" && echo "$s4_xl" | grep_q -F "differs from the registry's 2b307ae2"; } \
   && echo "refused: a record with an altered source pin (rlt explain exit 2: the commit differs from the registry's)" || { echo "  UNEXPECTED: an altered source pin was accepted"; fail=1; }
 
+echo; echo "== H45 composition, RLT-007d (compose/h45.yaml; rlt compose and the independent scripts/compose-check.py)"
+cd_gc=$(python3 -I scripts/gen-rlt007d.py "$rlt" --check); cd_gcc=$?
+echo "$cd_gc" | tail -1
+[ $cd_gcc = 0 ] || { echo "$cd_gc"; echo "  UNEXPECTED: scripts/gen-rlt007d.py --check"; fail=1; }
+# Lean: each node's statement C_… is its registered probe's goal symbol for
+# symbol (`∀p. ` read as `∀ p, `, `×` as `*`), checked here independently of the generator.
+cd_lean=$(python3 -I - <<'PY'
+import re
+lean = open("lean/RLT007D.lean", encoding="utf-8").read()
+n = ok = 0
+for l in open("compose/approved-specifications.tsv", encoding="utf-8"):
+    if l.startswith("#") or not l.strip():
+        continue
+    nid, path, _ = l.rstrip("\n").split("\t")
+    g = re.search(r'\(goal "([^"]*)"\)', open(path, encoding="utf-8").read()).group(1)
+    lw = re.sub(r"([∀∃])([a-z])\. ", r"\1 \2, ", g).replace(" × ", " * ")
+    m = re.search(r"^def C_" + re.escape(nid.replace(".", "_")) + r" : Prop :=\n  (.*)$", lean, flags=re.M)
+    n += 1
+    ok += m is not None and m.group(1) == lw
+print(f"{ok} {n}")
+PY
+)
+[ "$cd_lean" = "62 62" ] && echo "lean/RLT007D.lean: all 62 node statements are their registered probes' goals symbol for symbol" || { echo "  UNEXPECTED: Lean statements ($cd_lean)"; fail=1; }
+# The full bundle, by both checkers, in parallel; then the controls.
+cd_p=$RLT_RUN_TMP/par-7d
+cd_items=(); for b in compose/h45.yaml tests/rlt007d/accept/*.yaml; do cd_items+=("rust:$b" "py:$b"); done
+cd_t0=$(date +%s.%N)
+RLT_BIN=$rlt par_map "$cd_p" 'b=${1#*:}; if [ "${1%%:*}" = rust ]; then "$RLT_BIN" compose "$b"; else python3 -I scripts/compose-check.py "$RLT_BIN" "$b"; fi' "${cd_items[@]}" || { echo "  UNEXPECTED: a parallel run left no exit code"; fail=1; }
+cd_t1=$(date +%s.%N)
+cd_i=0
+for b in compose/h45.yaml tests/rlt007d/accept/*.yaml; do
+  rc=$(cat "$cd_p/$cd_i.code"); pc=$(cat "$cd_p/$((cd_i + 1)).code")
+  if [ "$b" = compose/h45.yaml ]; then
+    ro=$(cat "$cd_p/$cd_i.out")
+    echo "$ro" | grep -E '^(graph|result|  [1-6]\. |remaining|summary|outside|verdict)' | cut -c1-160
+    { echo "$ro" | grep_q -xF "graph           62 nodes in layers 0–2, 56 discharged assumptions, acyclic; every proof re-checked in this run" \
+      && echo "$ro" | grep_q -xF "summary         5 statements kernel accepted, 1 discharged by composition (2 composition layers above the components, 56 edges); a composition of kernel-checked theorems, not one kernel theorem" \
+      && echo "$ro" | grep_q -E '^outside         outside this check: .*source transcription checked.*semantic correspondence assessed' \
+      && echo "$ro" | grep_q -E '^  6\. adm\.all +discharged by composition \(layer 2\)$' \
+      && echo "$ro" | grep_q -xF "remaining       assumptions: none (every assumption of every composed node is discharged)"; } || { echo "  UNEXPECTED: the full composition report"; fail=1; }
+    [ "$(cat "$cd_p/$((cd_i + 1)).out" | grep -c '^  result .*approved statement (rebuilt from the transcription)$')" = 6 ] || { echo "  UNEXPECTED: compose-check did not match the six approved statements"; fail=1; }
+  fi
+  { [ "$rc" = 0 ] && [ "$pc" = 0 ]; } && echo "composed by both (rust exit $rc, python exit $pc): $b" || { echo "  UNEXPECTED: $b rust exit $rc, python exit $pc"; fail=1; }
+  cd_i=$((cd_i + 2))
+done
+echo "full bundle and controls: $(printf %.0f "$(echo "$cd_t1 - $cd_t0" | bc)") s wall, both checkers in parallel"
+# Every negative case: the required class, exit and reason from rlt compose,
+# and the same class and exit from compose-check.
+cd_rows=(); while IFS=$'\t' read -r b want cls reason; do case "$b" in \#*|"") continue ;; esac; cd_rows+=("$b"); done < tests/rlt007d/expected.tsv
+cd_items=(); for b in "${cd_rows[@]}"; do cd_items+=("rust:$b" "py:$b"); done
+RLT_BIN=$rlt par_map "$cd_p" 'b=${1#*:}; if [ "${1%%:*}" = rust ]; then "$RLT_BIN" compose "$b"; else python3 -I scripts/compose-check.py "$RLT_BIN" "$b" --quiet; fi' "${cd_items[@]}" || { echo "  UNEXPECTED: a parallel run left no exit code"; fail=1; }
+cd_i=0; cd_ok=0; cd_n=0
+while IFS=$'\t' read -r b want cls reason; do
+  case "$b" in \#*|"") continue ;; esac
+  cd_n=$((cd_n + 1))
+  rc=$(cat "$cd_p/$cd_i.code"); pc=$(cat "$cd_p/$((cd_i + 1)).code")
+  rv=$(grep '^verdict' "$cd_p/$cd_i.out"); pv=$(grep '^verdict' "$cd_p/$((cd_i + 1)).out")
+  { [ "$rc" = "$want" ] && [ "$pc" = "$want" ] && case "$rv" in *"REFUSED ($cls)"*"$reason"*) true ;; *) false ;; esac \
+    && case "$pv" in *"REFUSED ($cls)"*) true ;; *) false ;; esac; } && cd_ok=$((cd_ok + 1)) || { echo "  UNEXPECTED: $b rust $rc ($rv) python $pc ($pv), want $want $cls"; fail=1; }
+  cd_i=$((cd_i + 2))
+done < tests/rlt007d/expected.tsv
+rm -rf "$cd_p"
+{ [ "$cd_n" = 52 ] && [ "$(ls -A tests/rlt007d/negative | wc -l | tr -d ' ')" = 52 ]; } || { echo "  UNEXPECTED: tests/rlt007d/expected.tsv lists $cd_n cases"; fail=1; }
+echo "tests/rlt007d/negative: $cd_ok of $cd_n refused by rlt compose with the required class, exit and reason, and by compose-check with the same class and exit"
+# A file cited by a component, changed and then absent: refused as stale,
+# then as missing, by both checkers; then restored (also on any exit).
+cd_tt() { # cd_tt WHAT EXIT CLASS
+  local ro rc po pc
+  ro=$("$rlt" compose tests/rlt007d/tamper/classify_only.yaml); rc=$?
+  po=$(python3 -I scripts/compose-check.py "$rlt" tests/rlt007d/tamper/classify_only.yaml --quiet); pc=$?
+  { [ $rc = "$2" ] && [ $pc = "$2" ] && echo "$ro" | grep_q -F "REFUSED ($3)" && echo "$po" | grep_q -F "REFUSED ($3)"; } \
+    && echo "refused: $1 (both checkers: $3, exit $2)" || { echo "  UNEXPECTED: $1: rust $rc, python $pc"; fail=1; }
+}
+cp -p tests/rlt007s2a/accept/O_1.rlt target/verify-7d-O_1.rlt
+printf ';; altered\n' >> tests/rlt007s2a/accept/O_1.rlt
+cd_tt "a component's cited file changed (tests/rlt007s2a/accept/O_1.rlt, cited by the classification)" 3 stale
+rm -f tests/rlt007s2a/accept/O_1.rlt
+cd_tt "a component's cited file absent" 2 missing
+mv target/verify-7d-O_1.rlt tests/rlt007s2a/accept/O_1.rlt
+git diff --quiet -- tests/rlt007s2a/accept/O_1.rlt && echo "restored: tests/rlt007s2a/accept/O_1.rlt as committed" || { echo "  UNEXPECTED: O_1.rlt not restored"; fail=1; }
+
 echo; echo "== statement records and rlt explain, RLT-004b (statements/, tests/explain)"
 ex_tmp=$(mktemp -d)
 cp -r tests/explain "$ex_tmp/before"; cp -r tests/explain-rlt006 "$ex_tmp/before6"
@@ -938,9 +1021,9 @@ lean_bin=$(command -v lean || { [ -x "$HOME/.elan/bin/lean" ] && echo "$HOME/.el
 if [ -n "$lean_bin" ]; then
   # Run inside lean/ so elan selects lean/lean-toolchain. Any Lean message
   # other than the #print axioms lines (a warning, `sorry`, an error) fails.
-  # RLT-007a: the files (22 since RLT-007b stage 4) are independent Lean runs, made in parallel; their
+  # RLT-007a: the files (23 since RLT-007d) are independent Lean runs, made in parallel; their
   # logs are joined in this fixed order, and any failing run fails the stage.
-  lean_files="RLT001.lean Generated.lean M2Generated.lean M2Readings.lean M3aGenerated.lean M3bGenerated.lean M3bReadings.lean M3cGenerated.lean M3cReadings.lean M3dGenerated.lean M3dReadings.lean M3eGenerated.lean M3eReadings.lean RLT005Direct.lean RLT005Readings.lean RLT006Direct.lean RLT006BGP212.lean RLT007S1.lean RLT007S2a.lean RLT007S2Design.lean RLT007S3.lean RLT007S4.lean"
+  lean_files="RLT001.lean Generated.lean M2Generated.lean M2Readings.lean M3aGenerated.lean M3bGenerated.lean M3bReadings.lean M3cGenerated.lean M3cReadings.lean M3dGenerated.lean M3dReadings.lean M3eGenerated.lean M3eReadings.lean RLT005Direct.lean RLT005Readings.lean RLT006Direct.lean RLT006BGP212.lean RLT007S1.lean RLT007S2a.lean RLT007S2Design.lean RLT007S3.lean RLT007S4.lean RLT007D.lean"
   lean_log=$(cd lean && "$lean_bin" --version 2>&1); lean_code=$?
   lean_p=$RLT_RUN_TMP/par-lean
   LEAN_BIN=$lean_bin par_map "$lean_p" 'cd lean && "$LEAN_BIN" "$1" 2>&1' $lean_files || lean_code=1
@@ -1009,8 +1092,8 @@ $(cat "$lean_p/$lean_i.out")"
   # for decision B (20: the countermodel and the equivalences). Checked by
   # name: every declared theorem has its own `#print axioms` line in the file
   # and its own line in Lean's output, with standard axioms only.
-  for rf_pin in RLT007S2a:33 RLT007S2Design:20 RLT007S3:10 RLT007S4:37; do
-    rf=${rf_pin%%:*}; s2_want=${rf_pin#*:}; s2_stage=2a; [ "$rf" = RLT007S3 ] && s2_stage=3; [ "$rf" = RLT007S4 ] && s2_stage=4
+  for rf_pin in RLT007S2a:33 RLT007S2Design:20 RLT007S3:10 RLT007S4:37 RLT007D:17; do
+    rf=${rf_pin%%:*}; s2_want=${rf_pin#*:}; s2_stage="b stage 2a"; [ "$rf" = RLT007S3 ] && s2_stage="b stage 3"; [ "$rf" = RLT007S4 ] && s2_stage="b stage 4"; [ "$rf" = RLT007D ] && s2_stage=d
     s2_names=$(sed -n 's/^theorem \([A-Za-z0-9_]*\).*/\1/p' "lean/$rf.lean")
     s2_n=$(echo "$s2_names" | grep -c .); s2_ok=0
     for nm in $s2_names; do
@@ -1018,7 +1101,7 @@ $(cat "$lean_p/$lean_i.out")"
     done
     s2_decl=$(grep -cE '^[[:space:]]*(@\[[^]]*\][[:space:]]*)?(private[[:space:]]+)?(theorem|lemma)[[:space:]]' "lean/$rf.lean"); s2_pr=$(grep -c '^#print axioms ' "lean/$rf.lean")
     s2_bad=$(echo "$lean_log" | grep -E "^'$rf\." | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound' | sort -u)
-    { [ "$s2_n" = "$s2_want" ] && [ "$s2_decl" = "$s2_n" ] && [ "$s2_pr" = "$s2_n" ] && [ "$s2_ok" = "$s2_n" ] && [ -z "$s2_bad" ]; } && echo "$rf.lean: $s2_n statements, each printed by name, standard axioms only (RLT-007b stage ${s2_stage} Lean comparison; not RLT theorems)" || { echo "$rf.lean: axiom gate FAILED ($s2_n theorems, $s2_want pinned, $s2_decl declared, $s2_pr printed, $s2_ok listed by name; non-standard: $s2_bad)"; fail=1; }
+    { [ "$s2_n" = "$s2_want" ] && [ "$s2_decl" = "$s2_n" ] && [ "$s2_pr" = "$s2_n" ] && [ "$s2_ok" = "$s2_n" ] && [ -z "$s2_bad" ]; } && echo "$rf.lean: $s2_n statements, each printed by name, standard axioms only (RLT-007${s2_stage} Lean comparison; not RLT theorems)" || { echo "$rf.lean: axiom gate FAILED ($s2_n theorems, $s2_want pinned, $s2_decl declared, $s2_pr printed, $s2_ok listed by name; non-standard: $s2_bad)"; fail=1; }
   done
   for rf_pin in RLT006Direct:29 RLT006BGP212:12; do
     rf=${rf_pin%%:*}; r6_want=${rf_pin#*:}

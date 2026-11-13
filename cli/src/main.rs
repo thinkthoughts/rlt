@@ -19,6 +19,8 @@ usage:
                                          (exit 0 current+accept, 1 reject, 2 invalid/malformed, 3 stale)
   rlt deps ID|FILE [--format text|json]  a theorem's dependency graph and library entry (same exits)
   rlt deps --verify-lib [--format text|json]  every lib/ entry against its checked proof
+  rlt compose BUNDLE                     layered composition of kernel-checked theorems (RLT-007d;
+                                         exit 0 composed, 1 refused, 2 malformed or missing, 3 stale)
 options:
   --root DIR                             repository root (default: current directory)";
 
@@ -133,6 +135,11 @@ fn run() -> i32 {
                 }
                 d.exit
             }
+        }
+        Some("compose") if args.len() == 2 => {
+            let (text, code) = rlt_cli::compose::compose_report(&root, &args[1]);
+            print!("{text}");
+            code
         }
         Some("validate") if args.len() == 1 => {
             let r = validate(&root);

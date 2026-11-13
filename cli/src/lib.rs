@@ -2,6 +2,7 @@
 //! Every report is a deterministic string so tests can compare it with a
 //! golden file.
 
+pub mod compose;
 pub mod deps;
 pub mod explain;
 pub mod gen;
