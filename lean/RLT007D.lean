@@ -370,6 +370,13 @@ theorem adm_all (hc : C_classify) (r1 : C_adm_range_1) (r2 : C_adm_range_2)
   · exact r6 p h
   · exact ta p h
 
+/-- RLT's `<` (NAT-DEF: ∃z. S(z) + x = y) is Lean's `<` on ℕ. -/
+theorem rlt_lt_iff (x y : Nat) : (∃ z, (z + 1) + x = y) ↔ x < y :=
+  ⟨fun ⟨_, h⟩ => by omega, fun h => ⟨y - x - 1, by omega⟩⟩
+
+/-- RLT's `∣` (NAT-DEF: ∃k. n = d × k) is Lean's `∣` on ℕ, by definition. -/
+theorem rlt_dvd_iff (d n : Nat) : (∃ k, n = d * k) ↔ d ∣ n := Iff.rfl
+
 /-- The left-nested omission, read as a statement about the list. -/
 theorem om_iff (p r : Nat) :
     (((((((((((((((((((((((((((((((((((((((((((((¬(∃ k, 0 = (p * k) + r) ∧ ¬(∃ k, 2 = (p * k) + r)) ∧ ¬(∃ k, 12 = (p * k) + r)) ∧ ¬(∃ k, 14 = (p * k) + r)) ∧ ¬(∃ k, 24 = (p * k) + r)) ∧ ¬(∃ k, 26 = (p * k) + r)) ∧ ¬(∃ k, 30 = (p * k) + r)) ∧ ¬(∃ k, 36 = (p * k) + r)) ∧ ¬(∃ k, 44 = (p * k) + r)) ∧ ¬(∃ k, 50 = (p * k) + r)) ∧ ¬(∃ k, 54 = (p * k) + r)) ∧ ¬(∃ k, 56 = (p * k) + r)) ∧ ¬(∃ k, 60 = (p * k) + r)) ∧ ¬(∃ k, 66 = (p * k) + r)) ∧ ¬(∃ k, 72 = (p * k) + r)) ∧ ¬(∃ k, 74 = (p * k) + r)) ∧ ¬(∃ k, 80 = (p * k) + r)) ∧ ¬(∃ k, 84 = (p * k) + r)) ∧ ¬(∃ k, 92 = (p * k) + r)) ∧ ¬(∃ k, 96 = (p * k) + r)) ∧ ¬(∃ k, 102 = (p * k) + r)) ∧ ¬(∃ k, 110 = (p * k) + r)) ∧ ¬(∃ k, 114 = (p * k) + r)) ∧ ¬(∃ k, 116 = (p * k) + r)) ∧ ¬(∃ k, 122 = (p * k) + r)) ∧ ¬(∃ k, 126 = (p * k) + r)) ∧ ¬(∃ k, 134 = (p * k) + r)) ∧ ¬(∃ k, 140 = (p * k) + r)) ∧ ¬(∃ k, 144 = (p * k) + r)) ∧ ¬(∃ k, 150 = (p * k) + r)) ∧ ¬(∃ k, 156 = (p * k) + r)) ∧ ¬(∃ k, 162 = (p * k) + r)) ∧ ¬(∃ k, 164 = (p * k) + r)) ∧ ¬(∃ k, 170 = (p * k) + r)) ∧ ¬(∃ k, 176 = (p * k) + r)) ∧ ¬(∃ k, 180 = (p * k) + r)) ∧ ¬(∃ k, 182 = (p * k) + r)) ∧ ¬(∃ k, 186 = (p * k) + r)) ∧ ¬(∃ k, 192 = (p * k) + r)) ∧ ¬(∃ k, 194 = (p * k) + r)) ∧ ¬(∃ k, 200 = (p * k) + r)) ∧ ¬(∃ k, 204 = (p * k) + r)) ∧ ¬(∃ k, 206 = (p * k) + r)) ∧ ¬(∃ k, 210 = (p * k) + r)) ∧ ¬(∃ k, 212 = (p * k) + r))) ↔ ∀ h ∈ H45, ¬ ∃ k, h = p * k + r := by
@@ -466,6 +473,8 @@ end RLT007D
 #print axioms RLT007D.range_6
 #print axioms RLT007D.adm_tail
 #print axioms RLT007D.adm_all
+#print axioms RLT007D.rlt_lt_iff
+#print axioms RLT007D.rlt_dvd_iff
 #print axioms RLT007D.om_iff
 #print axioms RLT007D.prime_iff
 #print axioms RLT007D.distinct_iff

@@ -36,6 +36,7 @@ if [ -z "${RLT_VERIFY_CHILD:-}" ]; then
   RLT_RUN_TMP=$(mktemp -d); export RLT_RUN_TMP
   rlt_restore() {
     [ -f tests/rlt006/gen/O_43_212.rlt.away ] && mv tests/rlt006/gen/O_43_212.rlt.away tests/rlt006/gen/O_43_212.rlt
+    [ -f target/verify-7d-O_1.rlt ] && mv target/verify-7d-O_1.rlt tests/rlt007s2a/accept/O_1.rlt
     rm -f sources/transcriptions/_verify_tamper.yaml
     if [ -f "$RLT_RUN_TMP/r6backup/before/COMPLETE" ]; then
       for x in tests/rlt006/accept tests/rlt006/reject tests/rlt006/expected.tsv tests/rlt006/manifest.sha256 certificates/h45 lean/RLT006Direct.lean; do
@@ -116,6 +117,7 @@ grep_q() { grep "$@" >/dev/null; }
 r6_backup=""
 rlt006_cleanup() {
   [ -f tests/rlt006/gen/O_43_212.rlt.away ] && mv tests/rlt006/gen/O_43_212.rlt.away tests/rlt006/gen/O_43_212.rlt
+  [ -f target/verify-7d-O_1.rlt ] && mv target/verify-7d-O_1.rlt tests/rlt007s2a/accept/O_1.rlt
   rm -f sources/transcriptions/_verify_tamper.yaml
   if [ -n "$r6_backup" ] && [ -f "$r6_backup/before/COMPLETE" ]; then
     for x in tests/rlt006/accept tests/rlt006/reject tests/rlt006/expected.tsv tests/rlt006/manifest.sha256 certificates/h45 lean/RLT006Direct.lean; do
@@ -877,8 +879,24 @@ while IFS=$'\t' read -r b want cls reason; do
   cd_i=$((cd_i + 2))
 done < tests/rlt007d/expected.tsv
 rm -rf "$cd_p"
-{ [ "$cd_n" = 42 ] && [ "$(ls -A tests/rlt007d/negative | wc -l | tr -d ' ')" = 42 ]; } || { echo "  UNEXPECTED: tests/rlt007d/expected.tsv lists $cd_n cases"; fail=1; }
+{ [ "$cd_n" = 50 ] && [ "$(ls -A tests/rlt007d/negative | wc -l | tr -d ' ')" = 50 ]; } || { echo "  UNEXPECTED: tests/rlt007d/expected.tsv lists $cd_n cases"; fail=1; }
 echo "tests/rlt007d/negative: $cd_ok of $cd_n refused by rlt compose with the required class, exit and reason, and by compose-check with the same class and exit"
+# A file cited by a component, changed and then absent: refused as stale,
+# then as missing, by both checkers; then restored (also on any exit).
+cd_tt() { # cd_tt WHAT EXIT CLASS
+  local ro rc po pc
+  ro=$("$rlt" compose tests/rlt007d/tamper/classify_only.yaml); rc=$?
+  po=$(python3 -I scripts/compose-check.py "$rlt" tests/rlt007d/tamper/classify_only.yaml --quiet); pc=$?
+  { [ $rc = "$2" ] && [ $pc = "$2" ] && echo "$ro" | grep_q -F "REFUSED ($3)" && echo "$po" | grep_q -F "REFUSED ($3)"; } \
+    && echo "refused: $1 (both checkers: $3, exit $2)" || { echo "  UNEXPECTED: $1: rust $rc, python $pc"; fail=1; }
+}
+cp -p tests/rlt007s2a/accept/O_1.rlt target/verify-7d-O_1.rlt
+printf ';; altered\n' >> tests/rlt007s2a/accept/O_1.rlt
+cd_tt "a component's cited file changed (tests/rlt007s2a/accept/O_1.rlt, cited by the classification)" 3 stale
+rm -f tests/rlt007s2a/accept/O_1.rlt
+cd_tt "a component's cited file absent" 2 missing
+mv target/verify-7d-O_1.rlt tests/rlt007s2a/accept/O_1.rlt
+git diff --quiet -- tests/rlt007s2a/accept/O_1.rlt && echo "restored: tests/rlt007s2a/accept/O_1.rlt as committed" || { echo "  UNEXPECTED: O_1.rlt not restored"; fail=1; }
 
 echo; echo "== statement records and rlt explain, RLT-004b (statements/, tests/explain)"
 ex_tmp=$(mktemp -d)
@@ -1073,7 +1091,7 @@ $(cat "$lean_p/$lean_i.out")"
   # for decision B (20: the countermodel and the equivalences). Checked by
   # name: every declared theorem has its own `#print axioms` line in the file
   # and its own line in Lean's output, with standard axioms only.
-  for rf_pin in RLT007S2a:33 RLT007S2Design:20 RLT007S3:10 RLT007S4:37 RLT007D:15; do
+  for rf_pin in RLT007S2a:33 RLT007S2Design:20 RLT007S3:10 RLT007S4:37 RLT007D:17; do
     rf=${rf_pin%%:*}; s2_want=${rf_pin#*:}; s2_stage="b stage 2a"; [ "$rf" = RLT007S3 ] && s2_stage="b stage 3"; [ "$rf" = RLT007S4 ] && s2_stage="b stage 4"; [ "$rf" = RLT007D ] && s2_stage=d
     s2_names=$(sed -n 's/^theorem \([A-Za-z0-9_]*\).*/\1/p' "lean/$rf.lean")
     s2_n=$(echo "$s2_names" | grep -c .); s2_ok=0

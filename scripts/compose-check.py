@@ -298,23 +298,85 @@ class Check:
 
 
 # ---------------------------------------------------------------------------
-def load(path):
+def strict_yaml(text):
+    """Plain YAML only: no anchors, aliases, explicit tags or repeated keys."""
     try:
-        y = yaml.safe_load(open(path, encoding="utf-8"))
-    except FileNotFoundError:
-        raise Refuse("missing", f"{path}: file not found")
+        for ev in yaml.parse(text, Loader=yaml.SafeLoader):
+            if isinstance(ev, yaml.AliasEvent) or getattr(ev, "anchor", None):
+                raise Refuse("malformed", "bundle: anchors and aliases are not allowed")
+            if isinstance(ev, yaml.ScalarEvent) and ev.tag is not None and ev.implicit == (False, False):
+                raise Refuse("malformed", "bundle: explicit tags are not allowed")
+            if isinstance(ev, (yaml.MappingStartEvent, yaml.SequenceStartEvent)) and ev.tag is not None and not ev.implicit:
+                raise Refuse("malformed", "bundle: explicit tags are not allowed")
+
+        def walk(n):
+            if isinstance(n, yaml.MappingNode):
+                keys = [k.value for k, _ in n.value]
+                if len(keys) != len(set(keys)):
+                    raise Refuse("malformed", "bundle: a key is repeated")
+                for _, v in n.value:
+                    walk(v)
+            elif isinstance(n, yaml.SequenceNode):
+                for v in n.value:
+                    walk(v)
+        walk(yaml.compose(text, Loader=yaml.SafeLoader))
+        return yaml.safe_load(text)
     except yaml.YAMLError as e:
         raise Refuse("malformed", f"bundle: not YAML ({str(e).splitlines()[0]})")
+
+
+PATH_OK = re.compile(r"[A-Za-z0-9_./-]+")
+
+
+def path_ok(p):
+    return isinstance(p, str) and not p.startswith("/") and PATH_OK.fullmatch(p) and all(c not in ("", ".", "..") for c in p.split("/"))
+
+
+def regular_file(p, nid):
+    """A pinned file: inside the repository, no symbolic link on the way."""
+    parts = p.split("/")
+    for i in range(1, len(parts)):
+        if os.path.islink("/".join(parts[:i])):
+            raise Refuse("malformed", f"node `{nid}`: {p}: a symbolic link on the path")
+    if not os.path.isfile(p) or os.path.islink(p):
+        raise Refuse("missing", f"node `{nid}`: {p}: file not found")
+
+
+def register(path, n):
+    if not os.path.isfile(path):
+        raise Refuse("missing", f"{path}: file not found")
+    out = {}
+    for l in open(path, encoding="utf-8"):
+        l = l.rstrip("\n")
+        if not l or l.startswith("#"):
+            continue
+        f = l.split("\t")
+        if len(f) != n or f[0] in out:
+            raise Refuse("malformed", f"{path}: malformed line")
+        out[f[0]] = f[1:]
+    return out
+
+
+def load(path):
+    try:
+        y = strict_yaml(open(path, encoding="utf-8").read())
+    except FileNotFoundError:
+        raise Refuse("missing", f"{path}: file not found")
     top = ["format", "id", "axiom_set", "convention", "definitions", "nodes", "result"]
     if not isinstance(y, dict) or set(y) != set(top):
         extra = sorted(set(y or {}) - set(top)) if isinstance(y, dict) else []
         raise Refuse("malformed", f"bundle: unknown key `{extra[0]}`" if extra else "bundle: keys must be exactly " + ", ".join(top))
+    for k in ("id", "axiom_set", "convention"):
+        if not isinstance(y[k], str):
+            raise Refuse("malformed", f"bundle: `{k}` must be a string")
     if y["format"] != "rlt-compose/1":
         raise Refuse("malformed", "bundle: format must be rlt-compose/1")
 
     def pin(x, ctx):
         if not isinstance(x, dict) or set(x) != {"path", "sha256"} or not all(isinstance(x[k], str) for k in x):
             raise Refuse("malformed", f"{ctx}: a pin has exactly `path` and `sha256` strings")
+        if not path_ok(x["path"]):
+            raise Refuse("malformed", f"{ctx}: not a repository-relative path")
         if not re.fullmatch(r"[0-9a-f]{64}", x["sha256"]):
             raise Refuse("malformed", f"{ctx}: sha256 must be 64 lower-case hex digits")
         return x
@@ -326,6 +388,8 @@ def load(path):
         ctx = f"bundle: node {i}"
         if not isinstance(n, dict) or not {"id", "layer", "spec"} <= set(n) or set(n) - {"id", "layer", "library", "fingerprint", "assembly", "discharge", "spec"}:
             raise Refuse("malformed", f"{ctx}: wrong keys")
+        if not isinstance(n["id"], str):
+            raise Refuse("malformed", f"{ctx}: `id` must be a string")
         if not isinstance(n["layer"], int) or isinstance(n["layer"], bool) or not 0 <= n["layer"] < 64:
             raise Refuse("malformed", f"{ctx}: `layer` must be an integer 0 … 63")
         pin(n["spec"], ctx + " spec")
@@ -342,7 +406,7 @@ def load(path):
             if not isinstance(n.get("discharge"), list):
                 raise Refuse("malformed", f"{ctx}: `discharge` must be a list")
             for d in n["discharge"]:
-                if not isinstance(d, dict) or set(d) != {"assumption", "by"}:
+                if not isinstance(d, dict) or set(d) != {"assumption", "by"} or not all(isinstance(d[k], str) for k in d):
                     raise Refuse("malformed", f"{ctx}: a discharge row has `assumption` and `by`")
         nodes.append(n)
     if not isinstance(y["result"], list) or not all(isinstance(r, str) for r in y["result"]):
@@ -416,6 +480,9 @@ def compose(rlt, bundle, report):
             if not re.fullmatch(r"[a-z0-9_]+(\.[a-z0-9_]+)+", n["library"]) or not os.path.isfile(p):
                 raise Refuse("missing", f"node `{n['id']}`: `{n['library']}` is not a library id")
             e = yaml.safe_load(open(p, encoding="utf-8"))
+            ident = register("lib/identities.tsv", 3).get(n["library"])
+            if ident is None or ident[0] != e["fingerprint"] or (not e.get("history") and ident[1] != e["proof"]["sha256"]):
+                raise Refuse("malformed", f"node `{n['id']}`: lib/ entry `{n['library']}` disagrees with lib/identities.tsv")
             if not e.get("citable") or e.get("assumptions"):
                 raise Refuse("conditional", f"node `{n['id']}`: `{n['library']}` is conditional")
             if e["fingerprint"] != n["fingerprint"]:
@@ -423,8 +490,7 @@ def compose(rlt, bundle, report):
             entries[n["id"]] = e
     for n in nodes:
         for pn in ([n["assembly"]] if n["layer"] else []) + [n["spec"]]:
-            if not os.path.isfile(pn["path"]):
-                raise Refuse("missing", f"node `{n['id']}`: {pn['path']}: file not found")
+            regular_file(pn["path"], n["id"])
             if sha_file(pn["path"]) != pn["sha256"]:
                 raise Refuse("stale", f"node `{n['id']}`: {pn['path']} changed")
 
@@ -437,9 +503,12 @@ def compose(rlt, bundle, report):
 
     APP = approved()
     spec = {}
+    specs = register("compose/approved-specifications.tsv", 3)
     for n in nodes:
         if n["id"] not in APP:
             raise Refuse("specification", f"node `{n['id']}` is not an approved node of the H45 composition")
+        if specs.get(n["id"]) != [n["spec"]["path"], n["spec"]["sha256"]]:
+            raise Refuse("specification", f"node `{n['id']}`: not the registered specification probe")
     for n in nodes:
         c = runs[n["spec"]["path"]]
         if not c.accepted():
@@ -452,15 +521,18 @@ def compose(rlt, bundle, report):
         if spec[n["id"]] != APP[n["id"]]:
             raise Refuse("specification", f"node `{n['id']}`: the specification is not the statement rebuilt from the transcription")
 
-    stmt, owner, edges = {}, {}, []
-    for n in sorted(nodes, key=lambda n: n["layer"]):
+    # Assemblies first, then components; discharges once all are known.
+    stmt, owner, pending = {}, {}, []
+    for n in sorted(nodes, key=lambda n: (n["layer"] == 0, n["layer"])):
         if n["layer"] == 0:
             e = entries[n["id"]]
             if sha_file(e["proof"]["path"]) != e["proof"]["sha256"]:
                 raise Refuse("stale", f"node `{n['id']}`: the library proof changed")
             c = runs[e["proof"]["path"]]
             if not c.accepted():
-                raise Refuse("kernel", f"node `{n['id']}`: not accepted")
+                cls = ("stale" if re.search(r"citation `[^`]*`: \S+ has SHA-256", c.verdict)
+                       else "missing" if re.search(r"citation `[^`]*`: cited path `[^`]*`: entity not found", c.verdict) else "kernel")
+                raise Refuse(cls, f"node `{n['id']}`: not accepted ({c.verdict[:80]})")
             if c.gamma:
                 raise Refuse("conditional", f"node `{n['id']}`: rests on assumptions")
             if c.parts_problem():
@@ -483,9 +555,7 @@ def compose(rlt, bundle, report):
             for a, by in rows.items():
                 if a not in c.gamma:
                     raise Refuse("unused", f"node `{n['id']}`: the row for `{a}` names no assumption")
-                if canon(parse(c.gamma[a])) != stmt[by]:
-                    raise Refuse("mismatch", f"node `{n['id']}`: assumption `{a}` is not the statement of `{by}`")
-                edges.append((n["id"], a, by))
+                pending.append((n["layer"], n["id"], a, canon(parse(c.gamma[a])), by))
         s = canon(parse(c.proved))
         if s != spec[n["id"]]:
             raise Refuse("specification", f"node `{n['id']}`: statement differs from its specification")
@@ -493,7 +563,16 @@ def compose(rlt, bundle, report):
             raise Refuse("duplicated", f"nodes `{owner[s]}` and `{n['id']}` state the same formula")
         owner[s] = n["id"]
         stmt[n["id"]] = s
-    report.append(f"graph           {len(nodes)} nodes, {1 + max(n['layer'] for n in nodes)} layers, {len(edges)} discharged assumptions")
+    for (_, node, a, g, by) in sorted(pending, key=lambda p: p[0]):
+        if g != stmt[by]:
+            raise Refuse("mismatch", f"node `{node}`: assumption `{a}` is not the statement of `{by}`")
+    named = register("compose/approved-results.tsv", 3)
+    if y["id"] not in named:
+        raise Refuse("specification", f"named result `{y['id']}` is not registered")
+    if named[y["id"]][0] != ",".join(y["result"]):
+        raise Refuse("specification", f"named result `{y['id']}`: the result differs from the registered one")
+    edges = [(node, a, by) for (_, node, a, _, by) in sorted(pending, key=lambda p: p[0])]
+    report.append(f"graph           {len(nodes)} nodes in layers 0–{max(n['layer'] for n in nodes)}, {len(edges)} discharged assumptions")
     for (n, a, by) in edges:
         report.append(f"  edge          {n}: {a} ← {by}")
     for r in y["result"]:
@@ -501,6 +580,7 @@ def compose(rlt, bundle, report):
         app = "approved statement (rebuilt from the transcription)" if stmt[r] == APP[r] else "NOT the approved statement"
         report.append(f"  result        {r}: {lab}; {app}")
     report.append("remaining       assumptions: none")
+    report.append("summary         a composition of kernel-checked theorems, not one kernel theorem")
 
 
 def main():

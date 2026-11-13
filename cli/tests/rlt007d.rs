@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::Once;
 
-use rlt_cli::compose::{compose, render_text, APPROVED_REGISTER};
+use rlt_cli::compose::{compose, probe_parts, render_text, APPROVED_REGISTER};
 use rlt_cli::deps::canonical;
 use rlt_cli::{check_preread_outcome, sha256_hex};
 
@@ -318,6 +318,33 @@ fn a_true_but_different_statement_is_not_an_approved_one() {
     let tail = rebuilt("adm.tail", &a["adm.tail"]);
     assert_ne!(rebuilt("stronger", &stronger), tail);
     assert_ne!(rebuilt("weaker", &weaker), tail);
+    // adm.all without r < p, and with Prime_B weakened to 1 < p.
+    let all = rebuilt("adm.all", &a["adm.all"]);
+    let all_weak = forall_imp(
+        &pb("p"),
+        &F {
+            s: format!("(exists r {})", o.s),
+            w: format!("∃r. {}", o.w),
+        },
+    );
+    assert_ne!(rebuilt("all without r < p", &all_weak), all);
+    assert_ne!(
+        rebuilt("all from 1 < p", &forall_imp(&lt("1", "p"), &adm("p"))),
+        all
+    );
+    // An omission with one conjunct dropped, or one repeated.
+    let om211 = rebuilt("om.211_3", &a["om.211_3"]);
+    let parts: Vec<F> = H45
+        .iter()
+        .map(|h| F {
+            s: format!("(not (exists k (= {h} (+ (* 211 k) 3))))"),
+            w: format!("¬(∃k. {h} = (211 × k) + 3)"),
+        })
+        .collect();
+    assert_ne!(rebuilt("dropped", &fold_and(&parts[..44])), om211);
+    let mut rep = parts.clone();
+    rep.push(parts[44].clone());
+    assert_ne!(rebuilt("repeated", &fold_and(&rep)), om211);
     assert_ne!(
         rebuilt("short", &short),
         rebuilt("adm.range_6", &a["adm.range_6"])
@@ -405,7 +432,7 @@ fn expected() -> Vec<(String, i32, String, String)> {
 fn every_negative_case_is_refused_for_its_class_and_reason() {
     materialized();
     let e = expected();
-    assert_eq!(e.len(), 42);
+    assert_eq!(e.len(), 50);
     let mut classes = std::collections::BTreeSet::new();
     for (b, code, class, reason) in &e {
         let c = compose(&root(), b);
@@ -471,4 +498,75 @@ fn the_generator_reproduces_every_output() {
         "--check",
     ]);
     assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stdout));
+}
+
+#[test]
+fn a_probe_must_be_accepted_and_state_only_its_goal() {
+    // The probe-shape checks, on files the register never names (the
+    // negative bundles carrying them are refused earlier, at the register).
+    for (path, want) in [
+        (
+            "tests/rlt007d/negative/N36_spec_not_a_probe/SPEC.rlt",
+            "is not a specification probe",
+        ),
+        (
+            "tests/rlt007d/negative/N37_spec_refused_by_kernel/SPEC.rlt",
+            "is not accepted",
+        ),
+    ] {
+        let src = std::fs::read_to_string(root().join(path)).unwrap();
+        let sha = sha256_hex(src.as_bytes());
+        let e = probe_parts(&root(), path, src, &sha)
+            .err()
+            .unwrap_or_default();
+        assert!(e.contains(want), "{path}: {e}");
+    }
+    let path = "tests/rlt007d/spec/SPEC_adm_tail.rlt";
+    let src = std::fs::read_to_string(root().join(path)).unwrap();
+    let sha = sha256_hex(src.as_bytes());
+    assert!(probe_parts(&root(), path, src, &sha).is_ok());
+}
+
+#[test]
+fn a_pinned_file_reached_through_a_symbolic_link_is_refused() {
+    // Scratch files under target/ (ignored by git): a link into the
+    // repository and a link outside it; both are refused by both checkers.
+    let t = root().join("target/rlt007d-links");
+    let _ = std::fs::remove_dir_all(&t);
+    std::fs::create_dir_all(&t).unwrap();
+    let outside = std::env::temp_dir().join(format!("rlt007d-outside-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&outside);
+    std::fs::create_dir_all(&outside).unwrap();
+    let asm = std::fs::read(root().join("tests/rlt007d/assemble/ADM_TAIL.rlt")).unwrap();
+    std::fs::write(outside.join("ADM_TAIL.rlt"), &asm).unwrap();
+    std::os::unix::fs::symlink(root().join("tests/rlt007d/assemble"), t.join("inside")).unwrap();
+    std::os::unix::fs::symlink(&outside, t.join("outside")).unwrap();
+    let tail = std::fs::read_to_string(root().join("tests/rlt007d/accept/tail.yaml")).unwrap();
+    for link in ["inside", "outside"] {
+        let b = tail.replace(
+            "      path: tests/rlt007d/assemble/ADM_TAIL.rlt",
+            &format!("      path: target/rlt007d-links/{link}/ADM_TAIL.rlt"),
+        );
+        assert_ne!(b, tail);
+        let rel = format!("target/rlt007d-links/{link}.yaml");
+        std::fs::write(root().join(&rel), b).unwrap();
+        let c = compose(&root(), &rel);
+        assert_eq!(c.exit, 2, "{link}: {}", render_text(&c));
+        let (k, m) = c.refusal.unwrap();
+        assert_eq!(k, "malformed");
+        assert!(m.contains("is a symbolic link"), "{m}");
+        let o = run(&[
+            "python3",
+            "-I",
+            "scripts/compose-check.py",
+            env!("CARGO_BIN_EXE_rlt"),
+            &rel,
+            "--quiet",
+        ]);
+        let out = String::from_utf8_lossy(&o.stdout);
+        assert_eq!(o.status.code(), Some(2), "{out}");
+        assert!(out.contains("verdict REFUSED (malformed)"), "{out}");
+    }
+    let _ = std::fs::remove_dir_all(&t);
+    let _ = std::fs::remove_dir_all(&outside);
 }

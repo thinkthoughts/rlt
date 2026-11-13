@@ -36,6 +36,10 @@ pub const BUNDLE_FORMAT: &str = "rlt-compose/1";
 /// node id: `id<TAB>path<TAB>sha256`. Fixed: a bundle cannot choose it.
 pub const APPROVED_REGISTER: &str = "compose/approved-specifications.tsv";
 
+/// The register of named results: `id<TAB>node,node,…<TAB>note`. A bundle
+/// composes only under a registered id, with exactly its registered result.
+pub const RESULTS_REGISTER: &str = "compose/approved-results.tsv";
+
 /// Refusal classes, shared with the independent checker
 /// (scripts/compose-check.py) so the two can be compared case by case.
 pub const CLASSES: &[&str] = &[
@@ -106,6 +110,8 @@ pub struct Composition {
     pub result: Vec<String>,
     /// `(class, reason)` of the first refusal, if any.
     pub refusal: Option<(String, String)>,
+    /// The registered note of the named result (what lies outside this check).
+    pub note: String,
     pub exit: i32,
 }
 
@@ -281,6 +287,21 @@ pub fn load_bundle(path: &Path) -> Result<Bundle, String> {
 
 fn file_sha(root: &Path, p: &Pin) -> Result<(String, Vec<u8>), (String, String)> {
     let full = root.join(&p.path);
+    // Inside the repository: no component of the path may be a symbolic link.
+    let mut at = root.to_path_buf();
+    let comps: Vec<&str> = p.path.split('/').collect();
+    for c in &comps[..comps.len().saturating_sub(1)] {
+        at.push(c);
+        if std::fs::symlink_metadata(&at).is_ok_and(|m| m.file_type().is_symlink()) {
+            return Err((
+                "malformed".into(),
+                format!(
+                    "{}: `{c}` is a symbolic link; pinned files lie inside the repository",
+                    p.path
+                ),
+            ));
+        }
+    }
     let md = std::fs::symlink_metadata(&full)
         .map_err(|_| ("missing".to_string(), format!("{}: file not found", p.path)))?;
     if !md.file_type().is_file() {
@@ -335,6 +356,7 @@ pub fn compose(root: &Path, bundle_path: &str) -> Composition {
         checked: vec![],
         result: vec![],
         refusal: None,
+        note: String::new(),
         exit: MALFORMED,
     };
     macro_rules! refuse {
@@ -553,36 +575,16 @@ pub fn compose(root: &Path, bundle_path: &str) -> Composition {
     // bundle cannot name its own. Every node must carry the registered
     // probe for its id, so a weaker or different statement paired with a
     // matching probe of its own is still refused.
-    let reg_text = match std::fs::read_to_string(root.join(APPROVED_REGISTER)) {
-        Ok(t) => t,
-        Err(_) => refuse!("missing", format!("{APPROVED_REGISTER}: file not found")),
+    let register = match read_register(root, APPROVED_REGISTER, 3) {
+        Ok(r) => r,
+        Err((k, m)) => refuse!(&k, m),
     };
-    let mut register: BTreeMap<String, (String, String)> = BTreeMap::new();
-    for (i, l) in reg_text.lines().enumerate() {
-        if l.is_empty() || l.starts_with('#') {
-            continue;
-        }
-        let f: Vec<&str> = l.split('\t').collect();
-        if f.len() != 3
-            || register
-                .insert(f[0].to_string(), (f[1].to_string(), f[2].to_string()))
-                .is_some()
-        {
-            refuse!(
-                "malformed",
-                format!(
-                    "{APPROVED_REGISTER}: line {}: expected `id<TAB>path<TAB>sha256`, ids unique",
-                    i + 1
-                )
-            );
-        }
-    }
     for n in &b.nodes {
         match register.get(&n.id) {
             None => refuse!("specification", format!("node `{}` has no approved specification in {APPROVED_REGISTER}", n.id)),
-            Some((p, h)) if *p != n.spec.path || *h != n.spec.sha256 => refuse!(
+            Some(f) if f[0] != n.spec.path || f[1] != n.spec.sha256 => refuse!(
                 "specification",
-                format!("node `{}`: specification {} is not the approved specification {p} of {APPROVED_REGISTER}", n.id, n.spec.path)
+                format!("node `{}`: specification {} is not the approved specification {} of {APPROVED_REGISTER}", n.id, n.spec.path, f[0])
             ),
             Some(_) => {}
         }
@@ -593,32 +595,23 @@ pub fn compose(root: &Path, bundle_path: &str) -> Composition {
             Ok(x) => x,
             Err((k, m)) => refuse!(&k, m),
         };
+        if ssha != n.spec.sha256 {
+            refuse!(
+                "stale",
+                format!(
+                    "node `{}`: {} has SHA-256 {ssha}, not the pinned {}",
+                    n.id, n.spec.path, n.spec.sha256
+                )
+            );
+        }
         let ssrc = match String::from_utf8(sbytes) {
             Ok(s) => s,
             Err(_) => refuse!("malformed", format!("{}: not UTF-8", n.spec.path)),
         };
-        let so = check_preread_outcome(root, &root.join(&n.spec.path), ssrc);
-        let sk = kernel_fields(&so, &n.spec.path, &ssha);
-        let Some(sp) = (so.report.code == ACCEPT)
-            .then(|| statement_parts(&so, &sk))
-            .flatten()
-        else {
-            refuse!(
-                "specification",
-                format!(
-                    "node `{}`: specification {} is not accepted ({})",
-                    n.id, n.spec.path, sk.verdict_line
-                )
-            );
+        let sp = match probe_parts(root, &n.spec.path, ssrc, &ssha) {
+            Ok(sp) => sp,
+            Err(m) => refuse!("specification", format!("node `{}`: {m}", n.id)),
         };
-        let sth = so.theorem.as_ref().expect("accepted");
-        if !so.citations.is_empty()
-            || so.proof.as_ref().map(|p| p.assumptions.len()) != Some(1)
-            || sth.assumptions().len() != 1
-            || sth.assumptions().values().any(|x| canonical(x) != sp.goal)
-        {
-            refuse!("specification", format!("node `{}`: {} is not a specification probe (exactly one declared assumption, equal to its goal; no citations)", n.id, n.spec.path));
-        }
         if let Err(e) = parts_ok(&sp, &want) {
             refuse!(
                 "incompatible",
@@ -628,9 +621,13 @@ pub fn compose(root: &Path, bundle_path: &str) -> Composition {
         spec_goal.insert(n.id.clone(), sp.goal.clone());
     }
 
-    // ---- Phase 2: every proof re-checked in this run, in layer order. ----
+    // ---- Phase 2: every proof re-checked in this run. The assemblies come
+    // first (each is quick, and a statement that is not the approved one is
+    // refused before the long component re-checks), then the components;
+    // the discharges are compared once every statement is known. ----
     let mut order: Vec<&BNode> = b.nodes.iter().collect();
-    order.sort_by_key(|n| n.layer);
+    order.sort_by_key(|n| (n.layer == 0, n.layer));
+    let mut pending: Vec<(usize, String, String, String, String)> = vec![]; // layer, node, assumption, canonical γ, discharger
     let mut stmt: BTreeMap<String, String> = BTreeMap::new(); // id → canonical statement
     let mut owner: BTreeMap<String, String> = BTreeMap::new(); // canonical → id
     for n in order {
@@ -663,8 +660,10 @@ pub fn compose(root: &Path, bundle_path: &str) -> Composition {
             let out = check_preread_outcome(root, &root.join(&pp.path), src);
             let k = kernel_fields(&out, &pp.path, &sha);
             if out.report.code != ACCEPT {
-                let class = if out.report.code == STALE {
+                let class = if out.report.code == STALE || citation_problem(&out, " has SHA-256 ") {
                     "stale"
+                } else if citation_problem(&out, ": entity not found") {
+                    "missing"
                 } else {
                     "kernel"
                 };
@@ -711,6 +710,15 @@ pub fn compose(root: &Path, bundle_path: &str) -> Composition {
                 Ok(x) => x,
                 Err((k, m)) => refuse!(&k, m),
             };
+            if sha != a.sha256 {
+                refuse!(
+                    "stale",
+                    format!(
+                        "node `{}`: {} has SHA-256 {sha}, not the pinned {}",
+                        n.id, a.path, a.sha256
+                    )
+                );
+            }
             let src = match String::from_utf8(bytes) {
                 Ok(s) => s,
                 Err(_) => refuse!("malformed", format!("{}: not UTF-8", a.path)),
@@ -778,16 +786,13 @@ pub fn compose(root: &Path, bundle_path: &str) -> Composition {
                     );
                 };
                 let u = by_id[d.by.as_str()];
-                let su = &stmt[&u.id];
-                if canonical(gp) != *su {
-                    refuse!(
-                        "mismatch",
-                        format!(
-                            "node `{}`: assumption `{}` is not, canonically, the statement of `{}`",
-                            n.id, d.assumption, u.id
-                        )
-                    );
-                }
+                pending.push((
+                    n.layer,
+                    n.id.clone(),
+                    d.assumption.clone(),
+                    canonical(gp),
+                    u.id.clone(),
+                ));
                 es.push((d.assumption.clone(), u.id.clone(), u.layer));
             }
             canon = parts.goal.clone();
@@ -829,8 +834,122 @@ pub fn compose(root: &Path, bundle_path: &str) -> Composition {
             edges,
         });
     }
+    c.checked.sort_by_key(|n| n.layer);
+    // Every discharge, in layer order: the assumption is, canonically, the
+    // statement of its discharger (each passed above, in this run).
+    pending.sort_by_key(|p| p.0);
+    for (_, node, a, g, u) in &pending {
+        if *g != stmt[u] {
+            refuse!(
+                "mismatch",
+                format!(
+                    "node `{node}`: assumption `{a}` is not, canonically, the statement of `{u}`"
+                )
+            );
+        }
+    }
+    // The named result: its id and its exact, ordered list of statements
+    // are registered (a fixed, reviewed file the bundle cannot choose).
+    let named = match read_register(root, RESULTS_REGISTER, 3) {
+        Ok(r) => r,
+        Err((k, m)) => refuse!(&k, m),
+    };
+    match named.get(&b.id) {
+        None => refuse!(
+            "specification",
+            format!(
+                "named result `{}` is not registered in {RESULTS_REGISTER}",
+                b.id
+            )
+        ),
+        Some(f) if f[0] != b.result.join(",") => refuse!(
+            "specification",
+            format!(
+                "named result `{}`: the result lists {}, but {RESULTS_REGISTER} registers {}",
+                b.id,
+                b.result.join(", "),
+                f[0].replace(',', ", ")
+            )
+        ),
+        Some(f) => c.note = f[1].clone(),
+    }
     c.exit = ACCEPT;
     c
+}
+
+/// A specification probe's statement: the file must be accepted, cite
+/// nothing, and declare exactly one assumption, which is its goal.
+pub fn probe_parts(
+    root: &Path,
+    path: &str,
+    src: String,
+    sha: &str,
+) -> Result<crate::deps::StatementParts, String> {
+    let so = check_preread_outcome(root, &root.join(path), src);
+    let sk = kernel_fields(&so, path, sha);
+    let Some(sp) = (so.report.code == ACCEPT)
+        .then(|| statement_parts(&so, &sk))
+        .flatten()
+    else {
+        return Err(format!(
+            "specification {path} is not accepted ({})",
+            sk.verdict_line
+        ));
+    };
+    let sth = so.theorem.as_ref().expect("accepted");
+    if !so.citations.is_empty()
+        || so.proof.as_ref().map(|p| p.assumptions.len()) != Some(1)
+        || sth.assumptions().len() != 1
+        || sth.assumptions().values().any(|x| canonical(x) != sp.goal)
+    {
+        return Err(format!("{path} is not a specification probe (exactly one declared assumption, equal to its goal; no citations)"));
+    }
+    Ok(sp)
+}
+
+/// A fixed register: tab-separated lines `id<TAB>field…`, `#` comments;
+/// ids unique; `n` fields per line including the id.
+fn read_register(
+    root: &Path,
+    path: &str,
+    n: usize,
+) -> Result<BTreeMap<String, Vec<String>>, (String, String)> {
+    let text = std::fs::read_to_string(root.join(path))
+        .map_err(|_| ("missing".to_string(), format!("{path}: file not found")))?;
+    let mut m = BTreeMap::new();
+    for (i, l) in text.lines().enumerate() {
+        if l.is_empty() || l.starts_with('#') {
+            continue;
+        }
+        let f: Vec<&str> = l.split('\t').collect();
+        if f.len() != n
+            || m.insert(
+                f[0].to_string(),
+                f[1..].iter().map(|x| x.to_string()).collect::<Vec<_>>(),
+            )
+            .is_some()
+        {
+            return Err((
+                "malformed".to_string(),
+                format!(
+                    "{path}: line {}: expected {n} tab-separated fields, ids unique",
+                    i + 1
+                ),
+            ));
+        }
+    }
+    Ok(m)
+}
+
+/// Whether a check failed at a citation (at any depth) whose problem
+/// contains `what`: a changed file (` has SHA-256 `) or an absent one.
+fn citation_problem(out: &crate::CheckOutcome, what: &str) -> bool {
+    out.citations.iter().any(|t| {
+        t.problem.as_deref().is_some_and(|p| p.contains(what))
+            || t.outcome
+                .as_deref()
+                .is_some_and(|o| citation_problem(o, what))
+    })
 }
 
 pub fn render_text(c: &Composition) -> String {
@@ -862,7 +981,7 @@ pub fn render_text(c: &Composition) -> String {
     }
     match &c.refusal {
         None => {
-            let _ = writeln!(t, "graph           {} nodes, {} layers, {edges} discharged assumptions, acyclic; every proof re-checked in this run", c.checked.len(), layers + 1);
+            let _ = writeln!(t, "graph           {} nodes in layers 0–{layers}, {edges} discharged assumptions, acyclic; every proof re-checked in this run", c.checked.len());
             let _ = writeln!(t, "result          {} statements", c.result_nodes().len());
             for (i, n) in c.result_nodes().iter().enumerate() {
                 let label = if n.layer == 0 {
@@ -876,7 +995,10 @@ pub fn render_text(c: &Composition) -> String {
             let k = c.result_nodes().iter().filter(|n| n.layer == 0).count();
             let d = c.result_nodes().len() - k;
             let _ = writeln!(t, "remaining       assumptions: none (every assumption of every composed node is discharged)");
-            let _ = writeln!(t, "summary         {k} statements kernel accepted, {d} discharged by composition ({} layers, {edges} edges); a composition of kernel-checked theorems, not one kernel theorem", layers + 1);
+            let _ = writeln!(t, "summary         {k} statements kernel accepted, {d} discharged by composition ({layers} composition layers above the components, {edges} edges); a composition of kernel-checked theorems, not one kernel theorem");
+            if !c.note.is_empty() {
+                let _ = writeln!(t, "outside         {}", c.note);
+            }
             let _ = writeln!(t, "verdict         COMPOSED — every assumption discharged by a node of a lower layer that passed in this run");
         }
         Some((class, why)) => {
