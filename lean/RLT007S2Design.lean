@@ -117,6 +117,27 @@ theorem primeB_iff (p : Nat) : PrimeB p ↔ PrimeStd p := by
     refine ⟨h1, fun d ⟨hd1, hd2⟩ hd => ?_⟩
     rcases h2 d hd with h | h <;> omega
 
+/-- The guarded form, "p > 1 and its only positive divisors are 1 and p"
+(textbook wording), also equals the standard definition over ℕ. -/
+def PrimeG (p : Nat) : Prop := 1 < p ∧ ∀ d, (0 < d ∧ d ∣ p) → d = 1 ∨ d = p
+
+theorem primeG_iff (p : Nat) : PrimeG p ↔ PrimeStd p := by
+  constructor
+  · intro ⟨h1, h2⟩
+    refine ⟨h1, fun d hd => h2 d ⟨?_, hd⟩⟩
+    rcases Nat.eq_zero_or_pos d with rfl | h
+    · simp at hd; omega
+    · exact h
+  · intro ⟨h1, h2⟩
+    exact ⟨h1, fun d ⟨_, hd⟩ => h2 d hd⟩
+
+/-- In the model M, the guarded form is not refuted at 7 by the non-standard
+element: ns(i) is positive there but divides no standard numeral. -/
+theorem guarded_ns_not_dvd_7 (i : Int) (k : M) : M.std 7 ≠ M.mul (.ns i) k := by
+  cases k with
+  | std n => by_cases h : n = 0 <;> simp [M.mul, h]
+  | ns j => simp [M.mul]
+
 -- RLT's `<` and `∣` are these over ℕ.
 theorem lt_iff (x y : Nat) : (∃ z, (z + 1) + x = y) ↔ x < y :=
   ⟨fun ⟨z, h⟩ => by omega, fun h => ⟨y - x - 1, by omega⟩⟩
@@ -143,6 +164,18 @@ theorem primeB_bounded (p : Nat) : PrimeB p ↔ (1 < p ∧ ∀ d, d < p → 1 < 
 
 set_option maxRecDepth 100000 in
 /-- Below 213, the primes (bounded definition) are exactly the six ranges. -/
+theorem ranges_facts :
+    (R1 ++ R2 ++ R3 ++ R4 ++ R5 ++ R6).Nodup ∧ (∀ q ∈ R1 ++ R2 ++ R3 ++ R4 ++ R5 ++ R6, q < 213) ∧
+    (R1 ++ R2 ++ R3 ++ R4 ++ R5 ++ R6).length = 47 ∧
+    R1 = (List.range 41).filter (fun p => decide (1 < p ∧ ∀ d, d < p → 1 < d → ¬ d ∣ p)) ∧
+    R2 = ((List.range 79).filter (fun p => decide (41 ≤ p ∧ 1 < p ∧ ∀ d, d < p → 1 < d → ¬ d ∣ p))) ∧
+    R3 = ((List.range 113).filter (fun p => decide (79 ≤ p ∧ 1 < p ∧ ∀ d, d < p → 1 < d → ¬ d ∣ p))) ∧
+    R4 = ((List.range 157).filter (fun p => decide (113 ≤ p ∧ 1 < p ∧ ∀ d, d < p → 1 < d → ¬ d ∣ p))) ∧
+    R5 = ((List.range 191).filter (fun p => decide (157 ≤ p ∧ 1 < p ∧ ∀ d, d < p → 1 < d → ¬ d ∣ p))) ∧
+    R6 = ((List.range 213).filter (fun p => decide (191 ≤ p ∧ 1 < p ∧ ∀ d, d < p → 1 < d → ¬ d ∣ p))) := by
+  decide
+
+set_option maxRecDepth 100000 in
 theorem classification : ∀ p, p < 213 →
     ((1 < p ∧ ∀ d, d < p → 1 < d → ¬ d ∣ p) ↔ p ∈ R1 ++ R2 ++ R3 ++ R4 ++ R5 ++ R6) := by
   decide
@@ -150,3 +183,6 @@ theorem classification : ∀ p, p < 213 →
 end S2Def
 
 #print axioms S2Def.classification
+#print axioms S2Def.ranges_facts
+#print axioms S2Def.primeG_iff
+#print axioms S2Def.guarded_ns_not_dvd_7
