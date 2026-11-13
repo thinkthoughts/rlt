@@ -1,0 +1,43 @@
+# bundle	exit	refusal class	required substring of the reason (RLT-007d negative cases)
+tests/rlt007d/negative/N01_unknown_key/bundle.yaml	2	malformed	unknown key `comment`
+tests/rlt007d/negative/N02_wrong_format/bundle.yaml	2	malformed	format must be rlt-compose/1
+tests/rlt007d/negative/N03_layer0_with_assembly/bundle.yaml	2	malformed	a layer-0 node names a library theorem, not an assembly
+tests/rlt007d/negative/N04_discharged_by_unknown_node/bundle.yaml	2	missing	is discharged by `tail_1`, which is not a node of this bundle
+tests/rlt007d/negative/N05_unknown_library_id/bundle.yaml	2	missing	`admissible.h45.omits.tail_2` is not a library id
+tests/rlt007d/negative/N06_assembly_missing/bundle.yaml	2	missing	tests/rlt007d/assemble/ADM_TAIL_X.rlt: file not found
+tests/rlt007d/negative/N07_spec_missing/bundle.yaml	2	missing	tests/rlt007d/spec/SPEC_X.rlt: file not found
+tests/rlt007d/negative/N08_stale_assembly_hash/bundle.yaml	3	stale	tests/rlt007d/assemble/ADM_TAIL.rlt has SHA-256
+tests/rlt007d/negative/N09_stale_spec_hash/bundle.yaml	3	stale	tests/rlt007d/spec/SPEC_adm_tail.rlt has SHA-256
+tests/rlt007d/negative/N10_stale_fingerprint/bundle.yaml	3	stale	the bundle pins fingerprint eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+tests/rlt007d/negative/N11_conditional_component/bundle.yaml	1	conditional	`arith.conditional.2x3_7` is a conditional theorem
+tests/rlt007d/negative/N12_duplicate_node_id/bundle.yaml	1	duplicated	node id `tail` appears twice
+tests/rlt007d/negative/N13_duplicate_library_theorem/bundle.yaml	1	duplicated	library theorem `admissible.h45.omits.tail_1` is named by nodes `tail` and `tail2`
+tests/rlt007d/negative/N14_duplicate_discharge_row/bundle.yaml	1	duplicated	assumption `tl` has two discharge rows
+tests/rlt007d/negative/N15_result_twice/bundle.yaml	1	duplicated	result names `adm.tail` twice
+tests/rlt007d/negative/N16_same_assembly_twice/bundle.yaml	1	duplicated	assembly tests/rlt007d/assemble/ADM_TAIL.rlt is named by nodes `adm.tail` and `adm.tail2`
+tests/rlt007d/negative/N17_unused_component/bundle.yaml	1	unused	node `bounds` discharges no assumption and is not part of the result
+tests/rlt007d/negative/N18_unused_declared_assumption/bundle.yaml	1	unused	assumption `xx` is declared in tests/rlt007d/negative/N18_unused_declared_assumption/ADM_TAIL.rlt but not used
+tests/rlt007d/negative/N19_extra_discharge_row/bundle.yaml	1	unused	the discharge row for `t2` names no assumption
+tests/rlt007d/negative/N20_self_discharge/bundle.yaml	1	graph	is discharged by `adm.tail` of layer 1, not a lower layer
+tests/rlt007d/negative/N21_wrong_stated_layer/bundle.yaml	1	graph	node `adm.tail` states layer 2, but its highest discharger is of layer 0
+tests/rlt007d/negative/N22_composed_without_discharge/bundle.yaml	1	graph	node `adm.tail` (layer 1) discharges nothing
+tests/rlt007d/negative/N23_assembly_cites_a_file/bundle.yaml	1	graph	cites other files; an assembly takes its premises as assumptions only
+tests/rlt007d/negative/N24_cycle/bundle.yaml	1	graph	of layer 1, not a lower layer
+tests/rlt007d/negative/N25_other_axiom_set/bundle.yaml	1	incompatible	axiom set ROBINSON-Q (4ad551922225) differs from the bundle's PEANO-ARITH
+tests/rlt007d/negative/N26_other_convention/bundle.yaml	1	incompatible	convention NAT-DEF differs from the bundle's NAT-DEC
+tests/rlt007d/negative/N27_other_definitions_file/bundle.yaml	1	incompatible	are not the pinned spec/definitions.rlt
+tests/rlt007d/negative/N28_unregistered_axiom_set/bundle.yaml	1	incompatible	axiom set `ROBINSON-R` is not registered
+tests/rlt007d/negative/N29_assembly_not_accepted/bundle.yaml	1	kernel	is not accepted (REJECT
+tests/rlt007d/negative/N30_discharged_by_wrong_component/bundle.yaml	1	mismatch	assumption `tl` is not, canonically, the statement of `bounds`
+tests/rlt007d/negative/N31_rows_swapped/bundle.yaml	1	mismatch	assumption `om191` is not, canonically, the statement of `om.193_3`
+tests/rlt007d/negative/N32_spec_stronger_true_statement/bundle.yaml	1	specification	is not the approved specification
+tests/rlt007d/negative/N33_component_spec_44_elements/bundle.yaml	1	specification	is not the approved specification
+tests/rlt007d/negative/N34_weaker_true_assembly/bundle.yaml	1	specification	node `adm.tail`: its statement is not, canonically, the approved specification
+tests/rlt007d/negative/N35_range_6_without_211/bundle.yaml	1	specification	node `adm.range_6`: its statement is not, canonically, the approved specification
+tests/rlt007d/negative/N36_spec_not_a_probe/bundle.yaml	1	specification	is not the approved specification
+tests/rlt007d/negative/N37_spec_refused_by_kernel/bundle.yaml	1	specification	is not the approved specification
+tests/rlt007d/negative/N38_result_unknown_node/bundle.yaml	2	missing	result names `adm.every`, which is not a node of this bundle
+tests/rlt007d/negative/N39_assumption_without_row/bundle.yaml	2	missing	assumption `om211` of tests/rlt007d/assemble/ADM_RANGE_6.rlt has no discharge row
+tests/rlt007d/negative/N40_full_bundle_without_adm_all/bundle.yaml	1	unused	node `adm.all` discharges no assumption and is not part of the result
+tests/rlt007d/negative/N41_weaker_theorem_with_its_own_probe/bundle.yaml	1	specification	is not the approved specification tests/rlt007d/spec/SPEC_adm_tail.rlt
+tests/rlt007d/negative/N42_unregistered_node/bundle.yaml	1	specification	node `adm.tail_extra` has no approved specification
