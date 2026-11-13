@@ -1,6 +1,6 @@
 # RLT-007d — Option B: composition architecture review
 
-**Status:** architecture specification for review, 2026-11-12. Option B is approved for planning; it remains design only, and nothing is implemented. Reporting terms aligned with the four approved labels (§6.8). **Note for stage 2:** the definition of Prime used in §6.1 (`primes.below_213`) is under review in `docs/RLT-007b-2-DESIGN.md`. **Revised the same day** (§4a–§6) for the formula-size limit; §6 supersedes the depth-one rule of §3.5 where they differ. Nothing is implemented. The composition checker will be built only after this revised architecture is reviewed and approved.
+**Status:** architecture specification for review, 2026-11-12. Option B is approved for planning; it remains design only, and nothing is implemented. Reporting terms aligned with the four approved labels (§6.8). **Prime_B (approved 2026-11-12):** every statement here that mentions primes uses the bounded definition Prime_B (§6.1a), consistently with stage 2. **Revised the same day** (§4a–§6) for the formula-size limit; §6 supersedes the depth-one rule of §3.5 where they differ. Nothing is implemented. The composition checker will be built only after this revised architecture is reviewed and approved.
 
 **Unchanged by this design:**
 - the kernel and its 20 inference rules plus `cite`;
@@ -208,7 +208,7 @@ So no single assembly file can work. The options differ in how the work is divid
 | | Layered assembly | Compact final statement |
 |---|---|---|
 | Idea | Several conditional theorems, each within the limits. Each layer's assumptions are discharged by components or by lower layers | One top theorem whose statement is small enough, assumptions discharged in one step |
-| Can it carry the admissibility part (∀p. Prime(p) → Adm(p))? | **Yes.** Six range assemblies (about 450,000–510,000 nodes each, estimated), then one small top assembly | **No.** The per-prime case split alone needs about 2.9 million nodes, so this part needs layers whatever the statement |
+| Can it carry the admissibility part (∀p. Prime_B(p) → Adm(p))? | **Yes.** Six range assemblies (about 450,000–510,000 nodes each, estimated), then one small top assembly | **No.** The per-prime case split alone needs about 2.9 million nodes, so this part needs layers whatever the statement |
 | Can it carry distinctness? | Yes, as four group statements | Only by replacing pairwise distinctness with a smaller equivalent. For example "strictly increasing", ⋀ hᵢ < hᵢ₊₁, about 9,400 in numeral total. That equivalence over ℕ would be a correspondence reading, semantic correspondence assessed, not kernel accepted |
 | Statement fidelity | Each statement stays in the source's own terms | The final statement is a reformulation, and needs its own correspondence review |
 | New trusted logic | Composition across more than one layer (§6) | Depth one would suffice for the top, but the admissibility layers are needed regardless |
@@ -232,22 +232,33 @@ Layer 0 holds the components. Every node is an unconditional, citable library th
 |---|---|---|
 | `admissible.h45.distinct.g0` … `g3` | grouped pairwise distinctness | 1 |
 | `admissible.h45.bounds` | ⋀_h (∃z. z + 0 = h) ∧ (∃z. z + h = 212) | 1 |
-| `primes.below_213` | ∀p. (Prime(p) → (R₁(p) ∨ R₂(p) ∨ … ∨ R₆(p) ∨ 212 < p)), where each Rᵢ(p) is the disjunction p = q₁ ∨ … ∨ p = qₖ over the primes of range i | 2 |
+| `primes.below_213` | ∀p. (Prime_B(p) → (R₁(p) ∨ (R₂(p) ∨ … (R₆(p) ∨ 212 < p)))), where each Rᵢ(p) is the right-nested disjunction p = q₁ ∨ (… ∨ p = qₖ) over the primes of range i | 2a |
 | `admissible.h45.omits.tail_1` | ∀p. (212 < p → ⋀_h ¬(∃k. h = (p × k) + 1)) | 3 |
 | `admissible.h45.omits.P_R` (47 of them) | ⋀_h ¬(∃k. h = (P × k) + R): 14 from RLT-006, 33 from stage 4 | RLT-006, 4 |
 
-**Planned prime ranges** (balanced by estimated size; to be confirmed by measurement):
+**The six prime ranges** (approved 2026-11-12, with their intervals; together the intervals partition 0 … 212):
 
-| Range | Primes | Count |
-|---|---|---|
-| R₁ | 2–37 | 12 |
-| R₂ | 41–73 | 9 |
-| R₃ | 79–109 | 8 |
-| R₄ | 113–151 | 7 |
-| R₅ | 157–181 | 6 |
-| R₆ | 191–211 | 5 |
+| Range | Interval | Primes | Count |
+|---|---|---|---|
+| R₁ | [0, 40] | 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37 | 12 |
+| R₂ | [41, 78] | 41, 43, 47, 53, 59, 61, 67, 71, 73 | 9 |
+| R₃ | [79, 112] | 79, 83, 89, 97, 101, 103, 107, 109 | 8 |
+| R₄ | [113, 156] | 113, 127, 131, 137, 139, 149, 151 | 7 |
+| R₅ | [157, 190] | 157, 163, 167, 173, 179, 181 | 6 |
+| R₆ | [191, 212] | 191, 193, 197, 199, 211 | 5 |
 
 The disjunction in `primes.below_213` is grouped by these ranges, so that each range assembly matches one disjunct exactly. This decision is fixed in stage 2's statement.
+
+### 6.1a The definition of prime
+
+    Prime_B(p) :≡ 1 < p ∧ ∀d. ((1 < d ∧ d < p) → ¬(d ∣ p))
+
+It is written inline with the existing definitions (`x < y` is ∃z. S(z) + x = y; `d ∣ n` is ∃k. n = d × k), so composition adds no definition.
+- Its correspondence with the standard notion of prime is a Lean theorem over ℕ (`pb_iff_std` in `lean/RLT007S2a.lean`), reported as **semantic correspondence assessed**, not as an RLT theorem under Robinson's Q.
+- The guarded form Prime_G is a documented reference definition only. The unguarded form is set aside, because no RLT proof under ROBINSON-Q can establish it for any prime (the countermodel in `lean/RLT007S2Design.lean`).
+- Composition matches statements by fingerprint, so every node that mentions primes (`primes.below_213`, `adm.all`) uses Prime_B literally, with the same bound variable names.
+
+**What `primes.below_213` rests on.** Stage 2a proves it from six exhaustiveness theorems `primes.exhaustive.r1` … `r6` and six order splits `order.split.o1` … `o6`, by `cite`. It is an ordinary unconditional library theorem, so composition treats it as one layer-0 node. The 47 positive primality theorems of stage 2b (Prime_B(q) for each listed q) are a separate result. `adm.all` does not need them: admissibility for every prime needs only that every prime is listed, which is the classification.
 
 **Layer 1:** conditional assembly theorems, each checked by the kernel.
 
@@ -260,7 +271,7 @@ The disjunction in `primes.below_213` is grouped by these ranges, so that each r
 
 | Id | Assumptions Γ | Conclusion |
 |---|---|---|
-| `admissible.h45.adm.all` | `primes.below_213`, `adm.range_1` … `adm.range_6`, `adm.tail` (8 assumptions, each a few thousand nodes) | ∀p. (Prime(p) → Adm(p)) |
+| `admissible.h45.adm.all` | `primes.below_213`, `adm.range_1` … `adm.range_6`, `adm.tail` (8 assumptions, each a few thousand nodes) | ∀p. (Prime_B(p) → Adm(p)) |
 
 **The named result `admissible.h45.lemma_12_1`** is a composition record, not a formula. It lists the six top-level statements:
 - `distinct.g0` … `g3` (layer 0, kernel accepted; merged in RLT-007b stage 1 at eb0e2ef);
@@ -374,7 +385,7 @@ Nothing composed is ever labelled "unconditional theorem". `citable` remains fal
 
 - **B-D1′.** Approve the layered architecture (§6) for implementation after stages 1–4 have merged.
 - **B-D2′.** Approve the reporting vocabulary (§6.8).
-- **B-D3′.** Confirm the six prime ranges as the grouping of stage 2's statement. They will be re-balanced only if measurement requires it, and before stage 2 merges.
+- **B-D3′.** The six prime ranges and their intervals were approved on 2026-11-12 (§6.1). Stage 2a measured them within the limits, so no re-balancing is planned.
 - **B-D4′.** Confirm that the top-level claim is a named set of six statements, not one conjunction.
 
 Option A (a larger citation budget) remains a deferred alternative. The limit is unchanged.

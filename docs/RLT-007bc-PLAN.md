@@ -38,6 +38,8 @@
 
 ## Stage 2 — RLT-007b-2: the primes below 213 (obligation (c))
 
+**Superseded in part (2026-11-12).** Stage 2 uses the bounded definition Prime_B(p) :≡ 1 < p ∧ ∀d. ((1 < d ∧ d < p) → ¬(d ∣ p)), approved after the design review (`docs/RLT-007b-2-DESIGN.md` on PR #18) showed that the unguarded form in the table below cannot be proved for any prime under ROBINSON-Q. Stage 2 is split into 2a (non-prime certificates, six per-range exhaustiveness theorems, the classification) and 2b (the 47 positive primality theorems). The table is kept as the original plan.
+
 | | |
 |---|---|
 | **Statement** | `primes.below_213`: ∀p. (Prime(p) → (R₁(p) ∨ … ∨ R₆(p) ∨ 212 < p)), each Rᵢ(p) the disjunction of p = q over the primes q of range i (ranges as in `docs/RLT-007d-OPTION-B.md` §6.1, so that the layered assembly matches exactly), with Prime written inline: 1 < p ∧ ∀d. ((∃e. p = d × e) → (d = 1 ∨ d = p)), using `lt` |
