@@ -5,9 +5,11 @@
 **Scope.** Stage 2a proves three things under Robinson's Q:
 - the non-prime certificates;
 - the six quantified exhaustiveness theorems;
-- the classification of every natural number below 213.
+- the classification of the primes below 213 in one direction: every Prime_B number is one of the 47 listed primes, in its range, or exceeds 212.
 
 The 47 positive primality theorems are stage 2b, and the assembly is RLT-007d. The three results stay separate.
+
+**Direction of the RLT result.** RLT establishes exhaustiveness: every Prime_B number below 213 is listed. The converse (each listed number satisfies Prime_B) is Lean evidence (`listed_1` … `listed_6`), not an RLT theorem. Stage 2b, the RLT form of the converse, is deferred (decision of 2026-11-12): the planned H₄₅ admissibility argument uses only exhaustiveness.
 
 **Unchanged:**
 - the kernel, the 20 inference rules plus `cite`, the axiom set ROBINSON-Q and `spec/definitions.rlt`;
@@ -78,7 +80,7 @@ The 19 files total 4.9 MB of text. They are committed, as stage 1's summaries ar
 
 `lean/RLT007S2a.lean`, generated, core Lean only. It has 33 theorems, each printed and gated by name, with standard axioms only (propext and Quot.sound; `dv_iff` uses none). It replays in about 5–8 s.
 - `n_I`, `e_I`, `o_I` and `c` state the RLT goals over ℕ, with `LT`, `DV` and `PB` defined exactly as RLT's `<`, `∣` and Prime_B.
-- `listed_I` is the converse of `e_I`: each listed number lies in its interval and satisfies Prime_B. With `e_I`, each list is exactly the primes of its interval.
+- `listed_I` is the converse of `e_I`: each listed number lies in its interval and satisfies Prime_B. With `e_I`, Lean shows each list is exactly the primes of its interval; in RLT, only the exhaustiveness direction is established.
 - The correspondence theorems are `lt_iff`, `dv_iff`, `pb_iff_std`, `pg_iff_std`, `pb_dec` and `pb_of_dec`.
 
 `lean/RLT007S2Design.lean`, 20 theorems, replays in about 13 s:

@@ -33,6 +33,8 @@ fn records() -> Vec<String> {
         .filter(|n| !n.starts_with("H45-DISTINCT-") && !n.starts_with("H45-BOUNDS"))
         // RLT-007b stage 2a's 7 records: cli/tests/rlt007s2a.rs explains them.
         .filter(|n| !n.starts_with("PRIMES-"))
+        // RLT-007b stage 3's record: cli/tests/rlt007s3.rs explains it.
+        .filter(|n| !n.starts_with("H45-TAIL-"))
         .map(|n| format!("statements/{n}"))
         .collect();
     v.sort();
