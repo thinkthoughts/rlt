@@ -16,8 +16,13 @@ fn rlt_files(dir: &Path, out: &mut Vec<PathBuf>) {
     for e in std::fs::read_dir(dir).unwrap() {
         let p = e.unwrap().path();
         // RLT-006 (generated certificates and summaries citing them) is
-        // swept by cli/tests/rlt006.rs after materialization.
-        if p.ends_with("tests/rlt006") || p.ends_with("tests/rlt007s1") {
+        // swept by cli/tests/rlt006.rs after materialization; likewise
+        // RLT-007b stage 4 (1,485 certificates) by cli/tests/rlt007s4.rs and
+        // scripts/verify.sh.
+        if p.ends_with("tests/rlt006")
+            || p.ends_with("tests/rlt007s1")
+            || p.ends_with("tests/rlt007s4")
+        {
             continue;
         }
         if p.is_dir() {
@@ -99,7 +104,10 @@ fn copy_dir(src: &Path, dst: &Path) {
     for e in std::fs::read_dir(src).unwrap() {
         let p = e.unwrap().path();
         // RLT-006 generated certificates are never copied into scratch trees.
-        if p.ends_with("tests/rlt006/gen") || p.ends_with("tests/rlt007s1/gen") {
+        if p.ends_with("tests/rlt006/gen")
+            || p.ends_with("tests/rlt007s1/gen")
+            || p.ends_with("tests/rlt007s4/gen")
+        {
             continue;
         }
         let to = dst.join(p.file_name().unwrap());

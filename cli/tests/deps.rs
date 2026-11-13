@@ -28,7 +28,10 @@ fn copy_dir(from: &Path, to: &Path) {
     for e in std::fs::read_dir(from).unwrap() {
         let e = e.unwrap();
         // RLT-006 generated certificates are never copied into scratch trees.
-        if e.path().ends_with("tests/rlt006/gen") || e.path().ends_with("tests/rlt007s1/gen") {
+        if e.path().ends_with("tests/rlt006/gen")
+            || e.path().ends_with("tests/rlt007s1/gen")
+            || e.path().ends_with("tests/rlt007s4/gen")
+        {
             continue;
         }
         let t = to.join(e.file_name());
@@ -92,20 +95,21 @@ fn the_library_is_valid_and_every_entry_current() {
     // RLT-006 adds the 14 per-prime theorems; RLT-007b stage 1 adds the four
     // distinctness groups and the bounds theorem; stage 2a adds the 19
     // theorems on the primes below 213; stage 3 adds the uniform omission
-    // for p > 212.
-    assert_eq!(lib.entries.len(), 126);
+    // for p > 212; stage 4 adds the 33 per-prime theorems for 47 … 211.
+    assert_eq!(lib.entries.len(), 159);
     let proofs: usize = lib
         .entries
         .iter()
         .map(|(_, e)| 1 + e.alternatives.len())
         .sum();
     assert_eq!(
-        proofs, 128,
+        proofs, 161,
         "every accepted proof of M3c–M3e, RLT-005, the RLT-006 summaries and the statement records is indexed"
     );
     // RLT-006's entries cite generated certificates: materialize them first.
     materialize_rlt006();
     materialize("tests/rlt007s1/manifest.sha256", "scripts/gen-rlt007s1.py");
+    materialize("tests/rlt007s4/manifest.sha256", "scripts/gen-rlt007s4.py");
     let r = verify_lib(&root());
     assert_eq!(r.exit, ACCEPT, "{}", rlt_cli::deps::render_lib_text(&r));
     assert!(r.entries.iter().all(|e| e.1 == ACCEPT));
@@ -169,6 +173,7 @@ fn every_proof_agrees_with_rlt_check() {
                 || p.ends_with("tests/rlt007s1")
                 || p.ends_with("tests/rlt007s2a")
                 || p.ends_with("tests/rlt007s3")
+                || p.ends_with("tests/rlt007s4")
             {
                 continue;
             }

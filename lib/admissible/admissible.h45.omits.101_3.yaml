@@ -1,0 +1,60 @@
+format: rlt-lib/1
+id: admissible.h45.omits.101_3
+title: "((((((((((((((((((((((((((((((((((((((((((((¬(∃k. 0 = (101 × k) + 3) ∧ ¬(∃k. 2 = (101 × k) + 3)) ∧ ¬(∃k. 12 = (101 × k) + 3)) ∧ ¬(∃k. 14 = (101 × k) + 3)) ∧ ¬(∃k. 24 = (101 × k) + 3)) ∧ ¬(∃k. 26 = (101 × k) + 3)) ∧ ¬(∃k. 30 = (101 × k) + 3)) ∧ ¬(∃k. 36 = (101 × k) + 3)) ∧ ¬(∃k. 44 = (101 × k) + 3)) ∧ ¬(∃k. 50 = (101 × k) + 3)) ∧ ¬(∃k. 54 = (101 × k) + 3)) ∧ ¬(∃k. 56 = (101 × k) + 3)) ∧ ¬(∃k. 60 = (101 × k) + 3)) ∧ ¬(∃k. 66 = (101 × k) + 3)) ∧ ¬(∃k. 72 = (101 × k) + 3)) ∧ ¬(∃k. 74 = (101 × k) + 3)) ∧ ¬(∃k. 80 = (101 × k) + 3)) ∧ ¬(∃k. 84 = (101 × k) + 3)) ∧ ¬(∃k. 92 = (101 × k) + 3)) ∧ ¬(∃k. 96 = (101 × k) + 3)) ∧ ¬(∃k. 102 = (101 × k) + 3)) ∧ ¬(∃k. 110 = (101 × k) + 3)) ∧ ¬(∃k. 114 = (101 × k) + 3)) ∧ ¬(∃k. 116 = (101 × k) + 3)) ∧ ¬(∃k. 122 = (101 × k) + 3)) ∧ ¬(∃k. 126 = (101 × k) + 3)) ∧ ¬(∃k. 134 = (101 × k) + 3)) ∧ ¬(∃k. 140 = (101 × k) + 3)) ∧ ¬(∃k. 144 = (101 × k) + 3)) ∧ ¬(∃k. 150 = (101 × k) + 3)) ∧ ¬(∃k. 156 = (101 × k) + 3)) ∧ ¬(∃k. 162 = (101 × k) + 3)) ∧ ¬(∃k. 164 = (101 × k) + 3)) ∧ ¬(∃k. 170 = (101 × k) + 3)) ∧ ¬(∃k. 176 = (101 × k) + 3)) ∧ ¬(∃k. 180 = (101 × k) + 3)) ∧ ¬(∃k. 182 = (101 × k) + 3)) ∧ ¬(∃k. 186 = (101 × k) + 3)) ∧ ¬(∃k. 192 = (101 × k) + 3)) ∧ ¬(∃k. 194 = (101 × k) + 3)) ∧ ¬(∃k. 200 = (101 × k) + 3)) ∧ ¬(∃k. 204 = (101 × k) + 3)) ∧ ¬(∃k. 206 = (101 × k) + 3)) ∧ ¬(∃k. 210 = (101 × k) + 3)) ∧ ¬(∃k. 212 = (101 × k) + 3))"
+fingerprint: 130062bc44da15a5cb277f8e60e04cc566189e12a97257248fc173f5d46b3e3a
+proof: {path: tests/rlt007s4/accept/OM_101.rlt, sha256: a8b802484591a8ba8134277bbd407e7418b1495934e6b9418726c63e6d193804}
+proof_id: RLT007S4.OM_101
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "(((((((((((((((((((((((((((((((((((((((((((¬(∃k. 0 = (101 × k) + 3) ∧ ¬(∃k. 2 = (101 × k) + 3)) ∧ ¬(∃k. 12 = (101 × k) + 3)) ∧ ¬(∃k. 14 = (101 × k) + 3)) ∧ ¬(∃k. 24 = (101 × k) + 3)) ∧ ¬(∃k. 26 = (101 × k) + 3)) ∧ ¬(∃k. 30 = (101 × k) + 3)) ∧ ¬(∃k. 36 = (101 × k) + 3)) ∧ ¬(∃k. 44 = (101 × k) + 3)) ∧ ¬(∃k. 50 = (101 × k) + 3)) ∧ ¬(∃k. 54 = (101 × k) + 3)) ∧ ¬(∃k. 56 = (101 × k) + 3)) ∧ ¬(∃k. 60 = (101 × k) + 3)) ∧ ¬(∃k. 66 = (101 × k) + 3)) ∧ ¬(∃k. 72 = (101 × k) + 3)) ∧ ¬(∃k. 74 = (101 × k) + 3)) ∧ ¬(∃k. 80 = (101 × k) + 3)) ∧ ¬(∃k. 84 = (101 × k) + 3)) ∧ ¬(∃k. 92 = (101 × k) + 3)) ∧ ¬(∃k. 96 = (101 × k) + 3)) ∧ ¬(∃k. 102 = (101 × k) + 3)) ∧ ¬(∃k. 110 = (101 × k) + 3)) ∧ ¬(∃k. 114 = (101 × k) + 3)) ∧ ¬(∃k. 116 = (101 × k) + 3)) ∧ ¬(∃k. 122 = (101 × k) + 3)) ∧ ¬(∃k. 126 = (101 × k) + 3)) ∧ ¬(∃k. 134 = (101 × k) + 3)) ∧ ¬(∃k. 140 = (101 × k) + 3)) ∧ ¬(∃k. 144 = (101 × k) + 3)) ∧ ¬(∃k. 150 = (101 × k) + 3)) ∧ ¬(∃k. 156 = (101 × k) + 3)) ∧ ¬(∃k. 162 = (101 × k) + 3)) ∧ ¬(∃k. 164 = (101 × k) + 3)) ∧ ¬(∃k. 170 = (101 × k) + 3)) ∧ ¬(∃k. 176 = (101 × k) + 3)) ∧ ¬(∃k. 180 = (101 × k) + 3)) ∧ ¬(∃k. 182 = (101 × k) + 3)) ∧ ¬(∃k. 186 = (101 × k) + 3)) ∧ ¬(∃k. 192 = (101 × k) + 3)) ∧ ¬(∃k. 194 = (101 × k) + 3)) ∧ ¬(∃k. 200 = (101 × k) + 3)) ∧ ¬(∃k. 204 = (101 × k) + 3)) ∧ ¬(∃k. 206 = (101 × k) + 3)) ∧ ¬(∃k. 210 = (101 × k) + 3)) ∧ ¬(∃k. 212 = (101 × k) + 3)"
+assumptions: []
+citable: true
+uses:
+  - (unlisted tests/rlt007s4/gen/D_101_000.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_002.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_012.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_014.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_024.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_026.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_030.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_036.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_044.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_050.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_054.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_056.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_060.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_066.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_072.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_074.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_080.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_084.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_092.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_096.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_102.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_110.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_114.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_116.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_122.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_126.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_134.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_140.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_144.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_150.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_156.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_162.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_164.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_170.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_176.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_180.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_182.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_186.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_192.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_194.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_200.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_204.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_206.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_210.rlt)
+  - (unlisted tests/rlt007s4/gen/D_101_212.rlt)
+statement_records:
+  - statements/OMITS-H45-101.yaml
+history: []

@@ -1,0 +1,8 @@
+# file	exit	required substring of the verdict (RLT-007b stage 4 rejected cases)
+tests/rlt007s4/reject/SQ01_altered_class_2_mod_47_at_2.rlt	1	REJECT at step q2 — step claims `¬(0 = 47 × k0)`
+tests/rlt007s4/reject/SQ02_altered_member_48_mod_47.rlt	1	REJECT at step L0q — step claims `¬(0 = 47 × k1)`
+tests/rlt007s4/reject/SQ03_summary_altered_member_214.rlt	1	REJECT at step f44 — step claims `¬(∃k. 214 = (211 × k) + 3)`, the cited theorem `E44` proves `¬(∃k. 212 = (211 × k) + 3)`
+tests/rlt007s4/reject/SQ04_summary_cites_other_prime.rlt	1	REJECT at step f44 — step claims `¬(∃k. 212 = (211 × k) + 3)`, the cited theorem `E44` proves `¬(∃k. 212 = (199 × k) + 3)`
+tests/rlt007s4/reject/SQ05_summary_stale_certificate_hash.rlt	2	MALFORMED — citation `E0`: tests/rlt007s4/gen/D_211_000.rlt has SHA-256
+tests/rlt007s4/reject/SQ06_summary_missing_certificate.rlt	2	MALFORMED — citation `E0`: cited path `tests/rlt007s4/gen/D_211_999.rlt`: entity not found
+tests/rlt007s4/reject/SQ07_summary_class_changed_in_statement.rlt	1	the goal is `(((((((((((((((((((((((((((((((((((((((((((¬(∃k. 0 = (47 × k) + 2)

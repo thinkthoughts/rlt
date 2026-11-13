@@ -1,0 +1,60 @@
+format: rlt-lib/1
+id: admissible.h45.omits.163_3
+title: "((((((((((((((((((((((((((((((((((((((((((((¬(∃k. 0 = (163 × k) + 3) ∧ ¬(∃k. 2 = (163 × k) + 3)) ∧ ¬(∃k. 12 = (163 × k) + 3)) ∧ ¬(∃k. 14 = (163 × k) + 3)) ∧ ¬(∃k. 24 = (163 × k) + 3)) ∧ ¬(∃k. 26 = (163 × k) + 3)) ∧ ¬(∃k. 30 = (163 × k) + 3)) ∧ ¬(∃k. 36 = (163 × k) + 3)) ∧ ¬(∃k. 44 = (163 × k) + 3)) ∧ ¬(∃k. 50 = (163 × k) + 3)) ∧ ¬(∃k. 54 = (163 × k) + 3)) ∧ ¬(∃k. 56 = (163 × k) + 3)) ∧ ¬(∃k. 60 = (163 × k) + 3)) ∧ ¬(∃k. 66 = (163 × k) + 3)) ∧ ¬(∃k. 72 = (163 × k) + 3)) ∧ ¬(∃k. 74 = (163 × k) + 3)) ∧ ¬(∃k. 80 = (163 × k) + 3)) ∧ ¬(∃k. 84 = (163 × k) + 3)) ∧ ¬(∃k. 92 = (163 × k) + 3)) ∧ ¬(∃k. 96 = (163 × k) + 3)) ∧ ¬(∃k. 102 = (163 × k) + 3)) ∧ ¬(∃k. 110 = (163 × k) + 3)) ∧ ¬(∃k. 114 = (163 × k) + 3)) ∧ ¬(∃k. 116 = (163 × k) + 3)) ∧ ¬(∃k. 122 = (163 × k) + 3)) ∧ ¬(∃k. 126 = (163 × k) + 3)) ∧ ¬(∃k. 134 = (163 × k) + 3)) ∧ ¬(∃k. 140 = (163 × k) + 3)) ∧ ¬(∃k. 144 = (163 × k) + 3)) ∧ ¬(∃k. 150 = (163 × k) + 3)) ∧ ¬(∃k. 156 = (163 × k) + 3)) ∧ ¬(∃k. 162 = (163 × k) + 3)) ∧ ¬(∃k. 164 = (163 × k) + 3)) ∧ ¬(∃k. 170 = (163 × k) + 3)) ∧ ¬(∃k. 176 = (163 × k) + 3)) ∧ ¬(∃k. 180 = (163 × k) + 3)) ∧ ¬(∃k. 182 = (163 × k) + 3)) ∧ ¬(∃k. 186 = (163 × k) + 3)) ∧ ¬(∃k. 192 = (163 × k) + 3)) ∧ ¬(∃k. 194 = (163 × k) + 3)) ∧ ¬(∃k. 200 = (163 × k) + 3)) ∧ ¬(∃k. 204 = (163 × k) + 3)) ∧ ¬(∃k. 206 = (163 × k) + 3)) ∧ ¬(∃k. 210 = (163 × k) + 3)) ∧ ¬(∃k. 212 = (163 × k) + 3))"
+fingerprint: 759f42e498bad8f458ecdd881506bd07b312fb988a77e80309c7faea5d6806bc
+proof: {path: tests/rlt007s4/accept/OM_163.rlt, sha256: 06587aaedfe8e87f96b7cdf88ae6dd2e6d0735562892f86896c6502a96c5412c}
+proof_id: RLT007S4.OM_163
+axiom_set: ROBINSON-Q
+convention: NAT-DEF
+checked_goal: "(((((((((((((((((((((((((((((((((((((((((((¬(∃k. 0 = (163 × k) + 3) ∧ ¬(∃k. 2 = (163 × k) + 3)) ∧ ¬(∃k. 12 = (163 × k) + 3)) ∧ ¬(∃k. 14 = (163 × k) + 3)) ∧ ¬(∃k. 24 = (163 × k) + 3)) ∧ ¬(∃k. 26 = (163 × k) + 3)) ∧ ¬(∃k. 30 = (163 × k) + 3)) ∧ ¬(∃k. 36 = (163 × k) + 3)) ∧ ¬(∃k. 44 = (163 × k) + 3)) ∧ ¬(∃k. 50 = (163 × k) + 3)) ∧ ¬(∃k. 54 = (163 × k) + 3)) ∧ ¬(∃k. 56 = (163 × k) + 3)) ∧ ¬(∃k. 60 = (163 × k) + 3)) ∧ ¬(∃k. 66 = (163 × k) + 3)) ∧ ¬(∃k. 72 = (163 × k) + 3)) ∧ ¬(∃k. 74 = (163 × k) + 3)) ∧ ¬(∃k. 80 = (163 × k) + 3)) ∧ ¬(∃k. 84 = (163 × k) + 3)) ∧ ¬(∃k. 92 = (163 × k) + 3)) ∧ ¬(∃k. 96 = (163 × k) + 3)) ∧ ¬(∃k. 102 = (163 × k) + 3)) ∧ ¬(∃k. 110 = (163 × k) + 3)) ∧ ¬(∃k. 114 = (163 × k) + 3)) ∧ ¬(∃k. 116 = (163 × k) + 3)) ∧ ¬(∃k. 122 = (163 × k) + 3)) ∧ ¬(∃k. 126 = (163 × k) + 3)) ∧ ¬(∃k. 134 = (163 × k) + 3)) ∧ ¬(∃k. 140 = (163 × k) + 3)) ∧ ¬(∃k. 144 = (163 × k) + 3)) ∧ ¬(∃k. 150 = (163 × k) + 3)) ∧ ¬(∃k. 156 = (163 × k) + 3)) ∧ ¬(∃k. 162 = (163 × k) + 3)) ∧ ¬(∃k. 164 = (163 × k) + 3)) ∧ ¬(∃k. 170 = (163 × k) + 3)) ∧ ¬(∃k. 176 = (163 × k) + 3)) ∧ ¬(∃k. 180 = (163 × k) + 3)) ∧ ¬(∃k. 182 = (163 × k) + 3)) ∧ ¬(∃k. 186 = (163 × k) + 3)) ∧ ¬(∃k. 192 = (163 × k) + 3)) ∧ ¬(∃k. 194 = (163 × k) + 3)) ∧ ¬(∃k. 200 = (163 × k) + 3)) ∧ ¬(∃k. 204 = (163 × k) + 3)) ∧ ¬(∃k. 206 = (163 × k) + 3)) ∧ ¬(∃k. 210 = (163 × k) + 3)) ∧ ¬(∃k. 212 = (163 × k) + 3)"
+assumptions: []
+citable: true
+uses:
+  - (unlisted tests/rlt007s4/gen/D_163_000.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_002.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_012.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_014.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_024.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_026.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_030.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_036.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_044.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_050.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_054.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_056.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_060.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_066.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_072.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_074.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_080.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_084.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_092.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_096.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_102.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_110.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_114.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_116.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_122.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_126.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_134.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_140.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_144.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_150.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_156.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_162.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_164.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_170.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_176.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_180.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_182.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_186.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_192.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_194.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_200.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_204.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_206.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_210.rlt)
+  - (unlisted tests/rlt007s4/gen/D_163_212.rlt)
+statement_records:
+  - statements/OMITS-H45-163.yaml
+history: []
