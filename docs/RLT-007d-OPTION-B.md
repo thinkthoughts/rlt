@@ -300,6 +300,7 @@ It is written inline with the existing definitions (`x < y` is ∃z. S(z) + x = 
 
 The rules of §3.1–§3.5 apply unchanged at every edge.
 - **Exact matching.** The discharger's statement must equal the assumption *exactly*, as expanded kernel formulas in canonical form.
+  - **Bound-variable names (stage-3 audit, 2026-11-12).** The kernel's own goal check compares formulas up to the names of bound variables: a copy of stage 3's TAIL.rlt with its goal written over q instead of p is accepted. The composition checker therefore compares the canonical printed statements of discharger and assumption (and their fingerprints), never the `goal` text of a proof file, so that "the same bound variable names" (§6.1a) is enforced by the checker itself.
 - **What the discharger's statement is.**
   - For a layer-0 discharger, it is the kernel accepted goal (Γ = ∅).
   - For a composed discharger of layer n ≥ 1, it is the **conclusion** of its assembly theorem, and only once that record has itself passed in this run, with every assumption discharged. A composed result whose own record fails, or has an undischarged assumption, discharges nothing.
