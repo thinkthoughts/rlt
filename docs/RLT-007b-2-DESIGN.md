@@ -6,7 +6,8 @@
 
 1. **Definition B, bounded primality**, for stage 2 and the composition design: Prime_B(p) :≡ 1 < p ∧ ∀d. ((1 < d ∧ d < p) → ¬(d ∣ p)), with the existing meanings of `<` and `∣`. G (§2.2) stays documented as a reference definition. The correspondence of B, G and the standard definition is a Lean result over ℕ (`primeB_iff`, `primeG_iff`; in stage 2a `pb_iff_std`, `pg_iff_std`), not an RLT theorem under Robinson's Q. The countermodel of §2.1 is kept as the record of why the unguarded definition was set aside.
 2. **The six intervals of §1**, with their complete prime lists; one quantified, kernel-checked exhaustiveness theorem per range; together they classify every natural number below 213.
-3. **Split implementation.** Stage 2a: exhaustiveness and non-prime certificates (implemented). Stage 2b: the 47 positive primality theorems under Prime_B, after stage-2a review, merged only with separate approval. Stage-2a exhaustiveness, stage-2b primality and the eventual assembly stay three distinct results.
+3. **Split implementation.** Stage 2a: exhaustiveness and non-prime certificates (merged at f37bcfc). Stage 2b: the 47 positive primality theorems under Prime_B. Stage-2a exhaustiveness, stage-2b primality and the eventual assembly stay three distinct results.
+4. **Stage 2b deferred** (decision of 2026-11-12, after the stage-2a merge). The quantified exhaustiveness results suffice for the planned H₄₅ admissibility argument. Stage 2b stays a separately documented mathematical extension (§2.2 for the proof method, §4 for the size estimate), to be revisited after the full lemma is assembled. Until then, RLT's stage-2a result is described as exhaustiveness only; the converse direction has Lean evidence (`listed_1` … `listed_6`).
 
 Where this review writes "Prime" below, the approved reading is Prime_B. The recommendation of G in §2.2 and §7 is kept as the review's history.
 

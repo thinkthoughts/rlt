@@ -1,0 +1,10 @@
+# file	exit	required substring of the verdict (RLT-007b stage 3 rejected cases)
+tests/rlt007s3/reject/SR01_bound_lowered_to_210.rlt	1	REJECT at step H212_1n — step claims `¬(0 = (pp × j212) + z)`, rule `inst` yields `¬(0 = S((pp × j212) + z))`
+tests/rlt007s3/reject/SR02_element_212_replaced_by_214.rlt	1	REJECT at step H214_1n — step claims `¬(0 = (pp × j214) + z)`, rule `inst` yields `¬(0 = S((pp × j214) + z))`
+tests/rlt007s3/reject/SR03_element_0_replaced_by_1.rlt	1	REJECT at step H1_0f — imp-elim: antecedent does not match: `0 = 1` against `1 = 1`
+tests/rlt007s3/reject/SR04_statement_class_2.rlt	1	the goal is `∀p. ((∃z. S(z) + 212 = p) → ((((((((((((((((((((((((((((((((((((((((((((¬(∃k. 0 = (p × k) + 2)
+tests/rlt007s3/reject/SR05_statement_without_212.rlt	1	the goal is `∀p. ((∃z. S(z) + 212 = p) → (((((((((((((((((((((((((((((((((((((((((((¬(∃k. 0 = (p × k) + 1)
+tests/rlt007s3/reject/SR06_statement_without_bound.rlt	1	the goal is `∀p. ((((((((((((((((((((((((((((((((((((((((((((¬(∃k. 0 = (p × k) + 1)
+tests/rlt007s3/reject/SR07_statement_bound_211.rlt	1	the goal is `∀p. ((∃z. S(z) + 211 = p) →
+tests/rlt007s3/reject/SR08_statement_conjuncts_reordered.rlt	1	the goal is `∀p. ((∃z. S(z) + 212 = p) → ((((((((((((((((((((((((((((((((((((((((((((¬(∃k. 2 = (p × k) + 1)
+tests/rlt007s3/reject/SR09_proof_p_off_by_one.rlt	1	REJECT at step PZ — step claims

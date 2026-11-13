@@ -91,15 +91,16 @@ fn the_library_is_valid_and_every_entry_current() {
     // 68 entries over 70 proofs at RLT-004c; RLT-005 adds 19 of each;
     // RLT-006 adds the 14 per-prime theorems; RLT-007b stage 1 adds the four
     // distinctness groups and the bounds theorem; stage 2a adds the 19
-    // theorems on the primes below 213.
-    assert_eq!(lib.entries.len(), 125);
+    // theorems on the primes below 213; stage 3 adds the uniform omission
+    // for p > 212.
+    assert_eq!(lib.entries.len(), 126);
     let proofs: usize = lib
         .entries
         .iter()
         .map(|(_, e)| 1 + e.alternatives.len())
         .sum();
     assert_eq!(
-        proofs, 127,
+        proofs, 128,
         "every accepted proof of M3c–M3e, RLT-005, the RLT-006 summaries and the statement records is indexed"
     );
     // RLT-006's entries cite generated certificates: materialize them first.
@@ -167,6 +168,7 @@ fn every_proof_agrees_with_rlt_check() {
             if p.ends_with("tests/rlt006")
                 || p.ends_with("tests/rlt007s1")
                 || p.ends_with("tests/rlt007s2a")
+                || p.ends_with("tests/rlt007s3")
             {
                 continue;
             }
