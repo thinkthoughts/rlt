@@ -76,9 +76,18 @@ The trusted Rust test `cli/tests/rlt007s3.rs` (5 tests) rebuilds the statement f
 
 The record names `tail`, `one_mod_iff`, `tail_mod` and `int_class_iff`; the pinned count of Lean references in records is now 48, previously 44.
 
-## 5. Verification
+## 5. Verification (after the audit fixes)
 
-Reported with the final commit in §7.
+- `cargo test --release`: 292 of 292 tests pass, previously 287; the 5 new tests are in `cli/tests/rlt007s3.rs`. fmt and clippy (`-D warnings`) are clean.
+- `scripts/verify.sh`: `RESULT all checks hold`, 22 min 47 s wall. The new stage-3 section reports:
+  - self-test 6 of 6; `--check` 13 outputs, 0 differ;
+  - the transcription check, with the statement of TAIL.rlt and its record rebuilt from the transcribed tuple;
+  - TAIL.rlt accepted, unconditional, 1,750 steps;
+  - 9 of 9 rejected cases.
+- Lean replay of 21 files; `RLT007S3.lean` 10 statements, each printed by name, standard axioms only; the 4 stage-3 references in the record checked (48 in all).
+- The record `TAIL-OMITS-H45` exits 0 (current, semantic `partial`).
+- Library: 126 of 126 entries current and accepted; the identity registry keeps every line of 5 committed versions.
+- Earlier stages: their verify lines are unchanged, including the stage-2a Lean gate lines.
 
 ## 6. Independent audits
 
@@ -108,4 +117,14 @@ The auditors verified independently:
 
 ## 7. Measured totals
 
-Recorded with the final commit.
+| Measure | Value |
+|---|---|
+| Proofs | 1 (TAIL.rlt), no citations |
+| Checked steps | 1,750 |
+| Certificate size | 682,142 bytes; 495,022 nodes (49.5% of the 1,000,000 limit) |
+| Kernel check time | about 0.5 s (0.48–0.54 s over 5 runs) |
+| Rejected cases | 9 |
+| Lean theorems | 10, replay about 2 s |
+| Statement records | 1 |
+| Library entries | 1 (126 in all, over 128 proofs) |
+| verify.sh | 22 min 47 s wall, 34 min 7 s CPU |
