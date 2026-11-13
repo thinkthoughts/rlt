@@ -112,7 +112,7 @@ fn copy_dir(from: &Path, to: &Path) {
     for e in std::fs::read_dir(from).unwrap() {
         let e = e.unwrap();
         // RLT-006 generated certificates are never copied into scratch trees.
-        if e.path().ends_with("tests/rlt006/gen") {
+        if e.path().ends_with("tests/rlt006/gen") || e.path().ends_with("tests/rlt007s1/gen") {
             continue;
         }
         let t = to.join(e.file_name());

@@ -426,7 +426,7 @@ exit 2
 ```console
 $ rlt deps dvd.free235.7; echo "exit $?"
 RLT deps        dvd.free235.7
-library         lib/ index valid (101 entries)
+library         lib/ index valid (106 entries)
 proof           tests/m3c/accept/CA05_free235_seven.rlt (M3c.CA05)
 …
 library entry   dvd.free235.7 · current
