@@ -1,0 +1,17 @@
+'RLT007D.range_1' does not depend on any axioms
+'RLT007D.range_2' does not depend on any axioms
+'RLT007D.range_3' does not depend on any axioms
+'RLT007D.range_4' does not depend on any axioms
+'RLT007D.range_5' does not depend on any axioms
+'RLT007D.range_6' does not depend on any axioms
+'RLT007D.adm_tail' depends on axioms: [propext, Quot.sound]
+'RLT007D.adm_all' does not depend on any axioms
+'RLT007D.rlt_lt_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RLT007D.rlt_dvd_iff' does not depend on any axioms
+'RLT007D.om_iff' depends on axioms: [propext, Quot.sound]
+'RLT007D.prime_iff' depends on axioms: [propext, Quot.sound]
+'RLT007D.distinct_iff' does not depend on any axioms
+'RLT007D.bounds_le' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RLT007D.lemma_12_1' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RLT007D.components' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RLT007D.lemma_12_1_holds' depends on axioms: [propext, Classical.choice, Quot.sound]
