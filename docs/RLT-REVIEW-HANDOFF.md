@@ -299,3 +299,17 @@ RLT-007 architecture review (the complete Lemma 12.1 in Robinson's Q; verificati
 - **Library:** 159 of 159 entries current and accepted; the identity registry keeps every line of 7 committed versions.
 - **CI on 838954f:** `check` (34 min 55 s) and `gdt-comparison` both succeed.
 - **Not done, as instructed:** no tag, no release, no deployment, no contact with the paper's authors; branch protection and repository settings unchanged.
+
+## Merge record, 2026-11-13 (RLT-007d)
+
+- **Approval:** merge exactly e79285b (after the Python fingerprint correction and its targeted re-audit).
+- **Pre-merge checks:** PR #21 head e79285b, mergeable; `check` and `gdt-comparison` green on its push and pull_request runs; the diff against main 838954f touches only the RLT-007d files (`cli/src/compose.rs`, the CLI hook, `cli/tests/rlt007d.rs`, `compose/`, `tests/rlt007d/`, `lean/RLT007D.lean`, `scripts/compose-check.py`, `scripts/gen-rlt007d.py`, `scripts/verify.sh`, four `docs/RLT-007d-*` files); nothing under `kernel/`, `spec/`, `conventions/`, `lib/` or `verification/`.
+- **PR #21 merged:** marked ready, then merged as merge commit **9db928a** (9db928a1b20646d847c62e68a73a4993ab0919fc), with parents 838954f and e79285b. The merge tree 56e201d equals e79285b's tree.
+- **Fresh clone of main at 9db928a:**
+  - `cargo test --release`: 312 passed, 0 failed;
+  - `scripts/verify.sh /home/claude/src`: `RESULT all checks hold`, exit 0, 73 min 48 s wall on a 2-processor machine (114 min CPU);
+  - `scripts/check-manual.py`: 33 of 33.
+- **RLT-007d, from that run:** `rlt compose compose/h45.yaml` COMPOSED — 62 nodes in layers 0–2, 56 discharged assumptions, remaining assumptions none; `scripts/compose-check.py` COMPOSED with all six results equal to the statements rebuilt from the transcription; both checkers agree on the 3 controls and 52 of 52 negative cases; the changed and the absent cited file refused as stale and missing by both; `RLT007D.lean` 17 statements, standard axioms only, its 62 statements symbol for symbol.
+- **Library:** 159 of 159 entries current and accepted; the identity registry keeps every line of 7 committed versions. The composed result is reported by `rlt compose` and kept out of the library (not citable).
+- **CI on 9db928a:** `check` (46 min 43 s) and `gdt-comparison` both succeed.
+- **Not done, as instructed:** no tag, no release, no deployment, no contact with the paper's authors or Mirendil; branch protection and repository settings unchanged.
