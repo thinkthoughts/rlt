@@ -1,0 +1,68 @@
+compose-check   compose/h45.yaml
+graph           62 nodes in layers 0–2, 56 discharged assumptions
+  edge          adm.range_1: om2 ← om.2_1
+  edge          adm.range_1: om3 ← om.3_1
+  edge          adm.range_1: om5 ← om.5_3
+  edge          adm.range_1: om7 ← om.7_6
+  edge          adm.range_1: om11 ← om.11_9
+  edge          adm.range_1: om13 ← om.13_3
+  edge          adm.range_1: om17 ← om.17_1
+  edge          adm.range_1: om19 ← om.19_13
+  edge          adm.range_1: om23 ← om.23_17
+  edge          adm.range_1: om29 ← om.29_4
+  edge          adm.range_1: om31 ← om.31_11
+  edge          adm.range_1: om37 ← om.37_4
+  edge          adm.range_2: om41 ← om.41_4
+  edge          adm.range_2: om43 ← om.43_3
+  edge          adm.range_2: om47 ← om.47_1
+  edge          adm.range_2: om53 ← om.53_6
+  edge          adm.range_2: om59 ← om.59_6
+  edge          adm.range_2: om61 ← om.61_1
+  edge          adm.range_2: om67 ← om.67_1
+  edge          adm.range_2: om71 ← om.71_4
+  edge          adm.range_2: om73 ← om.73_3
+  edge          adm.range_3: om79 ← om.79_3
+  edge          adm.range_3: om83 ← om.83_3
+  edge          adm.range_3: om89 ← om.89_1
+  edge          adm.range_3: om97 ← om.97_1
+  edge          adm.range_3: om101 ← om.101_3
+  edge          adm.range_3: om103 ← om.103_1
+  edge          adm.range_3: om107 ← om.107_1
+  edge          adm.range_3: om109 ← om.109_3
+  edge          adm.range_4: om113 ← om.113_4
+  edge          adm.range_4: om127 ← om.127_1
+  edge          adm.range_4: om131 ← om.131_1
+  edge          adm.range_4: om137 ← om.137_1
+  edge          adm.range_4: om139 ← om.139_3
+  edge          adm.range_4: om149 ← om.149_3
+  edge          adm.range_4: om151 ← om.151_1
+  edge          adm.range_5: om157 ← om.157_1
+  edge          adm.range_5: om163 ← om.163_3
+  edge          adm.range_5: om167 ← om.167_1
+  edge          adm.range_5: om173 ← om.173_1
+  edge          adm.range_5: om179 ← om.179_4
+  edge          adm.range_5: om181 ← om.181_3
+  edge          adm.range_6: om191 ← om.191_4
+  edge          adm.range_6: om193 ← om.193_3
+  edge          adm.range_6: om197 ← om.197_1
+  edge          adm.range_6: om199 ← om.199_3
+  edge          adm.range_6: om211 ← om.211_3
+  edge          adm.tail: tl ← tail
+  edge          adm.all: cls ← classify
+  edge          adm.all: ra1 ← adm.range_1
+  edge          adm.all: ra2 ← adm.range_2
+  edge          adm.all: ra3 ← adm.range_3
+  edge          adm.all: ra4 ← adm.range_4
+  edge          adm.all: ra5 ← adm.range_5
+  edge          adm.all: ra6 ← adm.range_6
+  edge          adm.all: ta ← adm.tail
+  result        distinct.g0: kernel accepted; approved statement (rebuilt from the transcription)
+  result        distinct.g1: kernel accepted; approved statement (rebuilt from the transcription)
+  result        distinct.g2: kernel accepted; approved statement (rebuilt from the transcription)
+  result        distinct.g3: kernel accepted; approved statement (rebuilt from the transcription)
+  result        bounds: kernel accepted; approved statement (rebuilt from the transcription)
+  result        adm.all: discharged by composition; approved statement (rebuilt from the transcription)
+remaining       assumptions: none
+summary         a composition of kernel-checked theorems, not one kernel theorem
+verdict COMPOSED
+exit 0
