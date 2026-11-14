@@ -313,3 +313,13 @@ RLT-007 architecture review (the complete Lemma 12.1 in Robinson's Q; verificati
 - **Library:** 159 of 159 entries current and accepted; the identity registry keeps every line of 7 committed versions. The composed result is reported by `rlt compose` and kept out of the library (not citable).
 - **CI on 9db928a:** `check` (46 min 43 s) and `gdt-comparison` both succeed.
 - **Not done, as instructed:** no tag, no release, no deployment, no contact with the paper's authors or Mirendil; branch protection and repository settings unchanged.
+
+## Merge record, 2026-11-13 (H₄₅ research artifact)
+
+- **Approval:** merge PR #22 after the final acceptance gates.
+- **Pre-merge checks:** PR #22 head 12ccbc6; `check` and `gdt-comparison` green on its push and pull_request runs; the diff against main 9db928a holds only the six files of `research/h45-lemma-12-1/` (README, `reproduce.sh`, `MANIFEST.sha256`, `expected/`); `MANIFEST.sha256` pins 200 files (62 specification probes, 8 assemblies, 54 library entries and their 54 proofs, the bundle and both registers, the transcription, axioms, definitions, NAT-DEF, the identity registry, the Lean file, the Python checker and generator, the kernel sources, `compose.rs`, `deps.rs`, three documents).
+- **Clean checkout of 12ccbc6:** `reproduce.sh` all PASS, exit 0 (14 min 54 s); the recorded `expected/` outputs byte-identical to a fresh run of `rlt compose`, `compose-check.py` and Lean.
+- **Refusals:** a changed pinned assembly, a missing bundle and a changed transcription each stop `reproduce.sh` at the manifest check (exit 1); a missing generated certificate stops it at `rlt compose` (exit 1); a changed generated certificate is refused by `rlt compose` as stale, and `reproduce.sh` regenerates the certificates from their generator and manifest before checking.
+- **PR #22 merged:** marked ready, then merged as merge commit **330db65** (330db65972bf0777abea310fca3eff534bb0170e), with parents 9db928a and 12ccbc6. The merge tree 8f5c604 equals 12ccbc6's tree.
+- **Fresh clone of main at 330db65:** `reproduce.sh` all PASS, exit 0 (14 min 36 s).
+- **Not done, as instructed:** no tag, no release, no deployment, no outreach; repository settings unchanged.
