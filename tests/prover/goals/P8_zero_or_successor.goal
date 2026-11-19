@@ -1,0 +1,8 @@
+; RLT prover: case analysis with Q3, an ∃ elimination and an ∃ witness.
+(rlt-goal
+  (id P8.zero_or_successor)
+  (convention NAT-LOGIC)
+  (goal "∀x. x = 0 ∨ ∃y. x = y + 1")
+  (mode unconditional)
+  (axioms ROBINSON-Q)
+  (bounds (depth 3)))

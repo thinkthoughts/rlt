@@ -1,0 +1,7 @@
+RLT discover    research/prover-discovery
+grammar         one-level (one operation in L; at most one in R) — ∀x. L = R over x, 0, 1, 2 (399 candidates)
+axiom set       ROBINSON-Q
+bounds          depth ≤ 1, saturation rounds ≤ 32, e-graph nodes ≤ 2000, numeral witnesses ≤ 4, search calls ≤ 200
+proved          9 (certificates replayed and accepted by the kernel; listed in manifest.tsv)
+not found       390 (listed in not-found.tsv; no claim about their truth)
+errors          0

@@ -1,0 +1,8 @@
+; RLT prover, Phase 3 goal 3: from a + b = 0 and c = a, prove c + b = 0
+; (equality rules and congruence of +; no arithmetic axiom is needed).
+(rlt-goal
+  (id P3.congruence)
+  (convention NAT-LOGIC)
+  (goal "∀a. ∀b. ∀c. a + b = 0 → c = a → c + b = 0")
+  (mode unconditional)
+  (axioms ROBINSON-Q))

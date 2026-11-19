@@ -1,0 +1,7 @@
+; RLT prover: a universal statement, by Q5, Q4 and Q2.
+(rlt-goal
+  (id P7.successor_nonzero)
+  (convention NAT-LOGIC)
+  (goal "∀x. ¬(x + 1 = 0)")
+  (mode unconditional)
+  (axioms ROBINSON-Q))

@@ -1,0 +1,7 @@
+; RLT prover: a negation, by Q1 (successor injectivity) and Q2 (0 is no successor).
+(rlt-goal
+  (id P6.not_four_five)
+  (convention NAT-LOGIC)
+  (goal "¬(2 + 2 = 5)")
+  (mode unconditional)
+  (axioms ROBINSON-Q))

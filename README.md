@@ -39,6 +39,8 @@ target/release/rlt check tests/m3c/accept/CA02_two_not_divides_seven.rlt  # RLT-
 target/release/rlt check tests/m3e/accept/E_T1.rlt  # RLT-003 M3e: the modulo-30 classification below 30, under ROBINSON-Q
 target/release/rlt check tests/m3c/accept/CA05_free235_seven.rlt  # RLT-003 M3c: free235(7), citing three independently checked theorems
 target/release/rlt check tests/m3d/accept/DA01_below_thirty.rlt  # RLT-003 M3d: every x < 30 is one of 0 … 29, by 31 Q3 splits
+target/release/rlt prove tests/prover/goals/P3_congruence.goal  # bounded proof search: a statement in, a kernel-replayed certificate out (docs/PROVER.md)
+target/release/rlt discover research/prover-discovery         # theorem discovery: stores only kernel-verified theorems
 scripts/verify.sh SOURCE_CLONES_DIR                           # fmt, clippy, tests, proofs, records, Lean, excerpts; exit 0 only if all hold
 ```
 
@@ -48,6 +50,8 @@ scripts/verify.sh SOURCE_CLONES_DIR                           # fmt, clippy, tes
 - Theorem citation (RLT-003 M3c), in `cli/src/lib.rs`: `citation_path` and the citation loop in `check_inner`, which hash a cited proof file, refuse cycles and long chains, check the file from scratch on the hashed bytes, and pass the resulting kernel theorem on.
 - The approved axiom sets, pinned in the binary (`PINNED_AXIOM_SETS` in `cli/src/lib.rs`: id, file, SHA-256), their mirror `spec/axioms.yaml`, the files they lock (`spec/peano.rlt`), and their loader `load_axiom_set`. A proof file names a set by id; paths, symbolic links, duplicate entries and any hash other than the pinned one are refused; the verdict names the set.
 - The Rust toolchain (pinned in `rust-toolchain.toml`).
+
+`rlt prove` and `rlt discover` (`cli/src/prove.rs`, `cli/src/discover.rs`) are outside the trusted computing base: they search for derivations and write ordinary proof files, and a result counts as PROVED only after the kernel replays those bytes and accepts. A search without a proof is reported as NOT_FOUND_WITHIN_BOUNDS, never as a disproof.
 
 Parsers, conventions, sources, reading-point and correspondence records, and the Lean replay supply inputs or cross-checks; none of them can make the kernel accept a step. The kernel API itself checks derivations relative to whatever axioms its caller supplies; trust in axioms is decided by the registered-set loader.
 

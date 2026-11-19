@@ -14,6 +14,11 @@ usage:
   rlt points FILE                        specification records: reading points, counts, relations
   rlt chem WRITTEN CONVENTION            how a species-table convention reads a written formula
   rlt gen EQUATION ID                    untrusted generator: a PEANO-ARITH proof file for a closed equation
+  rlt prove GOAL [--out FILE] [--depth N] [--rounds N] [--nodes N] [--witnesses N] [--budget N]
+                                         bounded proof search; every proof found is replayed by the kernel
+                                         (exit 0 PROVED, 1 NOT_FOUND_WITHIN_BOUNDS, 2 ERROR)
+  rlt discover DIR [--two-level] [--limit N]  bounded theorem discovery; stores only kernel-replayed theorems
+  rlt discover --verify DIR              re-hash and re-check every theorem in DIR/manifest.tsv
   rlt residues FILE                      closed quotient–remainder witnesses and their registered readings
   rlt explain RECORD [--format text|json] a statement record: kernel, source, semantic, physical
                                          (exit 0 current+accept, 1 reject, 2 invalid/malformed, 3 stale)
@@ -87,6 +92,69 @@ fn run() -> i32 {
                 1
             }
         },
+        Some("prove") if args.len() >= 2 => {
+            let mut overrides = Vec::new();
+            let mut out = None;
+            let mut i = 2;
+            while i < args.len() {
+                let (Some(flag), Some(val)) = (args[i].strip_prefix("--"), args.get(i + 1)) else {
+                    eprintln!("{USAGE}");
+                    return MALFORMED;
+                };
+                if flag == "out" {
+                    out = Some(PathBuf::from(val));
+                } else {
+                    match val.parse::<u64>() {
+                        Ok(n) => overrides.push((flag.to_string(), n)),
+                        Err(_) => {
+                            eprintln!("{USAGE}");
+                            return MALFORMED;
+                        }
+                    }
+                }
+                i += 2;
+            }
+            let (text, code) = rlt_cli::prove::prove_report(
+                &root,
+                &root.join(&args[1]),
+                &overrides,
+                out.as_deref(),
+            );
+            print!("{text}");
+            code
+        }
+        Some("discover") if args.len() == 3 && args[1] == "--verify" => {
+            let (text, code) = rlt_cli::discover::verify(&root, &args[2]);
+            print!("{text}");
+            code
+        }
+        Some("discover") if args.len() >= 2 => {
+            let mut two_level = false;
+            let mut limit = None;
+            let mut i = 2;
+            while i < args.len() {
+                match (
+                    args[i].as_str(),
+                    args.get(i + 1).map(|v| v.parse::<usize>()),
+                ) {
+                    ("--two-level", _) => {
+                        two_level = true;
+                        i += 1;
+                    }
+                    ("--limit", Some(Ok(n))) => {
+                        limit = Some(n);
+                        i += 2;
+                    }
+                    _ => {
+                        eprintln!("{USAGE}");
+                        return MALFORMED;
+                    }
+                }
+            }
+            let (text, code) = rlt_cli::discover::discover(&root, &args[1], two_level, limit);
+            print!("{text}");
+            code
+        }
         Some("residues") if args.len() == 2 => {
             let r = rlt_cli::residues::residues_report(&root, &root.join(&args[1]));
             print!("{}", r.text);

@@ -1,0 +1,7 @@
+; RLT prover: a universal arithmetic identity provable in Q without induction.
+(rlt-goal
+  (id P10.plus_two)
+  (convention NAT-LOGIC)
+  (goal "∀x. x + 2 = x + 1 + 1")
+  (mode unconditional)
+  (axioms ROBINSON-Q))

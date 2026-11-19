@@ -1,0 +1,9 @@
+; RLT prover, not found: 2 + 2 = 5 is false; search failure is still reported
+; as NOT_FOUND_WITHIN_BOUNDS, not as a disproof.
+(rlt-goal
+  (id N2.false_equation)
+  (convention NAT-LOGIC)
+  (goal "2 + 2 = 5")
+  (mode unconditional)
+  (axioms ROBINSON-Q)
+  (bounds (depth 2) (budget 2000)))

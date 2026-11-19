@@ -1,0 +1,9 @@
+; RLT prover, not found: ∀x. 0 + x = x is true in ℕ but unprovable in Robinson's Q
+; (it needs induction). The prover must report NOT_FOUND_WITHIN_BOUNDS, never "false".
+(rlt-goal
+  (id N1.zero_plus)
+  (convention NAT-LOGIC)
+  (goal "∀x. 0 + x = x")
+  (mode unconditional)
+  (axioms ROBINSON-Q)
+  (bounds (depth 2) (budget 2000)))

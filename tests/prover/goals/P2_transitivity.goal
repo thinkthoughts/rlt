@@ -1,0 +1,7 @@
+; RLT prover, Phase 3 goal 2: from a = b and b = c, prove a = c.
+(rlt-goal
+  (id P2.transitivity)
+  (convention NAT-LOGIC)
+  (goal "∀a. ∀b. ∀c. a = b ∧ b = c → a = c")
+  (mode unconditional)
+  (axioms ROBINSON-Q))
