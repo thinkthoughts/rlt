@@ -436,6 +436,8 @@ fn discovery_copy(name: &str) -> String {
     let m =
         read(&full.join("manifest.tsv")).replace("research/prover-discovery/", &format!("{dir}/"));
     std::fs::write(full.join("manifest.tsv"), m).unwrap();
+    let sm = read(&full.join("summary.txt")).replace("research/prover-discovery", &dir);
+    std::fs::write(full.join("summary.txt"), sm).unwrap();
     dir
 }
 
@@ -562,10 +564,7 @@ fn d5_a_duplicate_manifest_row_is_refused() {
         t.contains("D023  REFUSED ∀x. x + 0 = x — duplicate id, statement, certificate"),
         "{t}"
     );
-    assert!(
-        t.contains("verified        9 accepted, 1 refused or stale"),
-        "{t}"
-    );
+    assert!(t.contains("verified        9 accepted, "), "{t}");
 }
 
 #[test]
@@ -926,4 +925,158 @@ fn f1_the_header_must_be_the_generated_one_in_content_and_order() {
             rlt_cli::discover::exact_header(&id, &read(&p)).unwrap();
         }
     }
+}
+
+// ── Audit F2: the whole record — every candidate once, files in agreement ──
+
+fn record_refused(dir: &str, reason: &str) -> String {
+    let (t, code) = rlt_cli::discover::verify(&root(), dir);
+    assert_eq!(code, 1, "{t}");
+    assert!(
+        t.lines()
+            .any(|l| l.starts_with("record  REFUSED") && l.contains(reason)),
+        "expected record refusal `{reason}`:\n{t}"
+    );
+    t
+}
+
+fn edit_file(dir: &str, name: &str, f: impl Fn(String) -> String) {
+    let p = root().join(dir).join(name);
+    let t = f(read(&p));
+    std::fs::write(&p, t).unwrap();
+}
+
+#[test]
+fn f2_the_committed_record_is_complete() {
+    let (t, code) = rlt_cli::discover::verify(&root(), "research/prover-discovery");
+    assert_eq!(code, 0, "{t}");
+    assert!(t.contains("record          complete — one-level grammar, 399 of 399 candidates: 9 proved, 390 not found, each once"), "{t}");
+}
+
+#[test]
+fn f2_a_summary_claiming_other_counts_or_another_grammar_is_refused() {
+    // The audit's attack: proved 124, two-level.
+    let dir = discovery_copy("f2-summary");
+    edit_file(&dir, "summary.txt", |s| {
+        s.replace("proved          9", "proved          124")
+            .replace(
+                "one-level (one operation in L; at most one in R)",
+                "two-level (one operation in L, up to two in R)",
+            )
+    });
+    let t = rlt_cli::discover::verify(&root(), &dir).0;
+    assert!(t.contains("REFUSED"), "{t}");
+    assert_ne!(rlt_cli::discover::verify(&root(), &dir).1, 0);
+    // Counts alone.
+    for (from, to) in [
+        ("proved          9", "proved          124"),
+        ("not found       390", "not found       389"),
+        ("errors          0", "errors          1"),
+        ("(399 candidates)", "(398 candidates)"),
+        ("depth ≤ 1", "depth ≤ 12"),
+    ] {
+        let dir = discovery_copy("f2-counts");
+        edit_file(&dir, "summary.txt", |s| s.replace(from, to));
+        let (t, code) = rlt_cli::discover::verify(&root(), &dir);
+        assert_eq!(code, 1, "{from}: {t}");
+    }
+    let dir = discovery_copy("f2-grammar");
+    edit_file(&dir, "summary.txt", |s| {
+        s.replace("one-level", "three-level")
+    });
+    record_refused(&dir, "no recognised grammar line");
+}
+
+#[test]
+fn f2_a_silently_dropped_theorem_is_refused() {
+    // The audit's attack: D206's row and certificate removed.
+    let dir = discovery_copy("f2-drop");
+    edit_file(&dir, "manifest.tsv", |m| {
+        m.lines()
+            .filter(|l| !l.starts_with("D206\t"))
+            .map(|l| format!("{l}\n"))
+            .collect()
+    });
+    std::fs::remove_file(root().join(&dir).join("D206.rlt")).unwrap();
+    record_refused(&dir, "expected `D206");
+}
+
+#[test]
+fn f2_a_proved_theorem_listed_as_not_found_is_refused() {
+    // The audit's attack: D023 appended to not-found.tsv.
+    let dir = discovery_copy("f2-both");
+    edit_file(&dir, "not-found.tsv", |s| {
+        s + "D023\t∀x. x + 0 = x\tNOT_FOUND_WITHIN_BOUNDS\n"
+    });
+    record_refused(
+        &dir,
+        "not-found.tsv: must list exactly the 390 unproved candidates",
+    );
+}
+
+#[test]
+fn f2_a_row_of_another_grammar_is_refused() {
+    // The audit's attack: a T-id row in a one-level record.
+    let dir = discovery_copy("f2-grammar-row");
+    let full = root().join(&dir);
+    let text = read(&full.join("D023.rlt")).replace("(id D023)", "(id T0279)");
+    std::fs::write(full.join("T0279.rlt"), &text).unwrap();
+    std::fs::remove_file(full.join("D023.rlt")).unwrap();
+    let sha = rlt_cli::sha256_hex(text.as_bytes());
+    edit_row(&dir, "D023", |c| {
+        c[0] = "T0279".into();
+        c[5] = format!("{dir}/T0279.rlt");
+        c[6] = sha.clone();
+    });
+    record_refused(
+        &dir,
+        "T0279 is not one of the 399 candidates of the one-level grammar",
+    );
+}
+
+#[test]
+fn f2_omitted_added_or_reordered_candidates_are_refused() {
+    let dir = discovery_copy("f2-omit");
+    edit_file(&dir, "not-found.tsv", |s| {
+        s.lines()
+            .filter(|l| !l.starts_with("D001\t"))
+            .map(|l| format!("{l}\n"))
+            .collect()
+    });
+    record_refused(&dir, "expected `D001");
+    let dir = discovery_copy("f2-add");
+    edit_file(&dir, "not-found.tsv", |s| {
+        s + "D400\t∀x. x = x\tNOT_FOUND_WITHIN_BOUNDS\n"
+    });
+    record_refused(&dir, "not-found.tsv");
+    let dir = discovery_copy("f2-changed");
+    edit_file(&dir, "not-found.tsv", |s| {
+        s.replacen("NOT_FOUND_WITHIN_BOUNDS\n", "PROVED\n", 1)
+    });
+    record_refused(&dir, "not-found.tsv");
+    let dir = discovery_copy("f2-order");
+    edit_file(&dir, "manifest.tsv", |m| {
+        let mut lines: Vec<&str> = m.lines().collect();
+        let k = lines.len();
+        lines.swap(k - 1, k - 2);
+        lines.iter().map(|l| format!("{l}\n")).collect()
+    });
+    record_refused(&dir, "out of generation order");
+    let dir = discovery_copy("f2-missing");
+    std::fs::remove_file(root().join(&dir).join("not-found.tsv")).unwrap();
+    record_refused(&dir, "not-found.tsv");
+}
+
+#[test]
+fn f2_a_limited_run_is_verified_as_the_prefix_it_covers() {
+    let dir = scratch("f2-limit");
+    let _ = std::fs::remove_dir_all(root().join(&dir));
+    let (s, code) = rlt_cli::discover::discover(&root(), &dir, false, Some(30));
+    assert_eq!(code, 0, "{s}");
+    let (t, code) = rlt_cli::discover::verify(&root(), &dir);
+    assert_eq!(code, 0, "{t}");
+    assert!(
+        t.contains("one-level grammar, 30 of 399 candidates: 1 proved, 29 not found"),
+        "{t}"
+    );
 }

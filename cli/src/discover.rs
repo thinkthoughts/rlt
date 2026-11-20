@@ -118,6 +118,138 @@ pub fn stale_certificates(dir: &Path) -> Result<Vec<std::path::PathBuf>, String>
     Ok(out)
 }
 
+/// The first lines of `not-found.tsv`.
+pub const NOT_FOUND_HEADER: &str = "# Candidates without a proof within the discovery bounds. NOT_FOUND_WITHIN_BOUNDS\n# says nothing about truth: some are true in ℕ but need induction, some are false.\n";
+
+const ONE_LEVEL: &str = "one-level (one operation in L; at most one in R)";
+const TWO_LEVEL: &str = "two-level (one operation in L, up to two in R)";
+
+/// `summary.txt`, exactly as `discover` writes it.
+pub fn summary_text(
+    out_dir: &str,
+    two_level: bool,
+    candidates: usize,
+    proved: usize,
+    not_found: usize,
+    errors: usize,
+) -> String {
+    format!(
+        "RLT discover    {out_dir}\ngrammar         {} — ∀x. L = R over x, 0, 1, 2 ({candidates} candidates)\naxiom set       {AXIOM_SET}\nbounds          {}\nproved          {proved} (certificates replayed and accepted by the kernel; listed in manifest.tsv)\nnot found       {not_found} (listed in not-found.tsv; no claim about their truth)\nerrors          {errors}\n",
+        if two_level { TWO_LEVEL } else { ONE_LEVEL },
+        discovery_bounds().describe()
+    )
+}
+
+/// Audit F2: the record as a whole. The summary names the grammar and the
+/// number N of candidates (the first N of that grammar, N = all of them
+/// unless `--limit` was used); every one of them appears exactly once, in
+/// generation order, either in the manifest (proved) or in not-found.tsv;
+/// no other row exists; the summary's counts are those of the two lists and
+/// it reports no errors; and both files are byte for byte what `discover`
+/// writes for that outcome. `rows` are the manifest's data rows.
+fn check_record(root: &Path, out_dir: &str, manifest: &str) -> Result<String, Vec<String>> {
+    let mut bad = Vec::new();
+    let dir = root.join(out_dir);
+    let summary = std::fs::read_to_string(dir.join("summary.txt"))
+        .map_err(|e| vec![format!("summary.txt: {}", e.kind())])?;
+    let not_found = std::fs::read_to_string(dir.join("not-found.tsv"))
+        .map_err(|e| vec![format!("not-found.tsv: {}", e.kind())])?;
+    let grammar_line = summary.lines().nth(1).unwrap_or("");
+    let two_level = if grammar_line.starts_with(&format!("grammar         {ONE_LEVEL} ")) {
+        false
+    } else if grammar_line.starts_with(&format!("grammar         {TWO_LEVEL} ")) {
+        true
+    } else {
+        return Err(vec!["summary.txt: no recognised grammar line".into()]);
+    };
+    let all = candidates(two_level);
+    let n: usize = grammar_line
+        .rsplit_once('(')
+        .and_then(|(_, r)| r.strip_suffix(" candidates)"))
+        .and_then(|k| k.parse().ok())
+        .filter(|&k| k <= all.len() && k > 0)
+        .ok_or_else(|| {
+            vec![format!(
+                "summary.txt: the candidate count must be 1 … {}",
+                all.len()
+            )]
+        })?;
+    // Manifest rows: ids of this grammar, within the first n, in order.
+    let mut proved = std::collections::BTreeSet::new();
+    let mut last: Option<usize> = None;
+    let expected_head = format!(
+        "# RLT theorem discovery manifest. Every row is a kernel-replayed certificate.\n# {MANIFEST_COLUMNS}\n"
+    );
+    if !manifest.starts_with(&expected_head) {
+        bad.push("manifest.tsv: the two header lines differ from the generated ones".into());
+    }
+    for line in manifest
+        .lines()
+        .filter(|l| !l.starts_with('#') && !l.is_empty())
+    {
+        let id = line.split('\t').next().unwrap_or("");
+        match (0..n).find(|&i| discovery_id(two_level, i) == id) {
+            None => bad.push(format!(
+                "manifest.tsv: {id} is not one of the {n} candidates of the {} grammar",
+                if two_level { "two-level" } else { "one-level" }
+            )),
+            Some(i) => {
+                if last.is_some_and(|l| l >= i) {
+                    bad.push(format!("manifest.tsv: {id} is out of generation order"));
+                }
+                last = Some(i);
+                proved.insert(i);
+            }
+        }
+    }
+    let mut expected_nf = String::from(NOT_FOUND_HEADER);
+    for (i, st) in all.iter().enumerate().take(n) {
+        if !proved.contains(&i) {
+            let _ = writeln!(
+                expected_nf,
+                "{}\t{st}\tNOT_FOUND_WITHIN_BOUNDS",
+                discovery_id(two_level, i)
+            );
+        }
+    }
+    if not_found != expected_nf {
+        // Name the first difference.
+        let exp: Vec<&str> = expected_nf.lines().collect();
+        let got: Vec<&str> = not_found.lines().collect();
+        let k = exp
+            .iter()
+            .zip(&got)
+            .position(|(a, b)| a != b)
+            .unwrap_or(exp.len().min(got.len()));
+        bad.push(format!(
+            "not-found.tsv: must list exactly the {} unproved candidates once each, in order; first difference at line {}: expected `{}`, found `{}`",
+            n - proved.len(),
+            k + 1,
+            exp.get(k).copied().unwrap_or("(end of file)"),
+            got.get(k).copied().unwrap_or("(end of file)")
+        ));
+    }
+    let expected_summary = summary_text(out_dir, two_level, n, proved.len(), n - proved.len(), 0);
+    if summary != expected_summary {
+        bad.push(format!(
+            "summary.txt: must state the grammar, {n} candidates, {} proved, {} not found, 0 errors and the discovery bounds for {out_dir}",
+            proved.len(),
+            n - proved.len()
+        ));
+    }
+    if bad.is_empty() {
+        Ok(format!(
+            "record          complete — {} grammar, {n} of {} candidates: {} proved, {} not found, each once",
+            if two_level { "two-level" } else { "one-level" },
+            all.len(),
+            proved.len(),
+            n - proved.len()
+        ))
+    } else {
+        Err(bad)
+    }
+}
+
 /// Run discovery, writing certificates and a manifest under `out_dir`
 /// (repository-relative). Returns the summary text and an exit code.
 pub fn discover(
@@ -168,9 +300,7 @@ pub fn discover(
     let mut manifest = format!(
         "# RLT theorem discovery manifest. Every row is a kernel-replayed certificate.\n# {MANIFEST_COLUMNS}\n"
     );
-    let mut not_found = String::from(
-        "# Candidates without a proof within the discovery bounds. NOT_FOUND_WITHIN_BOUNDS\n# says nothing about truth: some are true in ℕ but need induction, some are false.\n",
-    );
+    let mut not_found = String::from(NOT_FOUND_HEADER);
     let (mut proved, mut nf, mut err) = (0usize, 0usize, 0usize);
     for (i, st) in cands.iter().enumerate() {
         let id = discovery_id(two_level, i);
@@ -202,12 +332,7 @@ pub fn discover(
             }
         }
     }
-    let summary = format!(
-        "RLT discover    {out_dir}\ngrammar         {} — ∀x. L = R over x, 0, 1, 2 ({} candidates)\naxiom set       {AXIOM_SET}\nbounds          {}\nproved          {proved} (certificates replayed and accepted by the kernel; listed in manifest.tsv)\nnot found       {nf} (listed in not-found.tsv; no claim about their truth)\nerrors          {err}\n",
-        if two_level { "two-level (one operation in L, up to two in R)" } else { "one-level (one operation in L; at most one in R)" },
-        cands.len(),
-        b.describe()
-    );
+    let summary = summary_text(out_dir, two_level, cands.len(), proved, nf, err);
     for (name, body) in [
         ("manifest.tsv", &manifest),
         ("not-found.tsv", &not_found),
@@ -525,6 +650,17 @@ pub fn verify(root: &Path, out_dir: &str) -> (String, i32) {
             if !listed.contains(&name) {
                 bad += 1;
                 let _ = writeln!(t, "{name}  UNLISTED — a discovery certificate in {out_dir} that no manifest row lists");
+            }
+        }
+    }
+    match check_record(root, out_dir, &text) {
+        Ok(line) => {
+            let _ = writeln!(t, "{line}");
+        }
+        Err(problems) => {
+            for p in problems {
+                bad += 1;
+                let _ = writeln!(t, "record  REFUSED — {p}");
             }
         }
     }
