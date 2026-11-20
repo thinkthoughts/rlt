@@ -601,7 +601,8 @@ fn d5_certificate_paths_cannot_escape_the_discovery_directory() {
 fn d5_inconsistent_metadata_is_refused_although_the_kernel_accepts() {
     // Each certificate still passes plain `rlt check`; only the row is wrong.
     for (id, col, val, reason) in [
-        ("D023", 0usize, "D999", "certificate path"),
+        ("D023", 0usize, "D999", "is not a discovery id"),
+        ("D023", 0usize, "D024", "certificate path"),
         ("D023", 1, "∀x. x + 0 = 0 + x", "statement: manifest says"),
         (
             "D023",
@@ -741,4 +742,73 @@ fn k8_discover_refuses_a_directory_holding_other_files_of_those_names() {
     assert!(t.contains("was not written by this command"), "{t}");
     assert_eq!(read(&full.join("summary.txt")), "my own notes\n");
     assert!(!full.join("D001.rlt").exists() && !full.join("manifest.tsv").exists());
+}
+
+// ── Audit D6: an id names one statement in one grammar ─────────────────────
+
+#[test]
+fn d6_ids_name_one_candidate_of_one_grammar() {
+    use rlt_cli::discover::{candidates, discovery_id, statement_for_id};
+    let one = candidates(false);
+    let two = candidates(true);
+    assert_eq!((one.len(), two.len()), (399, 3983));
+    // The committed one-level ids are unchanged.
+    assert_eq!(
+        statement_for_id("D243").as_deref(),
+        Some("∀x. x × 1 = 0 + x")
+    );
+    assert_eq!(statement_for_id("D023").as_deref(), Some("∀x. x + 0 = x"));
+    // Every id of both grammars is distinct and names its own statement.
+    let mut ids = std::collections::BTreeSet::new();
+    for (two_level, list) in [(false, &one), (true, &two)] {
+        for (i, st) in list.iter().enumerate() {
+            let id = discovery_id(two_level, i);
+            assert!(ids.insert(id.clone()), "{id} reused");
+            assert_eq!(statement_for_id(&id).as_ref(), Some(st), "{id}");
+        }
+    }
+    // The same statement has different ids in the two grammars, never the same id.
+    let t = two.iter().position(|s| s == "∀x. x × 1 = 0 + x").unwrap();
+    assert_eq!(discovery_id(true, t), "T2547");
+    for bad in [
+        "D000", "D400", "D0243", "D24", "T243", "T0000", "T3984", "X001", "D", "Dx01",
+    ] {
+        assert_eq!(statement_for_id(bad), None, "{bad}");
+    }
+}
+
+#[test]
+fn d6_two_level_discovery_writes_t_ids_that_verify() {
+    let dir = scratch("d6-two-level");
+    let _ = std::fs::remove_dir_all(root().join(&dir));
+    let (summary, code) = rlt_cli::discover::discover(&root(), &dir, true, Some(300));
+    assert_eq!(code, 0, "{summary}");
+    let m = read(&root().join(&dir).join("manifest.tsv"));
+    let rows: Vec<&str> = m.lines().filter(|l| !l.starts_with('#')).collect();
+    assert!(!rows.is_empty());
+    assert!(rows.iter().all(|r| r.starts_with('T')), "{m}");
+    let (t, code) = rlt_cli::discover::verify(&root(), &dir);
+    assert_eq!(code, 0, "{t}");
+}
+
+#[test]
+fn d6_a_row_relabelled_with_another_valid_id_is_refused() {
+    // Move D023's certificate to D024's name, with a matching header: the
+    // kernel accepts it, the path rule holds, but D024 names another statement.
+    let dir = discovery_copy("relabel");
+    let full = root().join(&dir);
+    let text = read(&full.join("D023.rlt")).replace("(id D023)", "(id D024)");
+    std::fs::write(full.join("D024.rlt"), &text).unwrap();
+    let sha = rlt_cli::sha256_hex(text.as_bytes());
+    edit_row(&dir, "D023", |c| {
+        c[0] = "D024".into();
+        c[5] = format!("{dir}/D024.rlt");
+        c[6] = sha.clone();
+    });
+    assert_eq!(check_file(&root(), &full.join("D024.rlt")).code, ACCEPT);
+    refused(
+        &dir,
+        "D024",
+        "the id D024 names the candidate `∀x. x + 0 = 0`, not `∀x. x + 0 = x`",
+    );
 }

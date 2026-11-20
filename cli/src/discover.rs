@@ -129,7 +129,7 @@ pub fn discover(
     );
     let (mut proved, mut nf, mut err) = (0usize, 0usize, 0usize);
     for (i, st) in cands.iter().enumerate() {
-        let id = format!("D{:03}", i + 1);
+        let id = discovery_id(two_level, i);
         let src = goal_source(&id, st, &b);
         let cert = format!("{out_dir}/{id}.rlt");
         let r = prove_source(root, &src, &[], Some(Path::new(&cert)));
@@ -261,6 +261,14 @@ fn check_row(root: &Path, out_dir: &str, cols: &[&str]) -> Result<(), String> {
     );
     want("steps", steps, &pf.steps.len().to_string());
     want("axioms used", axioms_used, &axioms_column(th));
+    // Audit D6: the id names its candidate; the statement must be that one.
+    if let Some(named) = statement_for_id(id) {
+        if named != *statement {
+            wrong.push(format!(
+                "the id {id} names the candidate `{named}`, not `{statement}`"
+            ));
+        }
+    }
     // The current discovery workflow: unconditional ROBINSON-Q theorems with
     // Γ = ∅, convention NAT-LOGIC, no citations.
     if pf.axiom_set != AXIOM_SET {
@@ -298,10 +306,37 @@ fn check_row(root: &Path, out_dir: &str, cols: &[&str]) -> Result<(), String> {
     }
 }
 
-/// `D` followed by decimal digits.
+/// Audit D6: a discovery id names one candidate of one grammar. One-level
+/// candidates are `D` + 3 digits (the committed ids, unchanged); two-level
+/// candidates are `T` + 4 digits, so an id never means different statements
+/// in different grammars.
+pub fn discovery_id(two_level: bool, index: usize) -> String {
+    if two_level {
+        format!("T{:04}", index + 1)
+    } else {
+        format!("D{:03}", index + 1)
+    }
+}
+
+/// The candidate an id names: its grammar from the prefix, its position
+/// from the number. `None` for anything that `discovery_id` cannot produce.
+pub fn statement_for_id(id: &str) -> Option<String> {
+    let (two_level, digits) = match id.split_at_checked(1)? {
+        ("D", n) => (false, n),
+        ("T", n) => (true, n),
+        _ => return None,
+    };
+    if !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    let i: usize = digits.parse().ok()?;
+    let st = candidates(two_level).get(i.checked_sub(1)?)?.clone();
+    (discovery_id(two_level, i - 1) == id).then_some(st)
+}
+
+/// An id `discovery_id` produces for some candidate.
 pub fn is_discovery_id(id: &str) -> bool {
-    id.strip_prefix('D')
-        .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+    statement_for_id(id).is_some()
 }
 
 /// `rlt discover --verify DIR`: every manifest row is re-hashed, its

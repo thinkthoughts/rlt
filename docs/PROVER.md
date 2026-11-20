@@ -136,6 +136,8 @@ Measured results:
 | one-level (default; committed in `research/prover-discovery/`) | 399 | 9 | 390 | 1.6 s |
 | two-level (`--two-level`, R may have two operations) | 3983 | 124 | 3859 | 15.6 s |
 
+Ids name one candidate of one grammar (audit D6): one-level candidates are `D001`…`D399` (the committed ids), two-level candidates `T0001`…`T3983`. `--verify` refuses an id that names a different statement, so `D243` always means `∀x. x × 1 = 0 + x`; the same statement is `T2547` in the two-level grammar.
+
 The nine committed theorems: `∀x. x + 0 = x`, `∀x. x × 0 = 0`, `∀x. x × 0 = 0 + 0`, `∀x. x × 0 = 0 × 0`, `∀x. x × 0 = 0 × 1`, `∀x. x × 0 = 0 × 2`, `∀x. x × 0 = 1 × 0`, `∀x. x × 0 = 2 × 0`, `∀x. x × 1 = 0 + x`. The last is a small illustration of Robinson's Q: RLT proves `x × 1 = 0 + x` but reports `x × 1 = x` and `0 + x = x` as not found — both are true in ℕ and both need induction, which Q lacks. The not-found list mixes such statements with false ones (`∀x. x × 0 = 1`), and the report keeps them in one category on purpose: the search has established nothing about them.
 
 ## 5. Phase 5 — adversarial verification
