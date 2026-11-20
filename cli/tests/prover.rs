@@ -1223,3 +1223,95 @@ fn f4_discover_never_writes_into_a_directory_holding_committed_files() {
     }
     assert_eq!(rlt_cli::discover::verify(&root(), &d).1, 0);
 }
+
+// ── Audit RLT-PROVER-001: the manifest is exactly what discovery writes ────
+
+/// Every row still verifies, so the refusal comes from the record check alone.
+fn manifest_refused(dir: &str) {
+    let t = record_refused(
+        dir,
+        "manifest.tsv: must be exactly the two generated header lines",
+    );
+    assert!(t.contains("verified        9 accepted, "), "{t}");
+}
+
+#[test]
+fn prover001_the_committed_manifest_is_its_canonical_serialization() {
+    let m = read(&root().join("research/prover-discovery/manifest.tsv"));
+    assert!(m.ends_with('\n') && !m.contains('\r') && !m.contains("\n\n"));
+    assert_eq!(m.lines().filter(|l| l.starts_with('#')).count(), 2);
+}
+
+#[test]
+fn prover001_an_injected_manifest_comment_is_refused() {
+    // The audit's variant 1: a comment after the header claiming a result.
+    let dir = discovery_copy("p001-comment");
+    edit_file(&dir, "manifest.tsv", |m| {
+        let (head, rows) = m.split_at(m.match_indices('\n').nth(1).unwrap().0 + 1);
+        format!("{head}# NOTE: D243 also establishes ∀x. x × 1 = x (verified in Lean)\n{rows}")
+    });
+    manifest_refused(&dir);
+    // Between rows, too.
+    let dir = discovery_copy("p001-comment-mid");
+    edit_file(&dir, "manifest.tsv", |m| {
+        m.replacen("\nD206\t", "\n# reviewed\nD206\t", 1)
+    });
+    manifest_refused(&dir);
+}
+
+#[test]
+fn prover001_a_fabricated_proved_line_for_a_not_found_candidate_is_refused() {
+    // The audit's variant 2: a PROVED claim for a candidate that not-found.tsv
+    // still lists, appended to an otherwise valid manifest.
+    let dir = discovery_copy("p001-proved");
+    let nf = read(&root().join(&dir).join("not-found.tsv"));
+    let d010 = nf
+        .lines()
+        .find(|l| l.starts_with("D010\t"))
+        .expect("D010 is listed as not found");
+    let statement = d010.split('\t').nth(1).unwrap().to_string();
+    edit_file(&dir, "manifest.tsv", |m| {
+        m + &format!("# D010\t{statement}\tPROVED — kernel-replayed, see Lean companion\n")
+    });
+    manifest_refused(&dir);
+    // A false equation claimed the same way.
+    let dir = discovery_copy("p001-false");
+    edit_file(&dir, "manifest.tsv", |m| {
+        m + "# D010\t∀x. x + x = 1 + 2\tPROVED\n"
+    });
+    manifest_refused(&dir);
+}
+
+#[test]
+fn prover001_extra_blank_lines_are_refused() {
+    // The audit's variant 3: trailing blank lines; also one between rows.
+    let dir = discovery_copy("p001-blank");
+    edit_file(&dir, "manifest.tsv", |m| m + "\n\n");
+    manifest_refused(&dir);
+    let dir = discovery_copy("p001-blank-mid");
+    edit_file(&dir, "manifest.tsv", |m| {
+        m.replacen("\nD206\t", "\n\nD206\t", 1)
+    });
+    manifest_refused(&dir);
+}
+
+#[test]
+fn prover001_altered_line_endings_are_refused() {
+    // CRLF throughout.
+    let dir = discovery_copy("p001-crlf");
+    edit_file(&dir, "manifest.tsv", |m| m.replace('\n', "\r\n"));
+    let (t, code) = rlt_cli::discover::verify(&root(), &dir);
+    assert_eq!(code, 1, "{t}");
+    // CRLF on one data row only.
+    let dir = discovery_copy("p001-crlf-row");
+    edit_file(&dir, "manifest.tsv", |m| {
+        m.replacen("\nD206\t", "\r\nD206\t", 1)
+    });
+    manifest_refused(&dir);
+    // The final row without its newline.
+    let dir = discovery_copy("p001-no-eol");
+    edit_file(&dir, "manifest.tsv", |m| {
+        m.trim_end_matches('\n').to_string()
+    });
+    manifest_refused(&dir);
+}

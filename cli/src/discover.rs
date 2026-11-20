@@ -202,6 +202,35 @@ fn check_record(root: &Path, out_dir: &str, manifest: &str) -> Result<String, Ve
             }
         }
     }
+    // Audit RLT-PROVER-001: the manifest is exactly the serialization
+    // `discover` writes — the two header lines, then one `\n`-terminated
+    // row per proved candidate. Each row's ten columns are checked against
+    // its replayed certificate by `check_row`; here the file as a whole must
+    // hold those rows and nothing else. A further comment (such as a PROVED
+    // claim), a blank line or a `\r\n` line ending is refused.
+    let mut canonical = expected_head.clone();
+    for line in manifest
+        .lines()
+        .filter(|l| !l.starts_with('#') && !l.is_empty())
+    {
+        canonical.push_str(line);
+        canonical.push('\n');
+    }
+    if manifest != canonical {
+        let exp: Vec<&str> = canonical.split_inclusive('\n').collect();
+        let got: Vec<&str> = manifest.split_inclusive('\n').collect();
+        let k = exp
+            .iter()
+            .zip(&got)
+            .position(|(a, b)| a != b)
+            .unwrap_or(exp.len().min(got.len()));
+        bad.push(format!(
+            "manifest.tsv: must be exactly the two generated header lines and one `\\n`-terminated row per proved candidate; first difference at line {}: expected {:?}, found {:?}",
+            k + 1,
+            exp.get(k).copied().unwrap_or("(end of file)"),
+            got.get(k).copied().unwrap_or("(end of file)")
+        ));
+    }
     let mut expected_nf = String::from(NOT_FOUND_HEADER);
     for (i, st) in all.iter().enumerate().take(n) {
         if !proved.contains(&i) {
