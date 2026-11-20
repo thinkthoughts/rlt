@@ -647,3 +647,26 @@ fn d5_inconsistent_metadata_is_refused_although_the_kernel_accepts() {
     assert_eq!(code, 1, "{t}");
     assert!(t.contains("column header"), "{t}");
 }
+
+// ── Audit K9: the bytes hashed are the bytes replayed ──────────────────────
+
+#[test]
+fn k9_the_reported_hash_is_of_the_replayed_certificate_bytes() {
+    for g in goals("tests/prover/goals") {
+        let tag = format!("k9-{}", g.file_stem().unwrap().to_string_lossy());
+        let (r, out) = run(&g, &tag);
+        let Verdict::Proved { sha256, .. } = &r.verdict else {
+            panic!("{tag}");
+        };
+        let bytes = std::fs::read(root().join(&out)).unwrap();
+        assert_eq!(*sha256, rlt_cli::sha256_hex(&bytes), "{tag}");
+        assert!(std::str::from_utf8(&bytes).is_ok(), "{tag}");
+        assert_eq!(
+            rlt_cli::check_bytes_outcome(&root(), &root().join(&out), bytes)
+                .report
+                .code,
+            ACCEPT,
+            "{tag}"
+        );
+    }
+}

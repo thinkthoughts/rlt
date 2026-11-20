@@ -1704,7 +1704,8 @@ fn certificate(
 
 /// The single gate to `PROVED`: a certificate counts only if its header
 /// states exactly the goal file's fields and the kernel replay of its bytes,
-/// through the function `rlt check` uses, accepts.
+/// through the function `rlt check` uses, accepts. `cert.as_bytes()` is what
+/// is replayed; callers hash the same bytes.
 pub fn certify(
     root: &Path,
     goal: &GoalFile,
@@ -1834,7 +1835,18 @@ pub fn prove_source(
             return res;
         }
     };
-    let text = String::from_utf8_lossy(&bytes).to_string();
+    // The bytes hashed are the bytes replayed (audit K9): no lossy decoding,
+    // so `text.as_bytes()` is exactly `bytes`.
+    let text = match String::from_utf8(bytes.clone()) {
+        Ok(t) => t,
+        Err(_) => {
+            res.verdict = Verdict::Error(
+                "certificate refused; nothing is claimed: the bytes read back are not UTF-8".into(),
+            );
+            return res;
+        }
+    };
+    debug_assert_eq!(text.as_bytes(), bytes.as_slice());
     match certify(root, &goal, &full, &text) {
         Ok((theorem, replay_report)) => {
             res.verdict = Verdict::Proved {
