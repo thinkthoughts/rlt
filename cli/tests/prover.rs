@@ -670,3 +670,75 @@ fn k9_the_reported_hash_is_of_the_replayed_certificate_bytes() {
         );
     }
 }
+
+// ── Audit K8: outputs never overwrite files the tool did not write ─────────
+
+#[test]
+fn k8_prove_refuses_to_overwrite_a_file_it_did_not_write() {
+    let dir = scratch("k8");
+    let full = root().join(&dir);
+    let _ = std::fs::remove_dir_all(&full);
+    std::fs::create_dir_all(&full).unwrap();
+    // A stand-in for a tracked source file (the audit used spec/robinson-q.rlt).
+    let victim = full.join("axioms.rlt");
+    let original =
+        "; Registered axioms (stand-in)\n(axiom add_zero (x) (= (+ x 0) x) (source S))\n";
+    std::fs::write(&victim, original).unwrap();
+    let g = root().join("tests/prover/goals/P1_symmetry.goal");
+    let r = prove_source(
+        &root(),
+        &read(&g),
+        &[],
+        Some(Path::new(&format!("{dir}/axioms.rlt"))),
+    );
+    let Verdict::Error(e) = &r.verdict else {
+        panic!("expected ERROR");
+    };
+    assert!(e.contains("was not written by this command"), "{e}");
+    assert_eq!(read(&victim), original, "the file is untouched");
+    // A certificate the prover wrote earlier may be replaced (reruns stay possible).
+    let out = format!("{dir}/P1.rlt");
+    for _ in 0..2 {
+        let r = prove_source(&root(), &read(&g), &[], Some(Path::new(&out)));
+        assert!(matches!(r.verdict, Verdict::Proved { .. }));
+    }
+    // A symlink is never followed.
+    #[cfg(unix)]
+    {
+        let link = full.join("link.rlt");
+        std::os::unix::fs::symlink(&victim, &link).unwrap();
+        let r = prove_source(
+            &root(),
+            &read(&g),
+            &[],
+            Some(Path::new(&format!("{dir}/link.rlt"))),
+        );
+        assert!(matches!(r.verdict, Verdict::Error(_)));
+        assert_eq!(read(&victim), original);
+    }
+    // The committed pinned axiom file is refused outright, before any write.
+    let pinned = root().join("spec/robinson-q.rlt");
+    let before = std::fs::read(&pinned).unwrap();
+    let r = prove_source(
+        &root(),
+        &read(&g),
+        &[],
+        Some(Path::new("spec/robinson-q.rlt")),
+    );
+    assert!(matches!(r.verdict, Verdict::Error(_)));
+    assert_eq!(std::fs::read(&pinned).unwrap(), before);
+}
+
+#[test]
+fn k8_discover_refuses_a_directory_holding_other_files_of_those_names() {
+    let dir = scratch("k8-discover");
+    let full = root().join(&dir);
+    let _ = std::fs::remove_dir_all(&full);
+    std::fs::create_dir_all(&full).unwrap();
+    std::fs::write(full.join("summary.txt"), "my own notes\n").unwrap();
+    let (t, code) = rlt_cli::discover::discover(&root(), &dir, false, Some(5));
+    assert_eq!(code, 2, "{t}");
+    assert!(t.contains("was not written by this command"), "{t}");
+    assert_eq!(read(&full.join("summary.txt")), "my own notes\n");
+    assert!(!full.join("D001.rlt").exists() && !full.join("manifest.tsv").exists());
+}

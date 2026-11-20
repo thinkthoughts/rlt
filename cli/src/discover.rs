@@ -66,6 +66,16 @@ pub fn candidates(two_level: bool) -> Vec<String> {
 
 pub const AXIOM_SET: &str = "ROBINSON-Q";
 
+/// The discovery directory's own files and the first bytes each begins with.
+pub const OUTPUT_MARKERS: [(&str, &str); 3] = [
+    ("manifest.tsv", "# RLT theorem discovery manifest."),
+    (
+        "not-found.tsv",
+        "# Candidates without a proof within the discovery bounds.",
+    ),
+    ("summary.txt", "RLT discover "),
+];
+
 /// The bounds every candidate is searched with.
 pub fn discovery_bounds() -> Bounds {
     Bounds {
@@ -98,6 +108,13 @@ pub fn discover(
             format!("rlt discover: cannot create {out_dir}: {}\n", e.kind()),
             2,
         );
+    }
+    // Audit K8: only files an earlier discovery run wrote are replaced;
+    // checked before any certificate is written.
+    for (name, marker) in OUTPUT_MARKERS {
+        if let Err(e) = crate::prove::may_overwrite(&dir.join(name), marker) {
+            return (format!("rlt discover: {e}\n"), 2);
+        }
     }
     let b = discovery_bounds();
     let mut cands = candidates(two_level);
