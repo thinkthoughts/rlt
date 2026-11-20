@@ -1,0 +1,10 @@
+; RLT prover, not found: the goal follows only from the declared assumption, and
+; the mode is unconditional, so the assumption is not available (Γ must be ∅).
+(rlt-goal
+  (id N3.unconditional_needs_assumption)
+  (convention NAT-DEC)
+  (goal "2 × 3 = 7")
+  (mode unconditional)
+  (assume h "2 × 3 = 7")
+  (axioms PEANO-ADD)
+  (bounds (depth 1) (budget 500)))

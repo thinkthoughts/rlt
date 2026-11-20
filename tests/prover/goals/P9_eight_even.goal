@@ -1,0 +1,7 @@
+; RLT prover: an existential, by searching numeral witnesses.
+(rlt-goal
+  (id P9.eight_even)
+  (convention NAT-LOGIC)
+  (goal "∃k. 8 = 2 × k")
+  (mode unconditional)
+  (axioms ROBINSON-Q))

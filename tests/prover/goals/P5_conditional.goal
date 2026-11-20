@@ -1,0 +1,10 @@
+; RLT prover: declared assumptions, conditional mode. The prover may use h1
+; and h2 and nothing else; Γ of the result is reported.
+(rlt-goal
+  (id P5.conditional)
+  (convention NAT-DEC)
+  (goal "7 = 2 × 3 + 1")
+  (mode conditional)
+  (assume h1 "2 × 3 = 6")
+  (assume h2 "6 + 1 = 7")
+  (axioms PEANO-ADD))

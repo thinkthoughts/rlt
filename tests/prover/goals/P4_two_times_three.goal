@@ -1,0 +1,7 @@
+; RLT prover, Phase 3 goal 4: a small arithmetic proposition under Robinson's Q.
+(rlt-goal
+  (id P4.two_times_three)
+  (convention NAT-LOGIC)
+  (goal "2 × 3 + 1 = 7")
+  (mode unconditional)
+  (axioms ROBINSON-Q))

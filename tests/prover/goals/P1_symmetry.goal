@@ -1,0 +1,8 @@
+; RLT prover, Phase 3 goal 1: from a = b, prove b = a. No proof is supplied.
+; Free letters are closed by ∀ (RLT goals are closed); the assumption is the antecedent.
+(rlt-goal
+  (id P1.symmetry)
+  (convention NAT-LOGIC)
+  (goal "∀a. ∀b. a = b → b = a")
+  (mode unconditional)
+  (axioms ROBINSON-Q))

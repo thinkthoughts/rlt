@@ -1,0 +1,11 @@
+# RLT theorem discovery manifest. Every row is a kernel-replayed certificate.
+# id	statement	axiom_set	mode	assumptions	certificate	sha256	steps	depth	axioms_used
+D023	∀x. x + 0 = x	ROBINSON-Q	unconditional	∅	research/prover-discovery/D023.rlt	475f33bc2f40a86a31ef13b1f22526895448890557196eebf5b7efc1d84c8fe6	2	0	add_zero
+D206	∀x. x × 0 = 0	ROBINSON-Q	unconditional	∅	research/prover-discovery/D206.rlt	15278cb40b000ddae6509a6def0389e7875540ab4a609e34ca1d530bb7b68dd7	2	0	mul_zero
+D214	∀x. x × 0 = 0 + 0	ROBINSON-Q	unconditional	∅	research/prover-discovery/D214.rlt	ffb4931429c2c20c694c492b6d692a19f07d0683944aeb71d1db37d7c8781c74	5	0	add_zero,mul_zero
+D226	∀x. x × 0 = 0 × 0	ROBINSON-Q	unconditional	∅	research/prover-discovery/D226.rlt	cba131434d841bc021bfc7fa77cd9b50648600046a7804441e577ffad1e6cf49	5	0	mul_zero
+D227	∀x. x × 0 = 0 × 1	ROBINSON-Q	unconditional	∅	research/prover-discovery/D227.rlt	3a53df362aaa9045d9925a1443c32a3a011f65e52b4d6aee74dde6243cec9f4b	11	0	add_zero,mul_succ,mul_zero
+D228	∀x. x × 0 = 0 × 2	ROBINSON-Q	unconditional	∅	research/prover-discovery/D228.rlt	14c0d6dfc4169bd1e501bdfd2551be29ca0370803345b62f54568e591a08c983	17	0	add_zero,mul_succ,mul_zero
+D229	∀x. x × 0 = 1 × 0	ROBINSON-Q	unconditional	∅	research/prover-discovery/D229.rlt	a3b9287f8d924084580e3f6c97039e0d3535e3ab7c20454b521e7de6fad8c9e2	5	0	mul_zero
+D232	∀x. x × 0 = 2 × 0	ROBINSON-Q	unconditional	∅	research/prover-discovery/D232.rlt	31eb5af7b4bfecd65c278375b600626269be16e766a416c9a9cd65f15744df9d	5	0	mul_zero
+D243	∀x. x × 1 = 0 + x	ROBINSON-Q	unconditional	∅	research/prover-discovery/D243.rlt	b7abfe04ba2b9bc13c3e5bf5ff9a0c3813a295b639ff2c44c25acab38ddf8c97	6	0	mul_succ,mul_zero

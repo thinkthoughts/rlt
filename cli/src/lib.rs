@@ -4,8 +4,10 @@
 
 pub mod compose;
 pub mod deps;
+pub mod discover;
 pub mod explain;
 pub mod gen;
+pub mod prove;
 pub mod residues;
 use rlt_kernel::{check, Axiom, Formula, Mode, Theorem, Verdict};
 use rlt_syntax::elab::{elaborate_formula, elaborate_term, Convention};
