@@ -18,7 +18,7 @@
 //! the search and never about the candidate's truth.
 
 use crate::prove::{prove_source, Bounds, Verdict};
-use crate::{check_file_outcome, sha256_hex, ACCEPT};
+use crate::{sha256_hex, ACCEPT};
 use std::fmt::Write as _;
 use std::path::Path;
 
@@ -104,8 +104,8 @@ pub fn discover(
     if let Some(n) = limit {
         cands.truncate(n);
     }
-    let mut manifest = String::from(
-        "# RLT theorem discovery manifest. Every row is a kernel-replayed certificate.\n# id\tstatement\taxiom_set\tmode\tassumptions\tcertificate\tsha256\tsteps\tdepth\taxioms_used\n",
+    let mut manifest = format!(
+        "# RLT theorem discovery manifest. Every row is a kernel-replayed certificate.\n# {MANIFEST_COLUMNS}\n"
     );
     let mut not_found = String::from(
         "# Candidates without a proof within the discovery bounds. NOT_FOUND_WITHIN_BOUNDS\n# says nothing about truth: some are true in ℕ but need induction, some are false.\n",
@@ -124,13 +124,11 @@ pub fn discover(
                 ..
             } => {
                 proved += 1;
-                let ax: Vec<&str> = theorem.axioms_used().keys().map(|s| s.as_str()).collect();
-                let _ =
-                    writeln!(
+                let _ = writeln!(
                     manifest,
                     "{id}\t{st}\t{AXIOM_SET}\tunconditional\t∅\t{cert}\t{sha256}\t{steps}\t{}\t{}",
                     r.depth_found.unwrap_or(0),
-                    if ax.is_empty() { "none".to_string() } else { ax.join(",") }
+                    axioms_column(theorem)
                 );
             }
             Verdict::NotFound => {
@@ -164,10 +162,138 @@ pub fn discover(
     (summary, if err == 0 { 0 } else { 2 })
 }
 
-/// `rlt discover --verify DIR`: every manifest row is re-hashed and its
-/// certificate re-checked from scratch by `rlt check`'s function.
+/// The manifest's column header, exactly as `discover` writes it.
+pub const MANIFEST_COLUMNS: &str =
+    "id\tstatement\taxiom_set\tmode\tassumptions\tcertificate\tsha256\tsteps\tdepth\taxioms_used";
+
+/// `axioms_used` as the manifest spells it: the kernel's names, joined by
+/// commas in the kernel's (sorted) order, or `none`.
+pub fn axioms_column(th: &rlt_kernel::Theorem) -> String {
+    let ax: Vec<&str> = th.axioms_used().keys().map(|s| s.as_str()).collect();
+    if ax.is_empty() {
+        "none".to_string()
+    } else {
+        ax.join(",")
+    }
+}
+
+/// Check one manifest row against the certificate it names, replayed by the
+/// kernel. Every column is bound to the replayed proof; any disagreement is
+/// returned as the reason for refusal. (The ACCEPT of the kernel alone is
+/// not enough: a valid certificate can still be mislabelled.)
+fn check_row(root: &Path, out_dir: &str, cols: &[&str]) -> Result<(), String> {
+    let [id, statement, axiom_set, mode, assumptions, cert, sha, steps, depth, axioms_used] = cols
+    else {
+        return Err(format!(
+            "expected 10 tab-separated columns, found {}",
+            cols.len()
+        ));
+    };
+    // The id names the file: the certificate must be exactly DIR/ID.rlt.
+    if !is_discovery_id(id) {
+        return Err(format!("id `{id}` is not a discovery id"));
+    }
+    let expected = format!("{out_dir}/{id}.rlt");
+    if *cert != expected {
+        return Err(format!(
+            "certificate path `{cert}` must be `{expected}` (inside the discovery directory, named by its id)"
+        ));
+    }
+    // Plain repository-relative components, no symlink anywhere, a regular file.
+    let path = crate::citation_path(root, cert)?;
+    let bytes = std::fs::read(&path).map_err(|e| format!("MISSING {cert}: {}", e.kind()))?;
+    if sha256_hex(&bytes) != *sha {
+        return Err(format!("STALE {cert}: SHA-256 differs from the manifest"));
+    }
+    // Replay exactly the bytes that were hashed.
+    let out = crate::check_bytes_outcome(root, &path, bytes);
+    if out.report.code != ACCEPT {
+        return Err("the kernel did not accept the certificate".into());
+    }
+    let (Some(pf), Some(th)) = (out.proof.as_ref(), out.theorem.as_ref()) else {
+        return Err("internal: replay accepted without a proof and theorem".into());
+    };
+    let mut wrong = Vec::new();
+    let mut want = |what: &str, claimed: &str, actual: &str| {
+        if claimed != actual {
+            wrong.push(format!(
+                "{what}: manifest says `{claimed}`, certificate has `{actual}`"
+            ));
+        }
+    };
+    want("id", id, &pf.id);
+    want("statement", statement, &pf.goal.text);
+    want("axiom set", axiom_set, &pf.axiom_set);
+    want(
+        "mode",
+        mode,
+        match pf.mode {
+            rlt_kernel::Mode::Unconditional => "unconditional",
+            rlt_kernel::Mode::Conditional => "conditional",
+        },
+    );
+    let declared: Vec<&str> = pf.assumptions.iter().map(|(n, _)| n.as_str()).collect();
+    want(
+        "assumptions",
+        assumptions,
+        &if declared.is_empty() {
+            "∅".to_string()
+        } else {
+            declared.join(",")
+        },
+    );
+    want("steps", steps, &pf.steps.len().to_string());
+    want("axioms used", axioms_used, &axioms_column(th));
+    // The current discovery workflow: unconditional ROBINSON-Q theorems with
+    // Γ = ∅, convention NAT-LOGIC, no citations.
+    if pf.axiom_set != AXIOM_SET {
+        wrong.push(format!("axiom set must be {AXIOM_SET}"));
+    }
+    if pf.mode != rlt_kernel::Mode::Unconditional || !pf.assumptions.is_empty() {
+        wrong
+            .push("discovery stores only unconditional proofs with no declared assumptions".into());
+    }
+    if !th.is_unconditional() || !th.assumptions().is_empty() {
+        wrong.push("the replayed theorem depends on assumptions".into());
+    }
+    if pf.convention != "NAT-LOGIC" {
+        wrong.push(format!(
+            "convention must be NAT-LOGIC, not {}",
+            pf.convention
+        ));
+    }
+    if !pf.cites.is_empty() {
+        wrong.push("discovery certificates cite nothing".into());
+    }
+    // The search depth is not recorded in the certificate; it must at least
+    // be a number within the discovery bound.
+    match depth.parse::<usize>() {
+        Ok(d) if d <= discovery_bounds().depth && d.to_string() == *depth => {}
+        _ => wrong.push(format!(
+            "depth `{depth}` is not a number within the discovery bound {}",
+            discovery_bounds().depth
+        )),
+    }
+    if wrong.is_empty() {
+        Ok(())
+    } else {
+        Err(wrong.join("; "))
+    }
+}
+
+/// `D` followed by decimal digits.
+pub fn is_discovery_id(id: &str) -> bool {
+    id.strip_prefix('D')
+        .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+}
+
+/// `rlt discover --verify DIR`: every manifest row is re-hashed, its
+/// certificate replayed by `rlt check`'s function from the hashed bytes, and
+/// every column checked against the replayed proof. Duplicate rows, ids,
+/// statements and certificate paths are refused.
 pub fn verify(root: &Path, out_dir: &str) -> (String, i32) {
     let mut t = format!("RLT discover --verify {out_dir}\n");
+    let out_dir = out_dir.trim_end_matches('/');
     let text = match std::fs::read_to_string(root.join(out_dir).join("manifest.tsv")) {
         Ok(s) => s,
         Err(e) => {
@@ -178,41 +304,52 @@ pub fn verify(root: &Path, out_dir: &str) -> (String, i32) {
         }
     };
     let (mut ok, mut bad) = (0, 0);
+    if !text
+        .lines()
+        .any(|l| l.strip_prefix("# ") == Some(MANIFEST_COLUMNS))
+    {
+        bad += 1;
+        let _ = writeln!(
+            t,
+            "manifest     REFUSED — the column header `# {MANIFEST_COLUMNS}` is missing"
+        );
+    }
+    let mut seen_ids = std::collections::BTreeSet::new();
+    let mut seen_statements = std::collections::BTreeSet::new();
+    let mut seen_certs = std::collections::BTreeSet::new();
     for line in text
         .lines()
         .filter(|l| !l.starts_with('#') && !l.is_empty())
     {
         let cols: Vec<&str> = line.split('\t').collect();
-        let [id, statement, _, _, _, cert, sha, ..] = cols.as_slice() else {
-            bad += 1;
-            let _ = writeln!(t, "malformed row: {line}");
-            continue;
+        let id = cols.first().copied().unwrap_or("");
+        let statement = cols.get(1).copied().unwrap_or("");
+        let mut dup = Vec::new();
+        if !seen_ids.insert(id.to_string()) {
+            dup.push("id");
+        }
+        if !seen_statements.insert(statement.to_string()) {
+            dup.push("statement");
+        }
+        if let Some(c) = cols.get(5) {
+            if !seen_certs.insert(c.to_string()) {
+                dup.push("certificate");
+            }
+        }
+        let res = if dup.is_empty() {
+            check_row(root, out_dir, &cols)
+        } else {
+            Err(format!("duplicate {} in the manifest", dup.join(", ")))
         };
-        let path = root.join(cert);
-        let bytes = match std::fs::read(&path) {
-            Ok(b) => b,
+        match res {
+            Ok(()) => {
+                ok += 1;
+                let _ = writeln!(t, "{id}  ACCEPT {statement}");
+            }
             Err(e) => {
                 bad += 1;
-                let _ = writeln!(t, "{id}  MISSING {cert}: {}", e.kind());
-                continue;
+                let _ = writeln!(t, "{id}  REFUSED {statement} — {e}");
             }
-        };
-        if sha256_hex(&bytes) != *sha {
-            bad += 1;
-            let _ = writeln!(t, "{id}  STALE  {cert}: SHA-256 differs from the manifest");
-            continue;
-        }
-        let out = check_file_outcome(root, &path);
-        let goal_matches = out
-            .proof
-            .as_ref()
-            .is_some_and(|p| p.goal.text == *statement);
-        if out.report.code == ACCEPT && goal_matches {
-            ok += 1;
-            let _ = writeln!(t, "{id}  ACCEPT {statement}");
-        } else {
-            bad += 1;
-            let _ = writeln!(t, "{id}  REFUSED {statement}");
         }
     }
     let _ = writeln!(t, "verified        {ok} accepted, {bad} refused or stale");

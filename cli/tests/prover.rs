@@ -418,3 +418,232 @@ fn discovery_stores_only_kernel_verified_theorems_and_detects_tampering() {
     assert_eq!(code, 1);
     assert!(t.contains("STALE"), "{t}");
 }
+
+// ── RLT-PROVER-001 audit D5: every manifest column is bound to the replay ──
+
+/// A copy of the committed discovery directory under target/, with the
+/// manifest's certificate paths pointing into the copy.
+fn discovery_copy(name: &str) -> String {
+    let dir = scratch(&format!("d5-{name}"));
+    let full = root().join(&dir);
+    let _ = std::fs::remove_dir_all(&full);
+    std::fs::create_dir_all(&full).unwrap();
+    let src = root().join("research/prover-discovery");
+    for e in std::fs::read_dir(&src).unwrap() {
+        let p = e.unwrap().path();
+        std::fs::copy(&p, full.join(p.file_name().unwrap())).unwrap();
+    }
+    let m =
+        read(&full.join("manifest.tsv")).replace("research/prover-discovery/", &format!("{dir}/"));
+    std::fs::write(full.join("manifest.tsv"), m).unwrap();
+    dir
+}
+
+/// Rewrite the manifest row with the given id through `f` (columns in, columns out).
+fn edit_row(dir: &str, id: &str, f: impl Fn(&mut Vec<String>)) {
+    let p = root().join(dir).join("manifest.tsv");
+    let out: Vec<String> = read(&p)
+        .lines()
+        .map(|l| {
+            let mut c: Vec<String> = l.split('\t').map(str::to_string).collect();
+            if c[0] == id {
+                f(&mut c);
+            }
+            c.join("\t")
+        })
+        .collect();
+    std::fs::write(&p, out.join("\n") + "\n").unwrap();
+}
+
+fn refused(dir: &str, id: &str, reason: &str) {
+    let (t, code) = rlt_cli::discover::verify(&root(), dir);
+    assert_eq!(code, 1, "{t}");
+    let line = t
+        .lines()
+        .find(|l| l.starts_with(&format!("{id}  REFUSED")))
+        .unwrap_or_else(|| panic!("{id} not refused:\n{t}"));
+    assert!(line.contains(reason), "expected `{reason}` in: {line}");
+    assert!(
+        t.contains("verified        8 accepted, 1 refused or stale")
+            || reason.contains("duplicate"),
+        "{t}"
+    );
+}
+
+#[test]
+fn d5_the_unmodified_copy_verifies() {
+    let dir = discovery_copy("baseline");
+    let (t, code) = rlt_cli::discover::verify(&root(), &dir);
+    assert_eq!(code, 0, "{t}");
+    assert!(
+        t.contains("verified        9 accepted, 0 refused or stale"),
+        "{t}"
+    );
+}
+
+#[test]
+fn d5_a_conditional_proof_cannot_be_presented_as_unconditional() {
+    // The audit's attack: a certificate that assumes its own statement,
+    // replayed and accepted by the kernel, listed as unconditional with Γ = ∅.
+    let dir = discovery_copy("conditional");
+    let goal = "(rlt-goal (id D243) (convention NAT-LOGIC) (goal \"∀x. x × 1 = x\") (mode conditional) (assume h \"∀x. x × 1 = x\") (axioms ROBINSON-Q))";
+    let cert = format!("{dir}/D243.rlt");
+    let r = prove_source(&root(), goal, &[], Some(Path::new(&cert)));
+    let Verdict::Proved { sha256, .. } = r.verdict else {
+        panic!("the conditional certificate should replay");
+    };
+    assert_eq!(check_file(&root(), &root().join(&cert)).code, ACCEPT);
+    edit_row(&dir, "D243", |c| {
+        c[1] = "∀x. x × 1 = x".into();
+        c[6] = sha256.clone();
+    });
+    refused(
+        &dir,
+        "D243",
+        "mode: manifest says `unconditional`, certificate has `conditional`",
+    );
+    refused(
+        &dir,
+        "D243",
+        "assumptions: manifest says `∅`, certificate has `h`",
+    );
+    refused(&dir, "D243", "the replayed theorem depends on assumptions");
+}
+
+#[test]
+fn d5_a_changed_axiom_set_label_is_refused() {
+    let dir = discovery_copy("axiom-set");
+    edit_row(&dir, "D023", |c| c[2] = "PEANO-ADD".into());
+    refused(
+        &dir,
+        "D023",
+        "axiom set: manifest says `PEANO-ADD`, certificate has `ROBINSON-Q`",
+    );
+}
+
+#[test]
+fn d5_a_fabricated_step_count_is_refused() {
+    let dir = discovery_copy("steps");
+    edit_row(&dir, "D023", |c| c[7] = "999".into());
+    refused(
+        &dir,
+        "D023",
+        "steps: manifest says `999`, certificate has `2`",
+    );
+}
+
+#[test]
+fn d5_incorrect_axiom_dependencies_are_refused() {
+    let dir = discovery_copy("axioms-used");
+    edit_row(&dir, "D214", |c| c[9] = "none".into());
+    refused(
+        &dir,
+        "D214",
+        "axioms used: manifest says `none`, certificate has `add_zero,mul_zero`",
+    );
+    let dir = discovery_copy("axioms-used-extra");
+    edit_row(&dir, "D243", |c| c[9] = "mul_succ,mul_zero,add_zero".into());
+    refused(&dir, "D243", "axioms used");
+}
+
+#[test]
+fn d5_a_duplicate_manifest_row_is_refused() {
+    let dir = discovery_copy("duplicate");
+    let p = root().join(&dir).join("manifest.tsv");
+    let m = read(&p);
+    let row = m
+        .lines()
+        .find(|l| l.starts_with("D023\t"))
+        .unwrap()
+        .to_string();
+    std::fs::write(&p, format!("{m}{row}\n")).unwrap();
+    let (t, code) = rlt_cli::discover::verify(&root(), &dir);
+    assert_eq!(code, 1, "{t}");
+    assert!(
+        t.contains("D023  REFUSED ∀x. x + 0 = x — duplicate id, statement, certificate"),
+        "{t}"
+    );
+    assert!(
+        t.contains("verified        9 accepted, 1 refused or stale"),
+        "{t}"
+    );
+}
+
+#[test]
+fn d5_certificate_paths_cannot_escape_the_discovery_directory() {
+    // A certificate elsewhere in the repository that the kernel accepts.
+    let other = "tests/prover/certificates/P10_plus_two.rlt";
+    let sha = rlt_cli::sha256_hex(&std::fs::read(root().join(other)).unwrap());
+    for path in [
+        other.to_string(),
+        format!("{}/../../../{other}", scratch("d5-escape")),
+    ] {
+        let dir = discovery_copy("escape");
+        edit_row(&dir, "D023", |c| {
+            c[5] = path.clone();
+            c[6] = sha.clone();
+        });
+        refused(
+            &dir,
+            "D023",
+            "must be `target/prover-tests/d5-escape/D023.rlt`",
+        );
+    }
+    // A certificate in the directory under another row's name.
+    let dir = discovery_copy("misnamed");
+    edit_row(&dir, "D023", |c| c[5] = format!("{dir}/D206.rlt"));
+    let (t, code) = rlt_cli::discover::verify(&root(), &dir);
+    assert_eq!(code, 1, "{t}");
+    assert!(t.contains("D023  REFUSED"), "{t}");
+}
+
+#[test]
+fn d5_inconsistent_metadata_is_refused_although_the_kernel_accepts() {
+    // Each certificate still passes plain `rlt check`; only the row is wrong.
+    for (id, col, val, reason) in [
+        ("D023", 0usize, "D999", "certificate path"),
+        ("D023", 1, "∀x. x + 0 = 0 + x", "statement: manifest says"),
+        (
+            "D023",
+            3,
+            "conditional",
+            "mode: manifest says `conditional`",
+        ),
+        ("D023", 4, "h", "assumptions: manifest says `h`"),
+        ("D023", 8, "7", "depth `7`"),
+        ("D023", 8, "zero", "depth `zero`"),
+    ] {
+        let dir =
+            discovery_copy(&format!("meta-{col}-{val}").replace(['∀', ' ', '.', '+', '='], ""));
+        edit_row(&dir, id, |c| c[col] = val.into());
+        let (t, code) = rlt_cli::discover::verify(&root(), &dir);
+        assert_eq!(code, 1, "{t}");
+        assert!(
+            t.lines()
+                .any(|l| l.contains("REFUSED") && l.contains(reason)),
+            "expected `{reason}`:\n{t}"
+        );
+        assert_eq!(
+            check_file(&root(), &root().join(&dir).join(format!("{id}.rlt"))).code,
+            ACCEPT
+        );
+    }
+    // A row with a column missing or added.
+    let dir = discovery_copy("columns");
+    edit_row(&dir, "D023", |c| {
+        c.pop();
+    });
+    refused(&dir, "D023", "expected 10 tab-separated columns, found 9");
+    // The column header itself.
+    let dir = discovery_copy("header");
+    let p = root().join(&dir).join("manifest.tsv");
+    let m: String = read(&p)
+        .lines()
+        .filter(|l| !l.starts_with("# id"))
+        .map(|l| format!("{l}\n"))
+        .collect();
+    std::fs::write(&p, m).unwrap();
+    let (t, code) = rlt_cli::discover::verify(&root(), &dir);
+    assert_eq!(code, 1, "{t}");
+    assert!(t.contains("column header"), "{t}");
+}
