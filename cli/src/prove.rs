@@ -1730,6 +1730,63 @@ pub fn may_overwrite(path: &Path, header: &str) -> Result<(), String> {
     }
 }
 
+/// Audit F4: whether git tracks `path` (a file, or any file under a
+/// directory) in the repository at `root`. `path` must exist or have an
+/// existing parent. Outside a git checkout (no `.git` at `root`) nothing is
+/// tracked and only `may_overwrite`'s rule applies. In a checkout, git is
+/// asked with its environment overrides removed; any failure other than
+/// "outside the repository" refuses the write (fail closed).
+pub fn tracked_by_git(root: &Path, path: &Path) -> Result<bool, String> {
+    if std::fs::symlink_metadata(root.join(".git")).is_err() {
+        return Ok(false);
+    }
+    let abs = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        root.join(path)
+    };
+    // Canonical spelling for git: the path itself if it exists, else its
+    // parent plus the file name.
+    let canon = match std::fs::canonicalize(&abs) {
+        Ok(c) => c,
+        Err(_) => {
+            let parent = abs.parent().ok_or("tracked check: path has no parent")?;
+            let name = abs
+                .file_name()
+                .ok_or("tracked check: path has no file name")?;
+            std::fs::canonicalize(parent)
+                .map_err(|e| format!("tracked check: {}: {}", parent.display(), e.kind()))?
+                .join(name)
+        }
+    };
+    let root_c = std::fs::canonicalize(root)
+        .map_err(|e| format!("tracked check: {}: {}", root.display(), e.kind()))?;
+    if !canon.starts_with(&root_c) {
+        return Ok(false);
+    }
+    let mut cmd = std::process::Command::new("git");
+    for (k, _) in std::env::vars_os() {
+        if k.to_string_lossy().starts_with("GIT_") {
+            cmd.env_remove(&k);
+        }
+    }
+    let out = cmd
+        .arg("-C")
+        .arg(&root_c)
+        .args(["ls-files", "-z", "--"])
+        .arg(&canon)
+        .output()
+        .map_err(|e| format!("tracked check: cannot run git ({}); refusing to write inside a git checkout without it", e.kind()))?;
+    if out.status.success() {
+        Ok(!out.stdout.is_empty())
+    } else {
+        Err(format!(
+            "tracked check: git ls-files failed ({}); refusing to write",
+            String::from_utf8_lossy(&out.stderr).trim()
+        ))
+    }
+}
+
 /// The single gate to `PROVED`: a certificate counts only if its header
 /// states exactly the goal file's fields and the kernel replay of its bytes,
 /// through the function `rlt check` uses, accepts. `cert.as_bytes()` is what
@@ -1848,6 +1905,21 @@ pub fn prove_source(
     if let Some(dir) = full.parent() {
         if let Err(e) = std::fs::create_dir_all(dir) {
             res.verdict = Verdict::Error(format!("cannot create {}: {}", dir.display(), e.kind()));
+            return res;
+        }
+    }
+    // Audit F4: a file the repository tracks is never overwritten.
+    match tracked_by_git(root, &full) {
+        Ok(false) => {}
+        Ok(true) => {
+            res.verdict = Verdict::Error(format!(
+                "{} is tracked by the repository; refusing to overwrite a committed file (write the certificate to an untracked path, e.g. under target/)",
+                path.display()
+            ));
+            return res;
+        }
+        Err(e) => {
+            res.verdict = Verdict::Error(e);
             return res;
         }
     }

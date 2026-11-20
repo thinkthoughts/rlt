@@ -265,6 +265,20 @@ pub fn discover(
             2,
         );
     }
+    // Audit F4: a directory holding committed files (such as the committed
+    // record research/prover-discovery) is never written to: no committed
+    // certificate is overwritten or removed as stale. Reproduce a committed
+    // record into an untracked directory and compare, or use --verify.
+    match crate::prove::tracked_by_git(root, &dir) {
+        Ok(false) => {}
+        Ok(true) => {
+            return (
+                format!("rlt discover: {out_dir} holds files tracked by the repository; refusing to write there (discover into an untracked directory, e.g. target/discovery, and compare; `rlt discover --verify {out_dir}` checks the committed record)\n"),
+                2,
+            )
+        }
+        Err(e) => return (format!("rlt discover: {e}\n"), 2),
+    }
     // Audit K8: only files an earlier discovery run wrote are replaced;
     // checked before any certificate is written.
     for (name, marker) in OUTPUT_MARKERS {

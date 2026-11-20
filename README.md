@@ -40,7 +40,8 @@ target/release/rlt check tests/m3e/accept/E_T1.rlt  # RLT-003 M3e: the modulo-30
 target/release/rlt check tests/m3c/accept/CA05_free235_seven.rlt  # RLT-003 M3c: free235(7), citing three independently checked theorems
 target/release/rlt check tests/m3d/accept/DA01_below_thirty.rlt  # RLT-003 M3d: every x < 30 is one of 0 … 29, by 31 Q3 splits
 target/release/rlt prove tests/prover/goals/P3_congruence.goal  # bounded proof search: a statement in, a kernel-replayed certificate out (docs/PROVER.md)
-target/release/rlt discover research/prover-discovery         # theorem discovery: stores only kernel-verified theorems
+target/release/rlt discover target/discovery                  # theorem discovery: stores only kernel-verified theorems
+target/release/rlt discover --verify research/prover-discovery  # re-check the committed discovery record
 scripts/verify.sh SOURCE_CLONES_DIR                           # fmt, clippy, tests, proofs, records, Lean, excerpts; exit 0 only if all hold
 ```
 

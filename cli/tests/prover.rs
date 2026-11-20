@@ -1121,3 +1121,105 @@ fn f3_comments_beyond_the_generator_header_are_refused() {
         }
     }
 }
+
+// ── Audit F4: committed files are never overwritten or removed ────────────
+
+fn in_git_checkout() -> bool {
+    let yes = root().join(".git").exists()
+        && std::process::Command::new("git")
+            .arg("--version")
+            .output()
+            .is_ok_and(|o| o.status.success());
+    if !yes {
+        eprintln!(
+            "not a git checkout with git available: the tracked-file rule does not apply here"
+        );
+    }
+    yes
+}
+
+#[test]
+fn f4_prove_never_overwrites_a_tracked_fixture() {
+    if !in_git_checkout() {
+        return;
+    }
+    // The final audit's attack: P1's certificate written over the committed P4 fixture.
+    let g = root().join("tests/prover/goals/P1_symmetry.goal");
+    for target in [
+        "tests/prover/certificates/P4_two_times_three.rlt",
+        "research/prover-discovery/D243.rlt",
+        "spec/robinson-q.rlt",
+    ] {
+        let before = std::fs::read(root().join(target)).unwrap();
+        let r = prove_source(&root(), &read(&g), &[], Some(Path::new(target)));
+        let Verdict::Error(e) = &r.verdict else {
+            panic!("{target}: expected ERROR");
+        };
+        assert!(e.contains("is tracked by the repository"), "{target}: {e}");
+        assert_eq!(
+            std::fs::read(root().join(target)).unwrap(),
+            before,
+            "{target}"
+        );
+    }
+    // Even a byte-identical rewrite of a committed certificate is refused.
+    let g4 = root().join("tests/prover/goals/P4_two_times_three.goal");
+    let r = prove_source(
+        &root(),
+        &read(&g4),
+        &[],
+        Some(Path::new(
+            "tests/prover/certificates/P4_two_times_three.rlt",
+        )),
+    );
+    assert!(matches!(r.verdict, Verdict::Error(_)));
+    // Untracked output directories still allow safe reruns.
+    let out = scratch("f4/P1.rlt");
+    for _ in 0..2 {
+        let r = prove_source(&root(), &read(&g), &[], Some(Path::new(&out)));
+        assert!(matches!(r.verdict, Verdict::Proved { .. }));
+    }
+}
+
+#[test]
+fn f4_discover_never_writes_into_a_directory_holding_committed_files() {
+    if !in_git_checkout() {
+        return;
+    }
+    // The final audit's D7 case: a two-level run into the committed record
+    // would have removed the nine committed certificates as stale.
+    let dir = root().join("research/prover-discovery");
+    let snapshot = |d: &Path| -> Vec<(String, Vec<u8>)> {
+        let mut v: Vec<(String, Vec<u8>)> = std::fs::read_dir(d)
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .map(|p| {
+                (
+                    p.file_name().unwrap().to_string_lossy().to_string(),
+                    std::fs::read(&p).unwrap(),
+                )
+            })
+            .collect();
+        v.sort();
+        v
+    };
+    let before = snapshot(&dir);
+    for two_level in [true, false] {
+        let (t, code) =
+            rlt_cli::discover::discover(&root(), "research/prover-discovery", two_level, Some(50));
+        assert_eq!(code, 2, "{t}");
+        assert!(t.contains("holds files tracked by the repository"), "{t}");
+    }
+    assert_eq!(snapshot(&dir), before, "nothing written or removed");
+    // A parent of committed files is refused too.
+    let (t, code) = rlt_cli::discover::discover(&root(), "research", false, Some(5));
+    assert_eq!(code, 2, "{t}");
+    // Reruns into an untracked directory still work.
+    let d = scratch("f4-discover");
+    let _ = std::fs::remove_dir_all(root().join(&d));
+    for _ in 0..2 {
+        let (t, code) = rlt_cli::discover::discover(&root(), &d, false, Some(30));
+        assert_eq!(code, 0, "{t}");
+    }
+    assert_eq!(rlt_cli::discover::verify(&root(), &d).1, 0);
+}
