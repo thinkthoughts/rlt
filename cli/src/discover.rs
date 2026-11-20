@@ -94,6 +94,30 @@ fn goal_source(id: &str, statement: &str, b: &Bounds) -> String {
     )
 }
 
+/// The discovery certificates in `dir`: regular files `ID.rlt` with a
+/// discovery id for ID, beginning with the `rlt prove` certificate header.
+pub fn stale_certificates(dir: &Path) -> Result<Vec<std::path::PathBuf>, String> {
+    let mut out = Vec::new();
+    let rd = std::fs::read_dir(dir)
+        .map_err(|e| format!("cannot list {}: {}", dir.display(), e.kind()))?;
+    for e in rd {
+        let e = e.map_err(|e| format!("cannot list {}: {}", dir.display(), e.kind()))?;
+        let p = e.path();
+        let name = e.file_name().to_string_lossy().to_string();
+        let Some(stem) = name.strip_suffix(".rlt") else {
+            continue;
+        };
+        if !is_discovery_id(stem) || !e.file_type().is_ok_and(|t| t.is_file()) {
+            continue;
+        }
+        if std::fs::read(&p).is_ok_and(|b| b.starts_with(crate::prove::CERT_HEADER.as_bytes())) {
+            out.push(p);
+        }
+    }
+    out.sort();
+    Ok(out)
+}
+
 /// Run discovery, writing certificates and a manifest under `out_dir`
 /// (repository-relative). Returns the summary text and an exit code.
 pub fn discover(
@@ -115,6 +139,26 @@ pub fn discover(
         if let Err(e) = crate::prove::may_overwrite(&dir.join(name), marker) {
             return (format!("rlt discover: {e}\n"), 2);
         }
+    }
+    // Audit D7: certificates an earlier run left here are removed, so the
+    // directory holds exactly this run's theorems. Only files named by a
+    // discovery id and written by `rlt prove` are removed.
+    match stale_certificates(&dir) {
+        Ok(old) => {
+            for p in old {
+                if let Err(e) = std::fs::remove_file(&p) {
+                    return (
+                        format!(
+                            "rlt discover: cannot remove {}: {}\n",
+                            p.display(),
+                            e.kind()
+                        ),
+                        2,
+                    );
+                }
+            }
+        }
+        Err(e) => return (format!("rlt discover: {e}\n"), 2),
     }
     let b = discovery_bounds();
     let mut cands = candidates(two_level);
@@ -401,6 +445,25 @@ pub fn verify(root: &Path, out_dir: &str) -> (String, i32) {
             Err(e) => {
                 bad += 1;
                 let _ = writeln!(t, "{id}  REFUSED {statement} — {e}");
+            }
+        }
+    }
+    // Audit D7: a discovery certificate in the directory that no row lists
+    // is stale output and is reported.
+    let listed: std::collections::BTreeSet<String> = seen_certs
+        .iter()
+        .filter_map(|c| c.rsplit('/').next().map(str::to_string))
+        .collect();
+    if let Ok(found) = stale_certificates(&root.join(out_dir)) {
+        for p in found {
+            let name = p
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+            if !listed.contains(&name) {
+                bad += 1;
+                let _ = writeln!(t, "{name}  UNLISTED — a discovery certificate in {out_dir} that no manifest row lists");
             }
         }
     }

@@ -464,8 +464,7 @@ fn refused(dir: &str, id: &str, reason: &str) {
         .unwrap_or_else(|| panic!("{id} not refused:\n{t}"));
     assert!(line.contains(reason), "expected `{reason}` in: {line}");
     assert!(
-        t.contains("verified        8 accepted, 1 refused or stale")
-            || reason.contains("duplicate"),
+        t.contains("verified        8 accepted, ") || reason.contains("duplicate"),
         "{t}"
     );
 }
@@ -811,4 +810,45 @@ fn d6_a_row_relabelled_with_another_valid_id_is_refused() {
         "D024",
         "the id D024 names the candidate `∀x. x + 0 = 0`, not `∀x. x + 0 = x`",
     );
+}
+
+// ── Audit D7: a rerun leaves no stale certificates ─────────────────────────
+
+#[test]
+fn d7_rerunning_discovery_removes_its_own_stale_certificates_only() {
+    let dir = scratch("d7");
+    let full = root().join(&dir);
+    let _ = std::fs::remove_dir_all(&full);
+    let (s, code) = rlt_cli::discover::discover(&root(), &dir, false, None);
+    assert_eq!(code, 0, "{s}");
+    // Files the run did not write survive the rerun.
+    std::fs::write(full.join("notes.rlt"), "; mine\n").unwrap();
+    std::fs::write(
+        full.join("D300.rlt"),
+        "; also mine, though named like an id\n",
+    )
+    .unwrap();
+    let (s, code) = rlt_cli::discover::discover(&root(), &dir, false, Some(30));
+    assert_eq!(code, 0, "{s}");
+    assert!(s.contains("proved          1"), "{s}");
+    let certs: Vec<String> = std::fs::read_dir(&full)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().to_string())
+        .filter(|n| n.ends_with(".rlt"))
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    assert_eq!(certs, ["D023.rlt", "D300.rlt", "notes.rlt"]);
+    std::fs::remove_file(full.join("D300.rlt")).unwrap();
+    let (t, code) = rlt_cli::discover::verify(&root(), &dir);
+    assert_eq!(code, 0, "{t}");
+    // A stale prover certificate that no row lists is reported by --verify.
+    std::fs::copy(
+        root().join("research/prover-discovery/D206.rlt"),
+        full.join("D206.rlt"),
+    )
+    .unwrap();
+    let (t, code) = rlt_cli::discover::verify(&root(), &dir);
+    assert_eq!(code, 1, "{t}");
+    assert!(t.contains("D206.rlt  UNLISTED"), "{t}");
 }
