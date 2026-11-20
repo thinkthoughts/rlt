@@ -408,6 +408,9 @@ fn check_row(root: &Path, out_dir: &str, cols: &[&str]) -> Result<(), String> {
     if let Err(e) = exact_header(id, &text) {
         wrong.push(e);
     }
+    if let Err(e) = only_generated_comments(&text) {
+        wrong.push(e);
+    }
     let mut want = |what: &str, claimed: &str, actual: &str| {
         if claimed != actual {
             wrong.push(format!(
@@ -480,6 +483,23 @@ fn check_row(root: &Path, out_dir: &str, cols: &[&str]) -> Result<(), String> {
         Ok(())
     } else {
         Err(wrong.join("; "))
+    }
+}
+
+/// Audit F3: the only comment a discovery certificate may carry is the
+/// generator's own header (which says that its authority is the kernel
+/// replay alone). Any further `;` comment — e.g. a claim of verification
+/// elsewhere — is refused. Discovery statements never contain `;`.
+pub fn only_generated_comments(cert: &str) -> Result<(), String> {
+    let Some(rest) = cert.strip_prefix(crate::prove::CERT_HEADER) else {
+        return Err("comments: a discovery certificate begins with the `rlt prove` header and nothing before it".into());
+    };
+    match rest.lines().position(|l| l.contains(';')) {
+        None => Ok(()),
+        Some(k) => Err(format!(
+            "comments: line {} carries a comment that discovery does not generate; only the generator's header comment is allowed",
+            k + 3
+        )),
     }
 }
 
