@@ -16,9 +16,12 @@ What each part establishes:
 
 1. Textual correspondence (scripts/check-definitions-lean.py, not Lean):
    the script rewrites RLT's printed `folded` and `checked goal` lines, and
-   the registered written definitions, into Lean syntax and requires these
-   exact theorem statements and `def`s in this file. This is what ties the
-   Lean text to the particular unfolding RLT printed, for these seven goals.
+   the registered written definitions, into Lean syntax and requires each
+   expected theorem and `def` to be declared exactly once, outside comments,
+   with exactly that statement; the file must keep the small declaration
+   grammar the script states (no other commands, names or literals). This is
+   what ties the Lean text to the particular unfolding RLT printed, for these
+   seven goals.
 2. Lean's checks: Lean confirms the hand-written theorems below. `Iff.rfl`
    shows the two sides are equivalent in Lean's ℕ; it accepts any
    definitionally equal pair (for example `(double 2 = 4) ↔ (3 + 1 = 4)`

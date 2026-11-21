@@ -682,7 +682,7 @@ fn audit_d4_lean_comparison_script_checks_text_not_just_definitional_equality() 
     };
     let (ok, t) = run("same", &lean);
     assert!(ok, "{t}");
-    assert!(t.contains("7 of 7 goals"), "{t}");
+    assert!(t.contains("7 of 7 goals declared exactly once"), "{t}");
 
     let f3 = "theorem F3_unfolds : (double 2 = 4) ↔ (2 + 2 = 4) := Iff.rfl";
     assert!(lean.contains(f3));
@@ -695,7 +695,10 @@ fn audit_d4_lean_comparison_script_checks_text_not_just_definitional_equality() 
         !ok,
         "a definitionally equal but different unfolding passed:\n{t}"
     );
-    assert!(t.contains("lacks `theorem F3_unfolds"), "{t}");
+    assert!(
+        t.contains("theorem F3_unfolds states `(double 2 = 4) ↔ (3 + 1 = 4)`; RLT requires `(double 2 = 4) ↔ (2 + 2 = 4)`"),
+        "{t}"
+    );
 
     let d = "def double (x : Nat) : Nat := x + x";
     assert!(lean.contains(d));
@@ -705,7 +708,140 @@ fn audit_d4_lean_comparison_script_checks_text_not_just_definitional_equality() 
     );
     assert!(!ok, "{t}");
     assert!(
-        t.contains("lacks `def double (x : Nat) : Nat := x + x`"),
+        t.contains("as `def double (x : Nat) : Nat := x + x`"),
         "{t}"
     );
+}
+
+// ── Audit D5: the comparison is per declaration, comments excluded ──
+
+/// The F3 attack from the final audit, and its variants. Each mutant
+/// compiles in Lean (the attack itself is compiled by scripts/verify.sh
+/// when Lean is present) or is outside the script's grammar; every one must
+/// be refused, and the original file accepted.
+#[test]
+fn audit_d5_lean_comparison_refuses_hidden_or_misplaced_declarations() {
+    let rlt = env!("CARGO_BIN_EXE_rlt");
+    let lean = read(&root().join("lean/ProverDefinitions.lean"));
+    let run = |tag: &str, body: &str| {
+        let rel = scratch(&format!("d5_{tag}.lean"), body);
+        let out = std::process::Command::new("python3")
+            .args([
+                "-I",
+                "scripts/check-definitions-lean.py",
+                rlt,
+                "--lean",
+                &rel,
+            ])
+            .current_dir(root())
+            .output()
+            .expect("python3");
+        (
+            out.status.success(),
+            String::from_utf8_lossy(&out.stdout).to_string(),
+        )
+    };
+    let f3 = "theorem F3_unfolds : (double 2 = 4) ↔ (2 + 2 = 4) := Iff.rfl";
+    let wrong = "theorem F3_unfolds : (double 2 = 4) ↔ (3 + 1 = 4) := Iff.rfl";
+    let correct_text = "(double 2 = 4) ↔ (2 + 2 = 4)";
+    assert_eq!(lean.matches(f3).count(), 1);
+    let end_ns = "end RLTProverDefinitions";
+    assert_eq!(lean.matches(end_ns).count(), 1);
+    let before_end = |extra: &str| lean.replace(end_ns, &format!("{extra}\n\n{end_ns}"));
+
+    let (ok, t) = run("original", &lean);
+    assert!(ok, "the original must pass:\n{t}");
+    assert!(t.contains("7 of 7 goals declared exactly once"), "{t}");
+
+    let cases: Vec<(&str, String, &str)> = vec![
+        (
+            "block_comment_attack",
+            lean.replace(f3, &format!("/- {f3} -/\n{wrong}")),
+            "theorem F3_unfolds states `(double 2 = 4) ↔ (3 + 1 = 4)`",
+        ),
+        (
+            "line_comment",
+            lean.replace(f3, &format!("-- {f3}\n{wrong}")),
+            "theorem F3_unfolds states",
+        ),
+        (
+            "nested_block_comment",
+            lean.replace(f3, &format!("/- outer /- {f3} -/ still a comment -/\n{wrong}")),
+            "theorem F3_unfolds states",
+        ),
+        (
+            "doc_comment",
+            lean.replace(f3, &format!("/-- {f3} -/\n{wrong}")),
+            "theorem F3_unfolds states",
+        ),
+        (
+            "duplicate_declaration",
+            lean.replace(f3, &format!("{f3}\n{wrong}")),
+            "`F3_unfolds` is declared 2 times",
+        ),
+        (
+            "duplicate_in_other_namespace",
+            lean.replace(f3, wrong)
+                .replace(end_ns, &format!("{end_ns}\nnamespace Decoy\n{f3}\nend Decoy")),
+            "unsupported command after the namespace",
+        ),
+        (
+            "mismatched_name",
+            lean.replace(
+                f3,
+                &format!("theorem F3_unfold : {correct_text} := Iff.rfl\n{wrong}"),
+            ),
+            "unexpected theorem `F3_unfold`",
+        ),
+        (
+            "text_in_string",
+            before_end(&format!("def decoy : String := \"{f3}\"")).replace(f3, wrong),
+            "a string literal outside comments",
+        ),
+        (
+            "text_in_unrelated_declaration",
+            before_end(&format!("theorem decoy : {correct_text} := Iff.rfl")).replace(f3, wrong),
+            "unexpected theorem `decoy`",
+        ),
+        (
+            "text_in_another_proof",
+            lean.replace(f3, wrong).replace(
+                "theorem F3_holds : double 2 = 4 := rfl",
+                &format!("theorem F3_holds : double 2 = 4 := by\n  have _h : {correct_text} := Iff.rfl\n  rfl"),
+            ),
+            "theorem F3_unfolds states",
+        ),
+        (
+            "instance_redefining_addition",
+            before_end("instance : HAdd Nat Nat Nat := ⟨Nat.mul⟩"),
+            "unsupported command `instance",
+        ),
+        (
+            "unterminated_comment",
+            lean.replace(f3, &format!("/- {f3}")),
+            "unterminated block comment",
+        ),
+        (
+            "different_def",
+            lean.replace(
+                "def double (x : Nat) : Nat := x + x",
+                "def double (x : Nat) : Nat := 2 * x",
+            ),
+            "registered in definitions/double.rlt as `def double (x : Nat) : Nat := x + x`",
+        ),
+        (
+            "def_hidden_in_comment",
+            lean.replace(
+                "def double (x : Nat) : Nat := x + x",
+                "-- def double (x : Nat) : Nat := x + x\ndef double (x : Nat) : Nat := 2 * x",
+            ),
+            "registered in definitions/double.rlt",
+        ),
+    ];
+    for (tag, body, want) in cases {
+        assert_ne!(body, lean, "{tag}: the mutation did not apply");
+        let (ok, t) = run(tag, &body);
+        assert!(!ok, "{tag} passed the comparison script:\n{t}");
+        assert!(t.contains(want), "{tag}: expected `{want}` in:\n{t}");
+    }
 }

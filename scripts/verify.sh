@@ -1064,6 +1064,20 @@ $(cat "$lean_p/$lean_i.out")"
   pdl_listed=$(echo "$lean_log" | grep -cE "RLTProverDefinitions\..*(depends on axioms|does not depend on any axioms)")
   pdl_bad=$(echo "$lean_log" | grep "RLTProverDefinitions\." | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound' | sort -u)
   { [ "$pdl_listed" = "$pdl_n" ] && [ -z "$pdl_bad" ]; } && echo "ProverDefinitions.lean: $pdl_n statements, standard axioms only (Lean-checked unfolding and truth in ℕ, not RLT theorems)" || { echo "ProverDefinitions.lean: axiom gate FAILED ($pdl_listed of $pdl_n listed; non-standard: $pdl_bad)"; fail=1; }
+  # D5: the audit's attack compiles in Lean yet must be refused by the
+  # comparison script (the correct F3_unfolds hidden in a comment, a
+  # definitionally equal but different F3_unfolds compiled instead).
+  d5=$RLT_RUN_TMP/d5-attack.lean
+  d5_f3='theorem F3_unfolds : (double 2 = 4) ↔ (2 + 2 = 4) := Iff.rfl'
+  D5_F3=$d5_f3 python3 -I -c 'import os,sys; s=open("lean/ProverDefinitions.lean",encoding="utf-8").read(); a=os.environ["D5_F3"]; assert s.count(a)==1; open(sys.argv[1],"w",encoding="utf-8").write(s.replace(a,"/- "+a+" -/\n"+a.replace("(2 + 2 = 4)","(3 + 1 = 4)")))' "$d5"
+  d5_lean=$(cd lean && "$lean_bin" "$d5" 2>&1); d5_lc=$?
+  python3 -I scripts/check-definitions-lean.py "$rlt" --lean "$d5" > "$d5.out" 2>&1; d5_sc=$?
+  if [ $d5_lc = 0 ] && ! echo "$d5_lean" | grep_q -iE "warning|error|sorry" && [ $d5_sc != 0 ] && grep_q "theorem F3_unfolds states" "$d5.out"; then
+    echo "ProverDefinitions.lean D5 attack (correct F3_unfolds in a comment, 3 + 1 = 4 compiled): Lean accepts it, the comparison script refuses it"
+  else
+    echo "ProverDefinitions.lean D5 attack: UNEXPECTED (Lean exit $d5_lc, script exit $d5_sc)"; cat "$d5.out"; fail=1
+  fi
+  rm -f "$d5" "$d5.out"
   m3b_n=$(grep -c "^theorem " lean/M3bReadings.lean)
   m3b_listed=$(echo "$lean_log" | grep -cE "RLTM3bReadings\..*(depends on axioms|does not depend on any axioms)")
   m3b_bad=$(echo "$lean_log" | grep "RLTM3bReadings\." | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound' | sort -u)
