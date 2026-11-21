@@ -1,0 +1,8 @@
+; RLT-PROVER-002: a dependent definition with Robinson's Q.
+(rlt-goal
+  (id F7.quadruple_one)
+  (convention NAT-FUN)
+  (definitions "definitions/quadruple.rlt" "7f463b05541ed9643ab98b276bb37de31c2f39054f55502656bd1c20fb703932")
+  (goal "quadruple(1) = 4")
+  (mode unconditional)
+  (axioms ROBINSON-Q))

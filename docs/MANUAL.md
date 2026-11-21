@@ -1,6 +1,6 @@
-# RLT user manual — chapters 1–13
+# RLT user manual — chapters 1–14
 
-**Status.** RLT-004a, written 2026-11-11 against main at cc01968. Every terminal block in this manual is checked against the real program by `scripts/check-manual.py`; lines shown as `…` are omitted output. Chapter 12 (RLT-005, 2026-11-11) works through a published result; chapter 13 (RLT-006, 2026-11-12) checks a finite certificate from a research draft. Chapters on writing your own statement records and a reference are planned for a later milestone.
+**Status.** RLT-004a, written 2026-11-11 against main at cc01968. Every terminal block in this manual is checked against the real program by `scripts/check-manual.py`; lines shown as `…` are omitted output. Chapter 12 (RLT-005, 2026-11-11) works through a published result; chapter 13 (RLT-006, 2026-11-12) checks a finite certificate from a research draft; chapter 14 (RLT-PROVER-002, 2026-11-20) registers a new definition and proves with it. Chapters on writing your own statement records and a reference are planned for a later milestone.
 
 **Who this is for.** Anyone who wants to run RLT on their own machine and read what it reports, including readers who already use [Lean 4](https://lean-lang.org/). Chapter 11 compares the two precisely.
 
@@ -767,3 +767,79 @@ The assessment is `partial` because RLT proves one of the lemma's four obligatio
 | **Axioms and assumptions** | Robinson's Q; Γ = ∅ |
 | **Result** | ACCEPT — 14 unconditional theorems; semantic correspondence partial (obligation (b) of four); physical not applicable |
 | **Still open in RLT** | the tuple's size and diameter, the list of primes below 47, and the large-prime argument |
+
+## 14. Your own definition: double(x) := x + x
+
+Chapter 3's abbreviations are pinned into RLT itself. A new mathematical definition goes in a **definitions file** of its own instead. `definitions/double.rlt` registers one function:
+
+```console
+$ grep -A2 'define-function' definitions/double.rlt
+  (define-function double (x) (+ x x)
+    (written "double(x) := x + x")
+    (origin rlt-authored)))
+```
+
+The formal body `(+ x x)` and the written form `double(x) := x + x` are both required, and RLT checks when it reads the file that the written form elaborates to exactly the body. A body may use only its parameters, numerals, S, +, × and functions registered above it, so recursion, cycles, unbound variables and unknown symbols are refused. A definitions file holds definitions only: an `(axiom …)` in it is refused.
+
+A goal reads the file under convention **NAT-FUN**, naming its exact bytes by SHA-256:
+
+```console
+$ grep -E 'convention|definitions|goal "' tests/definitions/goals/F2_double_zero.goal
+  (convention NAT-FUN)
+  (definitions "definitions/double.rlt" "8dabb459817f7b225419456080a4e81eb675daf9a830dba529192ff50cfbc2f7")
+  (goal "double(0) = 0")
+```
+
+`rlt prove` unfolds the definition, searches, and has the kernel replay what it found:
+
+```console
+$ rlt prove tests/definitions/goals/F2_double_zero.goal --out target/manual-F2.rlt; echo "exit $?"
+RLT prove       tests/definitions/goals/F2_double_zero.goal
+statement       double(0) = 0
+  definitions   definitions/double.rlt sha256 8dabb459817f7b225419456080a4e81eb675daf9a830dba529192ff50cfbc2f7
+goal            0 + 0 = 0
+…
+  axioms used   add_zero
+verdict         PROVED — the kernel-checked theorem holds under the axioms used and Γ above; their truth stays assumed
+exit 0
+```
+
+The certificate is one step, Robinson's Q4 (`x + 0 = x`) at x := 0. Checking it re-reads the definitions file, compares its hash with the one the certificate states, and unfolds the written goal again; a changed definition is refused, never silently reused:
+
+```console
+$ rlt check tests/definitions/certificates/F2_double_zero.rlt
+…
+written goal    "double(0) = 0"
+…
+convention      NAT-FUN (authority: interpretation)
+checked goal    0 + 0 = 0
+  kernel form   +(0, 0) = 0
+  folded        double(0) = 0
+definitions     definitions/double.rlt (DOUBLE, convention NAT-LOGIC, domain Nat) sha256 8dabb459817f7b225419456080a4e81eb675daf9a830dba529192ff50cfbc2f7
+  definition    double(x) := x + x  [origin rlt-authored; content sha256 066fb635c06d85cf6cbd288468b7d992566056793f44375b47f0ac30c09a1c16]
+…
+verdict         ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q
+…
+```
+
+Some true statements stay out of reach: `∀x. double(x) = 2 × x` holds in ℕ, but proving it needs induction, which Robinson's Q lacks.
+
+```console
+$ rlt prove tests/definitions/notfound/G1_double_two_times.goal --out target/manual-G1.rlt; echo "exit $?"
+…
+goal            ∀x. x + x = 2 × x
+…
+verdict         NOT_FOUND_WITHIN_BOUNDS — no proof was found within the bounds above; this says nothing about whether the goal is true, false or independent of the axioms
+exit 1
+```
+
+`rlt discover --definitions definitions/double.rlt DIR` generates candidates using the registered functions and keeps only kernel-replayed theorems, each marked `unfolding` (true by the definition alone, no axiom used) or `inference` (needs the axioms). The committed record is `research/definition-discovery`; `rlt discover --verify research/definition-discovery` re-checks it.
+
+| | |
+|---|---|
+| **You write** | `double(x) := x + x` in a definitions file; `double(0) = 0` in a goal file |
+| **RLT interprets** | NAT-FUN unfolds `double(0)` to 0 + 0, from the definitions file at the stated SHA-256 |
+| **The kernel checks** | 0 + 0 = 0 |
+| **Axioms and assumptions** | Robinson's Q (Q4 used); Γ = ∅; the definition adds no axiom |
+| **Result** | PROVED; the certificate ACCEPTs under `rlt check` |
+| **Still open** | the unfolding is done by RLT's elaborator, outside the kernel (`lean/ProverDefinitions.lean` checks the same unfolding independently in Lean); that `double` means what a reader means is a correspondence question |

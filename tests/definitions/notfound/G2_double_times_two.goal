@@ -1,0 +1,8 @@
+; RLT-PROVER-002: true in ℕ, needs induction (x × 2 unfolds to (0 + x) + x).
+(rlt-goal
+  (id G2.double_times_two)
+  (convention NAT-FUN)
+  (definitions "definitions/double.rlt" "8dabb459817f7b225419456080a4e81eb675daf9a830dba529192ff50cfbc2f7")
+  (goal "∀x. double(x) = x × 2")
+  (mode unconditional)
+  (axioms ROBINSON-Q))

@@ -1,0 +1,8 @@
+; RLT-PROVER-002: a definition built on another, by unfolding.
+(rlt-goal
+  (id F6.quadruple_unfolds)
+  (convention NAT-FUN)
+  (definitions "definitions/quadruple.rlt" "7f463b05541ed9643ab98b276bb37de31c2f39054f55502656bd1c20fb703932")
+  (goal "∀x. quadruple(x) = double(x) + double(x)")
+  (mode unconditional)
+  (axioms ROBINSON-Q))

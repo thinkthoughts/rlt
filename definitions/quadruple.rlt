@@ -1,0 +1,12 @@
+; Registered function definitions (RLT-PROVER-002): a definition that uses an
+; earlier one. quadruple's body unfolds through double to (x + x) + (x + x).
+(rlt-definitions
+  (id QUADRUPLE)
+  (convention NAT-LOGIC)
+  (domain Nat)
+  (define-function double (x) (+ x x)
+    (written "double(x) := x + x")
+    (origin rlt-authored))
+  (define-function quadruple (x) (double (double x))
+    (written "quadruple(x) := double(double(x))")
+    (origin rlt-authored)))

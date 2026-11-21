@@ -1017,13 +1017,28 @@ echo "$validate_log" | grep -E '^(PiπΠ|problem|verdict)'
 [ $validate_code = 0 ] || fail=1
 
 echo; echo "== Lean replay (independent, outside the trusted base)"
+# RLT-PROVER-002: registered function definitions (NAT-FUN).
+echo; echo "== registered function definitions, RLT-PROVER-002 (definitions/, tests/definitions, research/definition-discovery)"
+pd_ok=0; pd_n=0
+for f in tests/definitions/certificates/*.rlt; do
+  pd_n=$((pd_n + 1))
+  pd_log=$("$rlt" check "$f"); pd_code=$?
+  { [ $pd_code = 0 ] && echo "$pd_log" | grep_q -F "  folded        " && echo "$pd_log" | grep_q '^verdict         ACCEPT — unconditional'; } && pd_ok=$((pd_ok + 1)) || { echo "  UNEXPECTED: $f exit $pd_code"; fail=1; }
+done
+[ "$pd_n" = 7 ] || { echo "  UNEXPECTED: $pd_n definition certificates (want 7)"; fail=1; }
+echo "tests/definitions/certificates: $pd_ok of $pd_n ACCEPT as unconditional theorems under ROBINSON-Q, each re-elaborated from its folded statement and the definitions file at its stated SHA-256"
+pd_v=$("$rlt" discover --verify research/definition-discovery); pd_vc=$?
+echo "$pd_v" | grep -E '^(record|verified)'
+[ $pd_vc = 0 ] || { echo "  UNEXPECTED: research/definition-discovery did not verify"; fail=1; }
+python3 -I scripts/check-definitions-lean.py "$rlt" || fail=1
+
 lean_bin=$(command -v lean || { [ -x "$HOME/.elan/bin/lean" ] && echo "$HOME/.elan/bin/lean"; })
 if [ -n "$lean_bin" ]; then
   # Run inside lean/ so elan selects lean/lean-toolchain. Any Lean message
   # other than the #print axioms lines (a warning, `sorry`, an error) fails.
   # RLT-007a: the files (23 since RLT-007d) are independent Lean runs, made in parallel; their
   # logs are joined in this fixed order, and any failing run fails the stage.
-  lean_files="RLT001.lean Generated.lean M2Generated.lean M2Readings.lean M3aGenerated.lean M3bGenerated.lean M3bReadings.lean M3cGenerated.lean M3cReadings.lean M3dGenerated.lean M3dReadings.lean M3eGenerated.lean M3eReadings.lean RLT005Direct.lean RLT005Readings.lean RLT006Direct.lean RLT006BGP212.lean RLT007S1.lean RLT007S2a.lean RLT007S2Design.lean RLT007S3.lean RLT007S4.lean RLT007D.lean"
+  lean_files="RLT001.lean Generated.lean M2Generated.lean M2Readings.lean M3aGenerated.lean M3bGenerated.lean M3bReadings.lean M3cGenerated.lean M3cReadings.lean M3dGenerated.lean M3dReadings.lean M3eGenerated.lean M3eReadings.lean RLT005Direct.lean RLT005Readings.lean RLT006Direct.lean RLT006BGP212.lean RLT007S1.lean RLT007S2a.lean RLT007S2Design.lean RLT007S3.lean RLT007S4.lean RLT007D.lean ProverDefinitions.lean"
   lean_log=$(cd lean && "$lean_bin" --version 2>&1); lean_code=$?
   lean_p=$RLT_RUN_TMP/par-lean
   LEAN_BIN=$lean_bin par_map "$lean_p" 'cd lean && "$LEAN_BIN" "$1" 2>&1' $lean_files || lean_code=1
@@ -1045,6 +1060,10 @@ $(cat "$lean_p/$lean_i.out")"
   m2_listed=$(echo "$lean_log" | grep -cE "RLTM2Readings\..*(depends on axioms|does not depend on any axioms)")
   m2_bad=$(echo "$lean_log" | grep "RLTM2Readings\." | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound' | sort -u)
   { [ "$m2_listed" = "$m2_n" ] && [ -z "$m2_bad" ]; } && echo "M2Readings.lean: $m2_n statements, standard axioms only" || { echo "M2Readings.lean: axiom gate FAILED ($m2_listed of $m2_n listed; non-standard: $m2_bad)"; fail=1; }
+  pdl_n=$(grep -c "^theorem " lean/ProverDefinitions.lean)
+  pdl_listed=$(echo "$lean_log" | grep -cE "RLTProverDefinitions\..*(depends on axioms|does not depend on any axioms)")
+  pdl_bad=$(echo "$lean_log" | grep "RLTProverDefinitions\." | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound' | sort -u)
+  { [ "$pdl_listed" = "$pdl_n" ] && [ -z "$pdl_bad" ]; } && echo "ProverDefinitions.lean: $pdl_n statements, standard axioms only (Lean-checked unfolding and truth in ℕ, not RLT theorems)" || { echo "ProverDefinitions.lean: axiom gate FAILED ($pdl_listed of $pdl_n listed; non-standard: $pdl_bad)"; fail=1; }
   m3b_n=$(grep -c "^theorem " lean/M3bReadings.lean)
   m3b_listed=$(echo "$lean_log" | grep -cE "RLTM3bReadings\..*(depends on axioms|does not depend on any axioms)")
   m3b_bad=$(echo "$lean_log" | grep "RLTM3bReadings\." | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound' | sort -u)
