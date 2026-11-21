@@ -185,6 +185,7 @@ The four `unfolding` theorems are `∀x. double(x) = x + x`, `double(0) = 0 + 0`
 - `unfolding` / `inference` is a syntactic classification checked against the kernel's axioms used. It does not detect statements that hold for any term in place of the definition's use; a stronger "depends on the definition" test (prove again with each use generalised) is a possible addition.
 - Only unary-or-more **function** definitions over 0, S, +, × are supported: no constants, no predicate definitions in user registries, no definitions by cases or recursion. Stage 3 (math29, modulo 30) will likely need predicate definitions in registries (for example an admissible-residue predicate over the existing `free235`, `<`, `∣`), which this mechanism does not yet provide. The existing statements should be inspected first, as planned.
 - One definitions file per proof; dependencies across files are not supported.
+- Folded notation is read in the written goal and written assumptions only. Proof steps are written over the kernel signature: a step claiming `(= (double 0) 0)` is refused by the kernel (it rejects the unknown symbol), which fails closed. `rlt lean` exports the unfolded kernel statement.
 - That a registered definition captures its intended meaning is a correspondence question. PiπΠ, Spiral N and Triplet N are untouched.
 
 ## 8. Reproduce
