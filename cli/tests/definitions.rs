@@ -609,3 +609,103 @@ fn earlier_conventions_read_exactly_as_before() {
         "122e37fc627b136023a1a5ffac0344162ed77ae95312248a9f6a76c2b639ecda"
     );
 }
+
+// ── Audit D1: the unfolding budget is cumulative and checked before allocation ──
+
+/// The audit's reproduction: `aa(x) := x + x` … `ad(x) := ac(ac(x))`, and a
+/// certificate whose goal sums 400 uses of `ad(ad(x))` (~52M nodes once
+/// unfolded). Before the cumulative budget this goal string of ~10 KB was
+/// killed by the OOM killer; now `rlt check` refuses it with an error.
+#[test]
+fn audit_d1_many_uses_are_refused_with_an_error_not_oom() {
+    let chain = r#"(define-function aa (x) (+ x x) (written "aa(x) := x + x") (origin rlt-authored))
+  (define-function ab (x) (aa (aa x)) (written "ab(x) := aa(aa(x))") (origin rlt-authored))
+  (define-function ac (x) (ab (ab x)) (written "ac(x) := ab(ab(x))") (origin rlt-authored))
+  (define-function ad (x) (ac (ac x)) (written "ad(x) := ac(ac(x))") (origin rlt-authored))"#;
+    let defs = scratch("d1_chain.rlt", &registry("D1-CHAIN", chain));
+    for (k, accepted_size) in [(1usize, true), (400, false)] {
+        let goal = format!("∀x. {} = 0", vec!["ad(ad(x))"; k].join(" + "));
+        let cert = scratch(
+            &format!("d1_{k}.rlt"),
+            &format!(
+                "(rlt-proof (id D1) (convention NAT-FUN) (definitions \"{defs}\" \"{}\") (goal \"{goal}\") (mode unconditional) (axioms ROBINSON-Q) (steps (s1 (= 0 0) (refl 0))))\n",
+                sha(&defs)
+            ),
+        );
+        let started = std::time::Instant::now();
+        let c = check(&cert);
+        assert_ne!(c.report.code, ACCEPT);
+        let t = &c.report.text;
+        if accepted_size {
+            // Unfolds; the trivial proof is then refused by the kernel for
+            // proving 0 = 0 instead of the goal.
+            assert!(t.contains("checked goal"), "{t}");
+            assert!(!t.contains("would exceed"), "{t}");
+        } else {
+            assert!(t.contains("would exceed 1000000 nodes"), "{t}");
+            assert!(
+                started.elapsed() < std::time::Duration::from_secs(10),
+                "refusal took {:?}",
+                started.elapsed()
+            );
+        }
+    }
+}
+
+// ── Audit D4: what the Lean comparison script, as opposed to Lean, checks ──
+
+/// The script, not Lean's `Iff.rfl`, pins the Lean statements to RLT's
+/// printed unfolding: `(double 2 = 4) ↔ (3 + 1 = 4)` holds by `Iff.rfl`
+/// in Lean, yet is not what RLT unfolded, and the script refuses it. A Lean
+/// `def` that differs from the registered written form is refused too.
+#[test]
+fn audit_d4_lean_comparison_script_checks_text_not_just_definitional_equality() {
+    let rlt = env!("CARGO_BIN_EXE_rlt");
+    let lean = read(&root().join("lean/ProverDefinitions.lean"));
+    let run = |tag: &str, body: &str| {
+        let rel = scratch(&format!("d4_{tag}.lean"), body);
+        let out = std::process::Command::new("python3")
+            .args([
+                "-I",
+                "scripts/check-definitions-lean.py",
+                rlt,
+                "--lean",
+                &rel,
+            ])
+            .current_dir(root())
+            .output()
+            .expect("python3");
+        (
+            out.status.success(),
+            String::from_utf8_lossy(&out.stdout).to_string(),
+        )
+    };
+    let (ok, t) = run("same", &lean);
+    assert!(ok, "{t}");
+    assert!(t.contains("7 of 7 goals"), "{t}");
+
+    let f3 = "theorem F3_unfolds : (double 2 = 4) ↔ (2 + 2 = 4) := Iff.rfl";
+    assert!(lean.contains(f3));
+    let swapped = lean.replace(
+        f3,
+        "theorem F3_unfolds : (double 2 = 4) ↔ (3 + 1 = 4) := Iff.rfl",
+    );
+    let (ok, t) = run("defeq_but_not_rlt", &swapped);
+    assert!(
+        !ok,
+        "a definitionally equal but different unfolding passed:\n{t}"
+    );
+    assert!(t.contains("lacks `theorem F3_unfolds"), "{t}");
+
+    let d = "def double (x : Nat) : Nat := x + x";
+    assert!(lean.contains(d));
+    let (ok, t) = run(
+        "other_def",
+        &lean.replace(d, "def double (x : Nat) : Nat := 2 * x"),
+    );
+    assert!(!ok, "{t}");
+    assert!(
+        t.contains("lacks `def double (x : Nat) : Nat := x + x`"),
+        "{t}"
+    );
+}

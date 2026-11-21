@@ -3,14 +3,30 @@ RLT-PROVER-002, the Lean comparison for registered function definitions.
 Hand-written; core Lean only.
 
 `definitions/double.rlt` registers double(x) := x + x and
-quadruple(x) := double(double(x)). Lean's `def`s below are the same
-definitions. For each RLT goal in tests/definitions/goals/, two Lean facts:
+quadruple(x) := double(double(x)). The Lean `def`s below are hand-written
+copies of those definitions. For each RLT goal in tests/definitions/goals/,
+two hand-written Lean theorems:
 
 - `*_unfolds`: the folded statement (with Lean's `double`) is equivalent to
-  the statement RLT's kernel checked after unfolding (S(x) written x + 1).
-  This is the source-to-core step RLT's elaborator performs, checked here by
-  an independent implementation (Lean's definitional unfolding).
+  the statement RLT's kernel checked after unfolding (S(x) written x + 1),
+  proved by `Iff.rfl`, i.e. up to Lean's definitional equality.
 - `*_holds`: the statement is true in ℕ.
+
+What each part establishes:
+
+1. Textual correspondence (scripts/check-definitions-lean.py, not Lean):
+   the script rewrites RLT's printed `folded` and `checked goal` lines, and
+   the registered written definitions, into Lean syntax and requires these
+   exact theorem statements and `def`s in this file. This is what ties the
+   Lean text to the particular unfolding RLT printed, for these seven goals.
+2. Lean's checks: Lean confirms the hand-written theorems below. `Iff.rfl`
+   shows the two sides are equivalent in Lean's ℕ; it accepts any
+   definitionally equal pair (for example `(double 2 = 4) ↔ (3 + 1 = 4)`
+   also holds by `Iff.rfl`), so on its own it does not validate RLT's
+   unfolding algorithm; that comes from step 1.
+3. Not established: a general formal proof that RLT's elaborator and
+   unfolder implement the same semantics as Lean. The comparison covers the
+   seven stated goals only.
 
 These are Lean-checked statements about Lean's ℕ, where induction is
 available; they establish no RLT derivation, which remains RLT's, under

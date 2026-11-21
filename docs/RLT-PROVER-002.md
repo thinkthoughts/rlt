@@ -85,7 +85,10 @@ certificate steps ────────────────────�
 
 - **Kernel-checked.** The unfolded formula follows from the axioms used under Γ by the 20 rules.
 - **Mechanically bound, outside the kernel.** The definitions file's bytes (SHA-256, re-hashed on every check). The unfolding from written goal to kernel goal, recomputed from those bytes on every `rlt check`, so a certificate cannot carry a stale or substituted translation. The header equality between goal file and certificate (`certify`). Every column of the discovery manifest (§5).
-- **Independently cross-checked.** `lean/ProverDefinitions.lean` defines `double` and `quadruple` in Lean and proves `FN_unfolds : (folded) ↔ (unfolded)` by `Iff.rfl`, an independent implementation of the same unfolding. `scripts/check-definitions-lean.py` mechanically rewrites RLT's printed `folded` and `checked goal` lines into Lean syntax and requires those exact statements in the Lean file, so the Lean side cannot drift from what RLT checked.
+- **Cross-checked for the seven goals (three distinct parts).**
+  1. *Textual correspondence, mechanical.* `scripts/check-definitions-lean.py` rewrites RLT's printed `folded` and `checked goal` lines, and the registered written definitions, into Lean syntax, and requires exactly those `FN_unfolds : (folded) ↔ (unfolded)`, `FN_holds` and `def` lines in `lean/ProverDefinitions.lean`. This text comparison is what ties the Lean statements to the specific unfolding RLT printed.
+  2. *Lean's checks of hand-written mathematics.* Lean confirms the hand-written `def`s and theorems: each `FN_unfolds` by `Iff.rfl`, i.e. the two sides are equivalent up to Lean's definitional equality, and each `FN_holds` is true in ℕ. `Iff.rfl` accepts any definitionally equal pair — `(double 2 = 4) ↔ (3 + 1 = 4)` also holds by `Iff.rfl` — so Lean alone confirms meaning-preservation for these goals, while the fidelity of RLT's particular unfolding rests on part 1.
+  3. *Not established.* A general formal proof that RLT's elaborator and unfolder implement the same semantics as Lean. The comparison is seven demonstrated cases.
 - **Assumed.** The RLT elaborator and unfolder (`syntax/`) are trusted for source-to-core fidelity, as they already were for every written goal. Their output is printed in every report so a reader can audit it. The truth of Robinson's Q. That `double` captures what a reader means by "double" (correspondence, not proof).
 
 ## 4. Proofs with definitions (Phase 3)
@@ -151,7 +154,7 @@ The four `unfolding` theorems are `∀x. double(x) = x + x`, `double(0) = 0 + 0`
 
 ## 6. Adversarial tests (Phase 5)
 
-`cli/tests/definitions.rs` (13 tests) and `syntax/src/fdefs.rs` (3 unit tests):
+`cli/tests/definitions.rs` (15 tests) and `syntax/src/fdefs.rs` (9 unit tests); the audit regressions are listed in §9:
 
 | # | Case | Result |
 |---|---|---|
@@ -165,7 +168,7 @@ The four `unfolding` theorems are `∀x. double(x) = x + x`, `double(0) = 0 + 0`
 | 8 | attempted unregistered axiom | `(axiom …)` in a definitions file or a definition refused; a certificate step `inst double_def` refused by the kernel |
 | 9 | unsupported readingpoint / relationship / context | refused in definitions files, in NAT-FUN certificates, and in discovery certificates (even rehashed into the manifest) |
 | 10 | not found within bounds | G1, G2 NOT_FOUND_WITHIN_BOUNDS with the no-truth-claim sentence; a provable goal with budget 1 is only "not found" |
-| — | discovery record | verifies; refused after tampering with kind, definition identity, elaborated statement, a fabricated row, depth, the summary hash, an added label, or a changed definitions file; a rerun reproduces the record byte for byte |
+| — | discovery record | verifies; refused after tampering with kind, definition identity, elaborated statement, a fabricated row, a depth outside the search bound, the summary hash, an added label, or a changed definitions file; a rerun reproduces the record byte for byte |
 | — | earlier conventions | a NAT-LOGIC goal using `double(…)` is still an error; `spec/definitions.rlt` keeps its pinned hash |
 
 **Finding 1 (pre-existing, outside this milestone's scope).** Under the earlier conventions, `rlt check` prints a `(relationship …)` or `(readingpoint …)` label without checking that it is registered; registration is enforced by `rlt rp` and `rlt validate`. For example, `R_math29_pairing.rlt` with its relationship renamed to `nope.nope` still ACCEPTs, with the label echoed. Changing that would alter established verdicts, so it is left as is and reported here. NAT-FUN refuses the labels outright.
@@ -176,12 +179,12 @@ The four `unfolding` theorems are `∀x. double(x) = x + x`, `double(0) = 0 + 0`
 
 - The kernel accepts seven unconditional theorems under ROBINSON-Q (F1–F7), with the axioms used listed, and 126 discovery theorems. Each was re-checked from its bytes by `rlt check`'s function.
 - Each certificate's link to its definitions is a recomputation on every check: file SHA-256, then parse and validation, then unfolding of the written goal, then the kernel goal compared with the derivation's conclusion.
-- Lean 4.34.0-rc2 confirms each unfolding (`Iff.rfl`) and each statement's truth in ℕ, using standard axioms only. A script binds those Lean statements to RLT's printed output.
+- For the seven goals, a script requires the Lean file to state exactly RLT's printed folded and unfolded statements and the registered definitions (textual correspondence). Lean 4.34.0-rc2 then checks the hand-written theorems: each equivalence up to definitional equality (`Iff.rfl`) and each statement's truth in ℕ, using standard axioms only.
 - No kernel, axiom-set, rule or pinned M3b change.
 
 **Implementation or interpretation assumptions**
 
-- RLT's elaborator and unfolder are trusted for fidelity between source and core. The Lean cross-check covers the seven goals, not the elaborator in general.
+- RLT's elaborator and unfolder are trusted for fidelity between source and core. The Lean comparison covers the seven goals, not the elaborator in general, and `Iff.rfl` validates equivalence, not RLT's expansion algorithm (§3).
 - `unfolding` / `inference` is a syntactic classification checked against the kernel's axioms used. It does not detect statements that hold for any term in place of the definition's use; a stronger "depends on the definition" test (prove again with each use generalised) is a possible addition.
 - Only unary-or-more **function** definitions over 0, S, +, × are supported: no constants, no predicate definitions in user registries, no definitions by cases or recursion. Stage 3 (math29, modulo 30) will likely need predicate definitions in registries (for example an admissible-residue predicate over the existing `free235`, `<`, `∣`), which this mechanism does not yet provide. The existing statements should be inspected first, as planned.
 - One definitions file per proof; dependencies across files are not supported.
@@ -202,3 +205,17 @@ python3 -I scripts/check-definitions-lean.py target/release/rlt
 (cd lean && lean ProverDefinitions.lean)
 scripts/verify.sh SOURCE_CHECKOUTS_DIR                                         # stage "registered function definitions"
 ```
+
+## 9. Independent audit and remediation
+
+An independent read-only audit of `3b0fcea` found no kernel-soundness defect and no way to attach a valid proof to a different written theorem. Two findings were fixed before merge; two are carried to the next milestone.
+
+**D1 — unbounded unfolding (fixed).** Each use was size-checked, but the formula's total was checked only after full unfolding, so a ~10 KB goal (400 uses of `ad(ad(x))` over the chain `aa(x) := x + x` … `ad(x) := ac(ac(x))`, ~52M nodes) exhausted memory and was killed by the OS. The unfolder (`syntax/src/fdefs.rs`) now carries a cumulative node budget through every nested expansion: each instantiation's exact result size is computed from the body's parameter occurrences and the argument sizes, without building it, and compared with the budget (nodes already committed elsewhere in the formula, across both sides of `=` and every connective) before any node is allocated. Size arithmetic is checked: an overflow is an error, never a wrapped count. Loading a definitions file applies the same rule against `MAX_BODY_NODES`. The audit's case is now refused in about 0.2 s with `MALFORMED — … would exceed 1000000 nodes`. Valid expansions are unchanged; the seven certificates and the 126 discovery certificates reproduce byte for byte. Regressions: `instantiated_size_is_exact`, `cumulative_budget_refuses_the_audit_d1_expansion_without_building_it`, `nested_growth_is_refused_before_construction`, `budget_is_shared_across_sides_and_connectives`, `size_accounting_refuses_overflow`, `oversized_definition_bodies_are_refused_while_loading` (unit), and `audit_d1_many_uses_are_refused_with_an_error_not_oom` (end to end through `rlt check`). An argument of a parameter that its body ignores still counts while it is built, so the budget bounds peak memory as well as the result.
+
+**D4 — Lean comparison overstated (fixed).** This report and `lean/ProverDefinitions.lean` described `Iff.rfl` as an independent implementation of RLT's unfolding. `Iff.rfl` checks definitional equality and accepts other equivalent unfoldings (`(double 2 = 4) ↔ (3 + 1 = 4)`). §3, §7, the Lean header and the script's docstring now separate the script's textual comparison, Lean's checks of the hand-written definitions and theorems, and the absence of any general proof about the elaborator. The script also now requires the Lean `def`s to equal the registered written forms. Regression: `audit_d4_lean_comparison_script_checks_text_not_just_definitional_equality` (a definitionally equal but different F3 unfolding, and a different `def double`, are both refused by the script).
+
+**Carried to the next milestone (documented, not changed here).**
+
+- **D2 — canonical definition identity.** A definitions file is identified by its repository path and SHA-256. Registry ids and function names are not registered anywhere, and any repository-relative file is accepted, so a different file may also say `(id DOUBLE)` and define `double(x) := x + 1`; its certificates and a complete discovery record verify, honestly labelled with that file's path and hash. A pinned registry of definitions files (as for axiom sets) or unique ids is needed before predicate definitions.
+- **D3 — generic versus definition-sensitive theorems.** `unfolding` / `inference` is not "depends on the definition". The audit found 39 of the 126 discovery theorems true for every function in place of `double` (Q laws applied to an opaque term, e.g. `double(x) × 0 = 0`), 83 materially definition-dependent inference theorems and 4 unfoldings. A generalisation check (prove again with each use replaced by a fresh term) is planned with predicate definitions.
+- Note: `depth` in the discovery manifest is search metadata checked only against the bound; a depth falsified within the bound (0 → 1) is accepted, as the manifest header says.

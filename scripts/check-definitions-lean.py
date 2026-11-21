@@ -1,15 +1,28 @@
 #!/usr/bin/env python3
 """RLT-PROVER-002: bind lean/ProverDefinitions.lean to what RLT checked.
 
-For every goal tests/definitions/goals/FN_*.goal, `rlt check` of its
-committed certificate prints the folded statement (`folded`) and the
-unfolded statement the kernel checked (`checked goal`). This script rewrites
-both mechanically into Lean syntax and requires that theorem FN_unfolds in
-the Lean file states exactly `(folded) ↔ (unfolded)`, and that FN_holds
-states the folded statement. Lean then checks the equivalence by Iff.rfl,
-an independent implementation of the unfolding RLT's elaborator performs.
+What this script checks (textual, mechanical):
 
-usage: scripts/check-definitions-lean.py RLT_BINARY
+1. For every goal tests/definitions/goals/FN_*.goal, `rlt check` of its
+   committed certificate prints the folded statement (`folded`) and the
+   unfolded statement the kernel checked (`checked goal`). Both are rewritten
+   into Lean syntax, and the Lean file must contain exactly
+   `theorem FN_unfolds : (folded) ↔ (unfolded)` and
+   `theorem FN_holds : folded`.
+2. Each Lean `def` of a registered function is the registered written form
+   of definitions/double.rlt or definitions/quadruple.rlt, rewritten the same
+   way.
+
+It is this text comparison, not Lean, that pins the Lean statements to RLT's
+particular unfolding. Lean (run separately) then checks the hand-written
+theorems: `FN_unfolds` by Iff.rfl, i.e. up to definitional equality, which
+shows the folded and unfolded statements are equivalent in Lean's ℕ for
+these seven goals; Iff.rfl would equally accept some other equivalent
+unfolding (for example `(double 2 = 4) ↔ (3 + 1 = 4)`), so on its own it
+does not validate RLT's unfolding algorithm. Nothing here is a general proof
+that RLT's elaborator agrees with Lean's semantics.
+
+usage: scripts/check-definitions-lean.py RLT_BINARY [--lean PATH]
 """
 import glob
 import os
@@ -33,10 +46,26 @@ def lean_of(s: str, typed: bool) -> str:
 
 
 def main() -> int:
-    rlt = sys.argv[1]
-    lean = open("lean/ProverDefinitions.lean", encoding="utf-8").read()
+    args = sys.argv[1:]
+    lean_path = "lean/ProverDefinitions.lean"
+    if "--lean" in args:
+        i = args.index("--lean")
+        lean_path = args[i + 1]
+        del args[i:i + 2]
+    rlt = args[0]
+    lean = open(lean_path, encoding="utf-8").read()
     lean_flat = re.sub(r"\s+", " ", lean)
     bad, n = 0, 0
+    # 2. Lean's defs are the registered written forms.
+    for reg in ("definitions/double.rlt", "definitions/quadruple.rlt"):
+        text = open(reg, encoding="utf-8").read()
+        for m in re.finditer(r'\(written "([a-z]{2,})\(([a-z](?:, [a-z])*)\) := ([^"]*)"\)', text):
+            fname, params, rhs = m.group(1), m.group(2).split(", "), m.group(3)
+            binders = " ".join(f"({p} : Nat)" for p in params)
+            want_def = f"def {fname} {binders} : Nat := {lean_of(rhs, False)}"
+            if want_def not in lean_flat:
+                print(f"  UNEXPECTED: {lean_path} lacks `{want_def}` (registered in {reg})")
+                bad += 1
     for g in sorted(glob.glob("tests/definitions/goals/F*_*.goal")):
         name = os.path.basename(g)[:-5]
         tag = name.split("_")[0]
@@ -56,12 +85,12 @@ def main() -> int:
         n += 1
         for w in (want_unf, want_hold):
             if w not in lean_flat:
-                print(f"  UNEXPECTED: lean/ProverDefinitions.lean lacks `{w}`")
+                print(f"  UNEXPECTED: {lean_path} lacks `{w}`")
                 bad += 1
     expected = len(glob.glob("tests/definitions/goals/F*_*.goal"))
     if n != expected or n == 0:
         bad += 1
-    print(f"lean/ProverDefinitions.lean: {n - min(n, bad)} of {expected} goals stated as RLT folded and unfolded them (statement correspondence, mechanical)")
+    print(f"{lean_path}: {n - min(n, bad)} of {expected} goals stated as RLT folded and unfolded them, Lean defs equal to the registered written forms (textual correspondence, mechanical; Lean's Iff.rfl checks equivalence up to definitional equality, not RLT's unfolding algorithm)")
     return 1 if bad else 0
 
 

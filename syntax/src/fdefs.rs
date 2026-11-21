@@ -135,30 +135,71 @@ impl FunctionDefs {
 
     /// Unfold every use of a registered function in a term, innermost first.
     /// Symbols that are not registered functions are left as they are (the
-    /// kernel's sort check judges them).
+    /// kernel's sort check judges them). The whole result is held to
+    /// `MAX_PROP_NODES`, checked before each node is built.
     pub fn unfold_term(&self, t: &Term) -> Result<Term, String> {
+        self.unfold_term_within(t, 0, MAX_PROP_NODES)
+    }
+
+    /// Unfold `t` while the nodes already committed elsewhere in the result
+    /// (`prefix`) plus everything this call builds stay within `limit`.
+    /// Every allocation is preceded by an exact size check, so an oversized
+    /// expansion is refused before it is constructed. The caller adds the
+    /// returned term's size to its own count.
+    fn unfold_term_within(&self, t: &Term, prefix: u64, limit: u64) -> Result<Term, String> {
         match t {
             Term::App(f, args) => {
-                let a = args
-                    .iter()
-                    .map(|x| self.unfold_term(x))
-                    .collect::<Result<Vec<_>, _>>()?;
+                let base = prefix;
+                let mut a = Vec::with_capacity(args.len());
+                // Arguments are built one after another; each counts against
+                // the budget while its siblings are built.
+                let mut acc = base;
+                for x in args {
+                    let u = self.unfold_term_within(x, acc, limit)?;
+                    acc = acc
+                        .checked_add(u.size())
+                        .filter(|n| *n <= limit)
+                        .ok_or_else(|| over(limit))?;
+                    a.push(u);
+                }
                 match self.get(f) {
                     Some(d) => {
                         self.mark(f);
-                        d.instantiate(&a)
+                        // The arguments are consumed by the substitution, so
+                        // only the instantiated body joins the prefix.
+                        let r = d.instantiated_size(&a)?;
+                        if base.checked_add(r).is_none_or(|n| n > limit) {
+                            return Err(format!(
+                                "NAT-FUN: unfolding `{}` would exceed {limit} nodes in the formula",
+                                d.name
+                            ));
+                        }
+                        Ok(subst_params(&d.body, &d.params, &a))
                     }
-                    None => Ok(Term::App(f.clone(), a)),
+                    None => {
+                        if acc.checked_add(1).is_none_or(|n| n > limit) {
+                            return Err(over(limit));
+                        }
+                        Ok(Term::App(f.clone(), a))
+                    }
                 }
             }
-            other => Ok(other.clone()),
+            other => {
+                if prefix.checked_add(1).is_none_or(|n| n > limit) {
+                    return Err(over(limit));
+                }
+                Ok(other.clone())
+            }
         }
     }
 
     /// Unfold every use in a formula; connectives and binders are kept.
+    /// The node budget is cumulative over the whole formula and is enforced
+    /// before each allocation, never only on the finished result.
     pub fn unfold_prop(&self, p: &Prop) -> Result<Prop, String> {
-        let out = self.unfold_in(p)?;
-        if prop_nodes(&out) > MAX_PROP_NODES {
+        let mut used = 0u64;
+        let out = self.unfold_in(p, &mut used)?;
+        if used > MAX_PROP_NODES || prop_nodes(&out) > MAX_PROP_NODES {
             return Err(format!(
                 "NAT-FUN: the unfolded formula exceeds {MAX_PROP_NODES} nodes"
             ));
@@ -171,21 +212,59 @@ impl FunctionDefs {
         Ok(out)
     }
 
-    fn unfold_in(&self, p: &Prop) -> Result<Prop, String> {
-        let b = |x: &Prop| -> Result<Box<Prop>, String> { Ok(Box::new(self.unfold_in(x)?)) };
+    /// `*used` counts the nodes (as `prop_nodes` counts them) of the parts
+    /// of the result already built.
+    fn unfold_in(&self, p: &Prop, used: &mut u64) -> Result<Prop, String> {
+        let lim = MAX_PROP_NODES;
+        let term = |t: &Term, used: &mut u64| -> Result<Term, String> {
+            let u = self.unfold_term_within(t, *used, lim)?;
+            *used = used
+                .checked_add(u.size())
+                .filter(|n| *n <= lim)
+                .ok_or_else(|| over(lim))?;
+            Ok(u)
+        };
+        let node = |used: &mut u64| -> Result<(), String> {
+            *used = used
+                .checked_add(1)
+                .filter(|n| *n <= lim)
+                .ok_or_else(|| over(lim))?;
+            Ok(())
+        };
         Ok(match p {
-            Prop::Eq(f) => Prop::Eq(Formula::new(
-                self.unfold_term(&f.lhs)?,
-                self.unfold_term(&f.rhs)?,
-            )),
-            Prop::False => Prop::False,
-            Prop::And(x, y) => Prop::And(b(x)?, b(y)?),
-            Prop::Or(x, y) => Prop::Or(b(x)?, b(y)?),
-            Prop::Imp(x, y) => Prop::Imp(b(x)?, b(y)?),
-            Prop::Forall(h, x) => Prop::Forall(h.clone(), b(x)?),
-            Prop::Exists(h, x) => Prop::Exists(h.clone(), b(x)?),
+            Prop::Eq(f) => {
+                let l = term(&f.lhs, used)?;
+                let r = term(&f.rhs, used)?;
+                Prop::Eq(Formula::new(l, r))
+            }
+            Prop::False => {
+                node(used)?;
+                Prop::False
+            }
+            Prop::And(x, y) | Prop::Or(x, y) | Prop::Imp(x, y) => {
+                node(used)?;
+                let a = Box::new(self.unfold_in(x, used)?);
+                let b = Box::new(self.unfold_in(y, used)?);
+                match p {
+                    Prop::And(..) => Prop::And(a, b),
+                    Prop::Or(..) => Prop::Or(a, b),
+                    _ => Prop::Imp(a, b),
+                }
+            }
+            Prop::Forall(h, x) => {
+                node(used)?;
+                Prop::Forall(h.clone(), Box::new(self.unfold_in(x, used)?))
+            }
+            Prop::Exists(h, x) => {
+                node(used)?;
+                Prop::Exists(h.clone(), Box::new(self.unfold_in(x, used)?))
+            }
         })
     }
+}
+
+fn over(limit: u64) -> String {
+    format!("NAT-FUN: the unfolded formula would exceed {limit} nodes")
 }
 
 fn prop_nodes(p: &Prop) -> u64 {
@@ -223,17 +302,37 @@ fn subst_params(t: &Term, params: &[String], args: &[Term]) -> Term {
     }
 }
 
-fn occurrences(t: &Term) -> u64 {
+/// Nodes in a body of `body_size` nodes after each of its `occ[i]`
+/// parameter occurrences (one node each) is replaced by a term of
+/// `arg_sizes[i]` nodes. `None` on overflow; never a wrapped count.
+fn size_after_substitution(body_size: u64, occ: &[u64], arg_sizes: &[u64]) -> Option<u64> {
+    let total = occ.iter().try_fold(0u64, |s, n| s.checked_add(*n))?;
+    let mut size = body_size.checked_sub(total)?;
+    for (n, a) in occ.iter().zip(arg_sizes) {
+        size = size.checked_add(n.checked_mul(*a)?)?;
+    }
+    Some(size)
+}
+
+fn count_param_occurrences(t: &Term, params: &[String], occ: &mut [u64]) {
     match t {
-        Term::Var(_) => 1,
-        Term::App(_, a) => a.iter().fold(0u64, |s, x| s.saturating_add(occurrences(x))),
-        _ => 0,
+        Term::Var(v) => {
+            if let Some(i) = params.iter().position(|p| p == v) {
+                occ[i] = occ[i].saturating_add(1);
+            }
+        }
+        Term::App(_, a) => a
+            .iter()
+            .for_each(|x| count_param_occurrences(x, params, occ)),
+        _ => {}
     }
 }
 
 impl FunctionDef {
-    /// The body with the parameters replaced by these argument terms.
-    pub fn instantiate(&self, args: &[Term]) -> Result<Term, String> {
+    /// The exact node count of the body with these arguments substituted,
+    /// computed without building it. Checked arithmetic: an overflow is an
+    /// error, never a wrapped count.
+    pub fn instantiated_size(&self, args: &[Term]) -> Result<u64, String> {
         if args.len() != self.params.len() {
             return Err(format!(
                 "NAT-FUN: `{}` takes {} argument(s), given {}",
@@ -242,14 +341,25 @@ impl FunctionDef {
                 args.len()
             ));
         }
-        let widest = args.iter().map(|a| a.size()).max().unwrap_or(1);
-        let bound = self
-            .body
-            .size()
-            .saturating_add(occurrences(&self.body).saturating_mul(widest));
-        if bound > MAX_PROP_NODES {
+        let mut occ = vec![0u64; self.params.len()];
+        count_param_occurrences(&self.body, &self.params, &mut occ);
+        let sizes: Vec<u64> = args.iter().map(Term::size).collect();
+        size_after_substitution(self.body.size(), &occ, &sizes)
+            .ok_or_else(|| format!("NAT-FUN: the size of unfolding `{}` overflows", self.name))
+    }
+
+    /// The body with the parameters replaced by these argument terms; the
+    /// exact result size is checked against `MAX_PROP_NODES` before any node
+    /// is built.
+    pub fn instantiate(&self, args: &[Term]) -> Result<Term, String> {
+        self.instantiate_within(args, MAX_PROP_NODES)
+    }
+
+    /// As `instantiate`, against an explicit limit.
+    pub fn instantiate_within(&self, args: &[Term], limit: u64) -> Result<Term, String> {
+        if self.instantiated_size(args)? > limit {
             return Err(format!(
-                "NAT-FUN: unfolding `{}` would exceed {MAX_PROP_NODES} nodes",
+                "NAT-FUN: unfolding `{}` would exceed {limit} nodes",
                 self.name
             ));
         }
@@ -322,7 +432,20 @@ fn body_term(
                 .map(|a| body_term(a, ctx, me, params, earlier, deps))
                 .collect::<Result<Vec<_>, _>>()?;
             match (f.as_str(), ts.len()) {
-                ("S", 1) | ("+", 2) | ("*", 2) => Ok(Term::App(f.clone(), ts)),
+                ("S", 1) | ("+", 2) | ("*", 2) => {
+                    // Children are already within the limit; refuse before
+                    // building a parent that would not be.
+                    let n = ts
+                        .iter()
+                        .try_fold(1u64, |s, t| s.checked_add(t.size()))
+                        .filter(|n| *n <= MAX_BODY_NODES);
+                    if n.is_none() {
+                        return Err(format!(
+                            "{ctx}: the unfolded body exceeds {MAX_BODY_NODES} nodes"
+                        ));
+                    }
+                    Ok(Term::App(f.clone(), ts))
+                }
                 ("S" | "+" | "*", n) => Err(format!(
                     "{ctx}: `{f}` has arity {}, applied to {n} argument(s)",
                     if f == "S" { 1 } else { 2 }
@@ -334,7 +457,8 @@ fn body_term(
                     Some(d) => {
                         deps.insert(d.name.clone());
                         deps.extend(d.deps.iter().cloned());
-                        d.instantiate(&ts).map_err(|m| format!("{ctx}: {m}"))
+                        d.instantiate_within(&ts, MAX_BODY_NODES)
+                            .map_err(|m| format!("{ctx}: {m}"))
                     }
                     None => Err(format!(
                         "{ctx}: undefined symbol `{f}`: a body may use only S, +, * and functions registered above it (recursive and cyclic definitions are refused)"
@@ -673,5 +797,142 @@ mod tests {
         let ok =
             r#"(define-function lt (x) (+ x x) (written "lt(x) := x + x") (origin rlt-authored))"#;
         assert!(parse_function_definitions(&file(ok), &["lt"]).is_err());
+    }
+
+    /// The audit's D1 family: `aa(x) := x + x`, then each next function
+    /// applies the previous one twice. Sizes: aa 3, ab 7, ac 31, ad 511
+    /// nodes; one use of `ad(ad(x))` unfolds to 131,071 nodes.
+    fn chain(levels: usize) -> String {
+        let names = ["aa", "ab", "ac", "ad"];
+        let mut defs = String::from(
+            r#"(define-function aa (x) (+ x x) (written "aa(x) := x + x") (origin rlt-authored))"#,
+        );
+        for i in 1..levels {
+            let (p, n) = (names[i - 1], names[i]);
+            defs.push_str(&format!(
+                "\n (define-function {n} (x) ({p} ({p} x)) (written \"{n}(x) := {p}({p}(x))\") (origin rlt-authored))"
+            ));
+        }
+        file(&defs)
+    }
+
+    fn app(f: &str, t: Term) -> Term {
+        Term::App(f.into(), vec![t])
+    }
+
+    fn adad() -> Term {
+        app("ad", app("ad", Term::Bound(0)))
+    }
+
+    /// `ad(ad(x)) + … + ad(ad(x))` with k uses.
+    fn sum_of_uses(k: usize) -> Term {
+        let mut t = adad();
+        for _ in 1..k {
+            t = Term::App("+".into(), vec![t, adad()]);
+        }
+        t
+    }
+
+    fn all_x(p: Prop) -> Prop {
+        Prop::Forall("x".into(), Box::new(p))
+    }
+
+    /// ∀x. ad(ad(x)) + … (k uses) = 0: the audit's reproduction of D1.
+    fn many_uses(k: usize) -> Prop {
+        all_x(Prop::eq(sum_of_uses(k), Term::numeral(0)))
+    }
+
+    #[test]
+    fn instantiated_size_is_exact() {
+        let d = parse_function_definitions(&chain(4), &[]).unwrap();
+        let expect = [("aa", 3), ("ab", 7), ("ac", 31), ("ad", 511)];
+        for (name, n) in expect {
+            let f = d.get(name).unwrap();
+            assert_eq!(f.body.size(), n, "{name}");
+            for arg in [Term::numeral(0), Term::numeral(3), app("S", Term::Bound(0))] {
+                let n = f.instantiated_size(std::slice::from_ref(&arg)).unwrap();
+                assert_eq!(n, f.instantiate(&[arg]).unwrap().size(), "{name}");
+            }
+        }
+        assert_eq!(d.unfold_term(&adad()).unwrap().size(), 131_071);
+    }
+
+    #[test]
+    fn cumulative_budget_refuses_the_audit_d1_expansion_without_building_it() {
+        let d = parse_function_definitions(&chain(4), &[]).unwrap();
+        // 7 uses: 917,503 nodes, under the 1,000,000 limit; unfolds exactly.
+        let ok = d.unfold_prop(&many_uses(7)).unwrap();
+        assert_eq!(ok.check_wf(0), Ok(()));
+        // 7 uses, 6 additions, the numeral 0 and the ∀ node.
+        assert_eq!(prop_nodes(&ok), 7 * 131_071 + 6 + 1 + 1);
+        // 8 uses cross the limit. 400 uses is the audit's case (~52M nodes),
+        // which was killed by the OOM killer before this budget; it and
+        // larger inputs must now fail with a controlled error.
+        for k in [8, 50, 400, 5000] {
+            let e = d.unfold_prop(&many_uses(k)).unwrap_err();
+            assert!(e.contains("would exceed 1000000 nodes"), "{k}: {e}");
+        }
+    }
+
+    #[test]
+    fn nested_growth_is_refused_before_construction() {
+        // ad(ad(ad(x))) would be ~6.7e7 nodes: the exact size check refuses
+        // the outer instantiation before it is built.
+        let d = parse_function_definitions(&chain(4), &[]).unwrap();
+        let t = app("ad", adad());
+        let e = d
+            .unfold_prop(&all_x(Prop::eq(t, Term::numeral(0))))
+            .unwrap_err();
+        assert!(e.contains("unfolding `ad` would exceed"), "{e}");
+    }
+
+    #[test]
+    fn budget_is_shared_across_sides_and_connectives() {
+        let d = parse_function_definitions(&chain(4), &[]).unwrap();
+        // 4 uses ≈ 524k nodes: one side alone unfolds.
+        assert!(d
+            .unfold_prop(&all_x(Prop::eq(sum_of_uses(4), Term::numeral(0))))
+            .is_ok());
+        // Both sides together (≈ 1.05M) are refused.
+        assert!(d
+            .unfold_prop(&all_x(Prop::eq(sum_of_uses(4), sum_of_uses(4))))
+            .is_err());
+        // So are two conjuncts, and an implication, of ≈ 524k each.
+        let half = || Prop::eq(sum_of_uses(4), Term::numeral(0));
+        let and = Prop::And(Box::new(half()), Box::new(half()));
+        let imp = Prop::Imp(Box::new(half()), Box::new(half()));
+        assert!(d.unfold_prop(&all_x(and)).is_err());
+        assert!(d.unfold_prop(&all_x(imp)).is_err());
+    }
+
+    #[test]
+    fn size_accounting_refuses_overflow() {
+        assert_eq!(size_after_substitution(3, &[2], &[5]), Some(11));
+        assert_eq!(
+            size_after_substitution(1, &[1], &[u64::MAX]),
+            Some(u64::MAX)
+        );
+        assert_eq!(size_after_substitution(3, &[2], &[u64::MAX]), None);
+        assert_eq!(size_after_substitution(5, &[u64::MAX, 1], &[1, 1]), None);
+        assert_eq!(size_after_substitution(2, &[3], &[1]), None);
+    }
+
+    #[test]
+    fn oversized_definition_bodies_are_refused_while_loading() {
+        // zz uses ad 200 times (~102k nodes > MAX_BODY_NODES): refused at
+        // load time, when the parent node would cross the limit.
+        let mut formal = "(ad x)".to_string();
+        let mut written = "ad(x)".to_string();
+        for _ in 1..200 {
+            formal = format!("(+ {formal} (ad x))");
+            written.push_str(" + ad(x)");
+        }
+        let mut f = chain(4);
+        f.pop();
+        f.push_str(&format!(
+            " (define-function zz (x) {formal} (written \"zz(x) := {written}\") (origin rlt-authored)))"
+        ));
+        let e = parse_function_definitions(&f, &[]).unwrap_err();
+        assert!(e.contains("exceeds 100000 nodes"), "{e}");
     }
 }
