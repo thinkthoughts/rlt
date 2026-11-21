@@ -1,0 +1,28 @@
+id: NAT-FUN
+authority: interpretation   # selects a reading of notation; proofs come only from the kernel
+sources: []
+origin: rlt-authored        # RLT-PROVER-002: NAT-LOGIC plus registered function definitions
+
+# Executable fields: they decide what a written expression elaborates to.
+# Pinned in the binary (PINNED_CONVENTIONS, interpretation digest). The
+# functions read are those of the definitions file a proof or goal file
+# names with (definitions "path" "sha256"); that file's bytes are bound by
+# the stated SHA-256 on every check.
+executable:
+  elaborator: nat-dec
+  operators: ["+", "×"]
+  connectives: ["⊥", "¬", "∧", "∨", "→", "∀", "∃"]
+  functions: registered
+
+# Explanation: prose no check uses to elaborate. Pinned separately
+# (PINNED_CONVENTIONS, explanation digest), so a prose edit needs review too.
+explanation:
+  title: Written first-order formulas with registered function definitions
+  reading:
+    - "Everything NAT-LOGIC reads is read identically: every NAT-LOGIC formula elaborates to the same kernel term under NAT-FUN."
+    - "name(t₁, …, tₙ) is a use of a function registered in the file named by (definitions …), at its registered arity; name is two or more lower-case letters."
+    - "A use is unfolded before the kernel: the registered body with each parameter replaced by the argument term. The kernel checks only the unfolded formula."
+  limits:
+    - "Definitions add no axiom, no rule and no kernel symbol: a statement written with them means exactly its unfolding."
+    - "Only function (term) definitions over 0, S, +, × are read; <, ∣ and free235 remain NAT-DEF's."
+    - "NAT-LOGIC and NAT-DEF are unchanged: proof files that name them read exactly as before RLT-PROVER-002."

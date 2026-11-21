@@ -27,6 +27,18 @@ pub struct ProofFile {
     /// Citations of other checked proof files, `(cites (LABEL "path" "sha256") …)`;
     /// RLT-003 M3c. The reader only records them; the CLI resolves and checks them.
     pub cites: Vec<Cite>,
+    /// RLT-PROVER-002: the registered function definitions a NAT-FUN file
+    /// reads, `(definitions "path" "sha256")`. Required under NAT-FUN and
+    /// refused under every other convention.
+    pub definitions: Option<DefinitionsRef>,
+}
+
+/// The definitions file a NAT-FUN proof reads: a repository-relative path
+/// and the SHA-256 of its exact bytes (RLT-PROVER-002).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DefinitionsRef {
+    pub path: String,
+    pub sha256: String,
 }
 
 /// One declared citation (RLT-003 M3c).
@@ -371,6 +383,7 @@ pub fn parse_proof_file_with(
         axiom_set: String::new(),
         steps: Vec::new(),
         cites: Vec::new(),
+        definitions: None,
     };
     // Parameters and assumption names are read first: steps resolve names against them.
     let mut scope = Scope::default();
@@ -495,6 +508,22 @@ pub fn parse_proof_file_with(
                     }
                 }
             }
+            "definitions" => match rest {
+                [Sexp::Str(p), Sexp::Str(h)] => {
+                    if h.len() != 64
+                        || !h.chars().all(|c| c.is_ascii_digit() || ('a'..='f').contains(&c))
+                    {
+                        return Err("(definitions \"path\" \"sha256\"): the SHA-256 must be 64 lower-case hex digits".into());
+                    }
+                    pf.definitions = Some(DefinitionsRef {
+                        path: p.clone(),
+                        sha256: h.clone(),
+                    })
+                }
+                _ => {
+                    return Err("(definitions \"path\" \"sha256\"): a quoted repository-relative path and a quoted SHA-256".into())
+                }
+            },
             "steps" => {
                 pf.steps = rest
                     .iter()
@@ -516,6 +545,41 @@ pub fn parse_proof_file_with(
     }
     if !mode_seen {
         return Err("missing field (mode unconditional|conditional)".into());
+    }
+    // RLT-PROVER-002: registered functions are read under NAT-FUN only, and
+    // a NAT-FUN file always names the exact definitions it reads.
+    let fun = pf.convention == crate::fdefs::FUNCTIONS_CONVENTION;
+    match (fun, &pf.definitions) {
+        (true, None) => {
+            return Err(format!(
+            "convention {}: name the registered definitions with (definitions \"path\" \"sha256\")",
+            pf.convention
+        ))
+        }
+        (false, Some(_)) => {
+            return Err(format!(
+            "(definitions …) belongs to convention {}; convention {} reads no registered functions",
+            crate::fdefs::FUNCTIONS_CONVENTION,
+            pf.convention
+        ))
+        }
+        _ => {}
+    }
+    // No reading point, relationship or context record binds a NAT-FUN proof
+    // in this milestone, so asserting one is refused rather than echoed.
+    if fun {
+        for (k, present) in [
+            ("readingpoint", pf.readingpoint.is_some()),
+            ("relationship", pf.relationship.is_some()),
+            ("context", pf.context.is_some()),
+        ] {
+            if present {
+                return Err(format!(
+                    "({k} …) is refused under {}: no registered {k} binds a definition-aware proof; the definition-aware theorem is stated without it",
+                    pf.convention
+                ));
+            }
+        }
     }
     Ok(pf)
 }

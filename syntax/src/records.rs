@@ -555,6 +555,7 @@ pub fn load_convention(path: &Path) -> Result<ConventionRecord, String> {
             "operators",
             "connectives",
             "definitions",
+            "functions",
             "elements",
             "species",
             "modulus",
@@ -613,6 +614,18 @@ pub fn load_convention(path: &Path) -> Result<ConventionRecord, String> {
     if !definitions.is_empty() && (elaborator != "nat-dec" || connectives.is_empty()) {
         return Err(format!(
             "{ctx}: `definitions` belong to a nat-dec elaborator that reads connectives"
+        ));
+    }
+    // RLT-PROVER-002: registered function definitions (NAT-FUN), read only
+    // with connectives; the value `registered` is the only one.
+    let functions = match &exe["functions"] {
+        Yaml::BadValue => false,
+        Yaml::String(s) if s == "registered" => true,
+        _ => return Err(format!("{ctx}: `functions` takes the value `registered`")),
+    };
+    if functions && (elaborator != "nat-dec" || connectives.is_empty() || !definitions.is_empty()) {
+        return Err(format!(
+            "{ctx}: `functions` belong to a nat-dec elaborator that reads connectives and no pinned definitions"
         ));
     }
     let operators = if listed_ops.is_empty() && elaborator == "nat-dec" {
@@ -749,6 +762,8 @@ pub fn load_convention(path: &Path) -> Result<ConventionRecord, String> {
             connectives,
             definitions,
             defs: None,
+            functions,
+            fdefs: None,
         },
         reading: strings(expl, "reading", &ctx)?,
         sources: strings(&y, "sources", &ctx)?,

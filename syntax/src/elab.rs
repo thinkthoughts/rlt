@@ -31,6 +31,12 @@ pub struct Convention {
     /// The pinned definitions, attached by the caller when `definitions` is
     /// non-empty; never read from the convention file.
     pub defs: Option<std::rc::Rc<crate::defs::Definitions>>,
+    /// RLT-PROVER-002 (NAT-FUN): whether this convention reads registered
+    /// function definitions, named by a proof file's `(definitions …)` field.
+    pub functions: bool,
+    /// The registered function definitions, attached by the caller when
+    /// `functions` holds; never read from the convention file.
+    pub fdefs: Option<std::rc::Rc<crate::fdefs::FunctionDefs>>,
 }
 
 /// The logical symbols NAT-DEC can be configured to read (RLT-003 M3a).
@@ -49,6 +55,7 @@ pub fn elaborate_term(w: &Written, conv: &Convention) -> Result<Term, String> {
                 vars: None,
                 notations: Vec::new(),
                 defs: None,
+                fdefs: None,
             };
             let t = p.expr()?;
             p.end()?;
@@ -97,6 +104,7 @@ pub fn elaborate_formula(w: &Written, conv: &Convention) -> Result<Formula, Stri
         vars: None,
         notations: Vec::new(),
         defs: None,
+        fdefs: None,
     };
     let lhs = p.expr()?;
     p.expect("=")?;
@@ -127,6 +135,8 @@ struct Parser<'a> {
     /// definitions they expand to; empty and `None` for every other convention.
     notations: Vec<String>,
     defs: Option<std::rc::Rc<crate::defs::Definitions>>,
+    /// RLT-PROVER-002: registered functions read (NAT-FUN); `None` otherwise.
+    fdefs: Option<std::rc::Rc<crate::fdefs::FunctionDefs>>,
 }
 
 impl Parser<'_> {
@@ -224,6 +234,44 @@ impl Parser<'_> {
                 }
                 self.pos += 1;
                 Ok(Term::numeral(n))
+            }
+            // RLT-PROVER-002: a registered function `name(t, …)`, kept folded
+            // as an application; unfolded once the whole formula is read.
+            Some(tok)
+                if self.fdefs.is_some()
+                    && crate::fdefs::is_function_name(tok)
+                    && self.toks.get(self.pos + 1).map(String::as_str) == Some("(") =>
+            {
+                let name = tok.to_string();
+                let defs = self.fdefs.clone().expect("checked");
+                let Some(def) = defs.get(&name) else {
+                    return Err(format!(
+                        "NAT-FUN: `{name}` is not a registered function of {} ({})",
+                        defs.id, defs.file
+                    ));
+                };
+                let arity = def.params.len();
+                if self.depth >= MAX_PAREN_DEPTH {
+                    return Err(format!(
+                        "NAT-DEC: parentheses nested deeper than {MAX_PAREN_DEPTH}"
+                    ));
+                }
+                self.pos += 2;
+                self.depth += 1;
+                let mut args = vec![self.expr()?];
+                while self.peek() == Some(",") {
+                    self.pos += 1;
+                    args.push(self.expr()?);
+                }
+                self.depth -= 1;
+                self.expect(")")?;
+                if args.len() != arity {
+                    return Err(format!(
+                        "NAT-FUN: `{name}` takes {arity} argument(s), given {}",
+                        args.len()
+                    ));
+                }
+                Ok(Term::App(name, args))
             }
             Some(tok) if self.vars.is_some() && is_var(tok) => {
                 let vars = self.vars.as_ref().expect("checked");
@@ -431,8 +479,10 @@ fn is_var(tok: &str) -> bool {
 
 /// Elaborate a written formula with logical symbols (RLT-003 M3a). Equations
 /// inside read exactly as `elaborate_formula` reads them; variables are single
-/// lower-case letters bound by ∀ or ∃ in the same string.
-pub fn elaborate_prop(w: &Written, conv: &Convention) -> Result<Prop, String> {
+/// lower-case letters bound by ∀ or ∃ in the same string. Under NAT-FUN the
+/// result keeps registered function uses folded (as applications);
+/// `elaborate_prop` unfolds them.
+pub fn elaborate_prop_folded(w: &Written, conv: &Convention) -> Result<Prop, String> {
     if conv.elaborator != "nat-dec" {
         return Err(format!(
             "convention {} elaborates terms only; formulas use NAT-DEC",
@@ -453,6 +503,11 @@ pub fn elaborate_prop(w: &Written, conv: &Convention) -> Result<Prop, String> {
         } else {
             conv.defs.clone()
         },
+        fdefs: if conv.functions {
+            conv.fdefs.clone()
+        } else {
+            None
+        },
     };
     if !conv.definitions.is_empty() && p.defs.is_none() {
         return Err(format!(
@@ -460,9 +515,52 @@ pub fn elaborate_prop(w: &Written, conv: &Convention) -> Result<Prop, String> {
             conv.id
         ));
     }
+    if conv.functions && p.fdefs.is_none() {
+        return Err(format!(
+            "convention {} reads registered functions, and no definitions file is attached (state it with (definitions \"path\" \"sha256\"))",
+            conv.id
+        ));
+    }
     let f = p.imp(&conv.connectives)?;
     p.end()?;
     Ok(f)
+}
+
+/// Elaborate a written formula (RLT-PROVER-002). Under NAT-FUN, uses of
+/// registered functions are unfolded: the result is over the kernel
+/// signature and is the formula the kernel checks. Every other convention
+/// reads exactly as `elaborate_prop_folded`.
+pub fn elaborate_prop(w: &Written, conv: &Convention) -> Result<Prop, String> {
+    let f = elaborate_prop_folded(w, conv)?;
+    match (&conv.fdefs, conv.functions) {
+        (Some(d), true) => d.unfold_prop(&f),
+        _ => Ok(f),
+    }
+}
+
+/// Read the right side of a written definition `NAME(p, …) := RHS` under
+/// NAT-LOGIC with the earlier functions (folded); parameters are read as
+/// bound variables, the last parameter innermost.
+pub(crate) fn elaborate_definition_rhs(
+    toks: &[String],
+    params: &[String],
+    earlier: std::rc::Rc<crate::fdefs::FunctionDefs>,
+) -> Result<Term, String> {
+    let mut p = Parser {
+        toks,
+        pos: 0,
+        depth: 0,
+        numeral_total: 0,
+        times: true,
+        operators: 0,
+        vars: Some(params.to_vec()),
+        notations: Vec::new(),
+        defs: None,
+        fdefs: Some(earlier),
+    };
+    let t = p.expr()?;
+    p.end()?;
+    Ok(t)
 }
 
 #[cfg(test)]
@@ -505,6 +603,8 @@ mod tests {
         Convention {
             definitions: vec![],
             defs: None,
+            functions: false,
+            fdefs: None,
             id: "NAT-DEC".into(),
             elaborator: "nat-dec".into(),
             symbols: BTreeMap::new(),
