@@ -1100,3 +1100,113 @@ fn audit_d6_lean_layer_compares_elaborated_declarations() {
         }
     }
 }
+
+// ── Audit H1: kernel replay of the compiled companion ──
+
+/// `set_option debug.skipKernelTC true` lets Lean store declarations its
+/// kernel never checked. Two mutants, each compiled cleanly by Lean:
+///
+/// - `skip_valid`: the option on a valid theorem (core Lean only). The
+///   complete verification refuses it (the source-layout layer rejects
+///   `set_option`); the Lean layer replays it with `leanchecker`, finds the
+///   proof valid, and its declaration still matches, so it passes there.
+/// - `skip_invalid`: a metaprogram adds `F3_holds : double 2 = 4` with the
+///   proof `True.intro` under the option. Its type matches the expected
+///   proposition, so only the kernel can tell; the Lean layer refuses it at
+///   the kernel replay (before the declaration comparison, whose Init-only
+///   import rule would otherwise be the sole defence), and so does the
+///   complete verification.
+///
+/// Without Lean this test fails unless RLT_ALLOW_NO_LEAN=1 (as verify.sh).
+#[test]
+fn audit_h1_kernel_replay_refuses_unchecked_declarations() {
+    let rlt = env!("CARGO_BIN_EXE_rlt");
+    let Some(lean_bin) = lean_bin() else {
+        assert_eq!(
+            std::env::var("RLT_ALLOW_NO_LEAN").as_deref(),
+            Ok("1"),
+            "Lean is unavailable: install elan, or set RLT_ALLOW_NO_LEAN=1 to skip this test explicitly"
+        );
+        eprintln!("SKIPPED audit_h1 (lean unavailable; RLT_ALLOW_NO_LEAN=1)");
+        return;
+    };
+    let lean = read(&root().join("lean/ProverDefinitions.lean"));
+    let check = |rel: &str, layer: &str| {
+        let out = std::process::Command::new("python3")
+            .args([
+                "-I",
+                "scripts/check-definitions-lean.py",
+                rlt,
+                "--lean",
+                rel,
+                "--layer",
+                layer,
+            ])
+            .current_dir(root())
+            .output()
+            .expect("python3");
+        (
+            out.status.code(),
+            String::from_utf8_lossy(&out.stdout).to_string(),
+        )
+    };
+    let compiles = |rel: &str| {
+        let out = std::process::Command::new(&lean_bin)
+            .arg(root().join(rel))
+            .current_dir(root().join("lean"))
+            .output()
+            .expect("lean");
+        let msg = String::from_utf8_lossy(&out.stdout).to_lowercase()
+            + &String::from_utf8_lossy(&out.stderr).to_lowercase();
+        out.status.success() && !msg.contains("warning") && !msg.contains("error")
+    };
+    let f3h = "theorem F3_holds : double 2 = 4 := rfl";
+    assert_eq!(lean.matches(f3h).count(), 1);
+
+    let rel = scratch(
+        "h1_skip_valid.lean",
+        &lean.replace(
+            f3h,
+            &format!("set_option debug.skipKernelTC true in\n{f3h}"),
+        ),
+    );
+    assert!(compiles(&rel), "skip_valid: Lean must accept the mutant");
+    let (code, t) = check(&rel, "both");
+    assert_eq!(
+        code,
+        Some(1),
+        "skip_valid passed the complete verification:\n{t}"
+    );
+    assert!(
+        t.contains("unsupported command `set_option debug.skipKernelTC"),
+        "{t}"
+    );
+    let (code, t) = check(&rel, "lean");
+    assert_eq!(
+        code,
+        Some(0),
+        "skip_valid: a kernel-valid replayed companion matches:\n{t}"
+    );
+
+    let inject = r#"open Lean Elab Command in
+set_option debug.skipKernelTC true in
+run_cmd liftTermElabM do
+  let ty ← Term.elabType (← `(double 2 = 4))
+  Term.synthesizeSyntheticMVarsNoPostponing
+  let ty ← instantiateMVars ty
+  addDecl (.thmDecl { name := `RLTProverDefinitions.F3_holds, levelParams := [], type := ty, value := mkConst ``True.intro })"#;
+    let rel = scratch(
+        "h1_skip_invalid.lean",
+        &format!("import Lean\n{}", lean.replace(f3h, inject)),
+    );
+    assert!(compiles(&rel), "skip_invalid: Lean must accept the mutant");
+    for layer in ["lean", "both"] {
+        let (code, t) = check(&rel, layer);
+        assert_eq!(code, Some(1), "skip_invalid passed ({layer}):\n{t}");
+        assert!(
+            t.contains("kernel replay (leanchecker) refused the compiled companion")
+                && t.contains("declaration type mismatch, 'RLTProverDefinitions.F3_holds'"),
+            "skip_invalid ({layer}): expected the kernel replay refusal in:\n{t}"
+        );
+    }
+}

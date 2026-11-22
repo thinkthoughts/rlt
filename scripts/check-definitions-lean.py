@@ -28,7 +28,10 @@ Two layers check the Lean file against them.
    absence of any other constant, and each theorem's axioms (propext,
    Classical.choice, Quot.sound only, collected from the kernel terms). Lean's
    kernel checks each unfolding by Iff.rfl, definitional equality, in the
-   clean expected module. Comments, strings, escaped identifiers `«…»`,
+   clean expected module. Before the comparison, the pinned toolchain's
+   `leanchecker` replays every constant of the compiled companion through
+   Lean's kernel (H1), so a declaration stored without kernel checking
+   (`set_option debug.skipKernelTC true`) is refused. Comments, strings, escaped identifiers `«…»`,
    macros, notation, instances and text inside proofs cannot supply this
    evidence: only the declared constants and their elaborated types count.
 2. Source layout (an additional defence, not the semantics). After removing
@@ -352,6 +355,30 @@ def lean_layer(lean_path, lean_text, defs, theorems, unfolds, real, prefix, verb
             for ln in noise[:8]:
                 print(f"    {ln}")
             return 1
+        # H1: replay every constant of the compiled companion through Lean's
+        # kernel with the pinned toolchain's leanchecker, against the
+        # environment the file imports. Compilation alone is not enough:
+        # `set_option debug.skipKernelTC true` (or a metaprogram adding
+        # declarations under it) lets the elaborator store declarations the
+        # kernel never checked. The comparison below reads this same .olean.
+        checker_bin = os.path.join(prefix, "bin", "leanchecker")
+        if not os.access(checker_bin, os.X_OK):
+            print(f"  UNEXPECTED (Lean): {checker_bin} is missing; the kernel replay cannot run")
+            return 1
+        renv = dict(env, LEAN_PATH=u)
+        try:
+            r = subprocess.run([checker_bin, "ProverDefinitions"], capture_output=True, text=True,
+                               cwd=u, env=renv, timeout=600)
+        except subprocess.TimeoutExpired:
+            print("  UNEXPECTED (Lean): the kernel replay (leanchecker) timed out")
+            return 1
+        if r.returncode != 0 or (r.stdout + r.stderr).strip():
+            print(f"  UNEXPECTED (Lean): kernel replay (leanchecker) refused the compiled companion (exit {r.returncode}):")
+            for ln in (r.stdout + r.stderr).strip().splitlines()[:6]:
+                print(f"    {ln}")
+            return 1
+        if verbose:
+            print("  Lean: kernel replay: leanchecker re-checked every constant of the compiled companion with Lean's kernel")
         r = subprocess.run([real, "--run", "DeclCheck.lean", prefix, spec, u, "ProverDefinitions", e, "RLTExpected"],
                            capture_output=True, text=True, cwd=c, env=env)
         out = r.stdout.splitlines()
@@ -402,7 +429,8 @@ def main() -> int:
         summary.append(f"Lean declaration correspondence {'PASS' if not lb else 'FAIL'} "
                        f"({len(theorems)} theorems' and {len(defs)} defs' elaborated declarations "
                        f"against the expected module built from RLT's printed statements and the "
-                       f"registered definitions; {n_goals} FN_unfolds by Iff.rfl in that module; standard axioms only)")
+                       f"registered definitions; {n_goals} FN_unfolds by Iff.rfl in that module; standard axioms only; "
+                       f"every constant of the compiled companion replayed by leanchecker)")
     if layer in ("both", "text"):
         tb = layout_layer(lean_path, lean_text, defs, theorems)
         bad += tb

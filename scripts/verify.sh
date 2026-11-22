@@ -1113,6 +1113,41 @@ open(sys.argv[1],"w",encoding="utf-8").write(t)' "$d6"
     echo "ProverDefinitions.lean D6 attack: UNEXPECTED (Lean exit $d6_lc, Lean layer exit $d6_ll, full exit $d6_lb)"; cat "$d6.l" "$d6.b"; fail=1
   fi
   rm -f "$d6" "$d6.l" "$d6.b"
+  # H1: a declaration stored without kernel checking. Under
+  # `set_option debug.skipKernelTC true` a metaprogram adds
+  # F3_holds : double 2 = 4 with the proof True.intro; Lean compiles the file
+  # cleanly. The Lean layer must refuse it at the leanchecker kernel replay.
+  h1=$RLT_RUN_TMP/h1-attack.lean
+  python3 -I -c 'import sys
+s=open("lean/ProverDefinitions.lean",encoding="utf-8").read()
+f3h="theorem F3_holds : double 2 = 4 := rfl"; assert s.count(f3h)==1
+bt=chr(96)
+inj=("open Lean Elab Command in\nset_option debug.skipKernelTC true in\nrun_cmd liftTermElabM do\n"
+     "  let ty \u2190 Term.elabType (\u2190 "+bt+"(double 2 = 4))\n  Term.synthesizeSyntheticMVarsNoPostponing\n"
+     "  let ty \u2190 instantiateMVars ty\n"
+     "  addDecl (.thmDecl { name := "+bt+"RLTProverDefinitions.F3_holds, levelParams := [], type := ty, value := mkConst "+bt+bt+"True.intro })")
+open(sys.argv[1],"w",encoding="utf-8").write("import Lean\n"+s.replace(f3h,inj))' "$h1"
+  h1_lean=$(cd lean && "$lean_bin" "$h1" 2>&1); h1_lc=$?
+  python3 -I scripts/check-definitions-lean.py "$rlt" --lean "$h1" --layer lean > "$h1.l" 2>&1; h1_ll=$?
+  if [ $h1_lc = 0 ] && ! echo "$h1_lean" | grep_q -iE "warning|error|sorry" && [ $h1_ll = 1 ] \
+     && grep_q "kernel replay (leanchecker) refused the compiled companion" "$h1.l" \
+     && grep_q "declaration type mismatch, 'RLTProverDefinitions.F3_holds'" "$h1.l"; then
+    echo "ProverDefinitions.lean H1 attack (F3_holds := True.intro added under debug.skipKernelTC): Lean compiles it; the kernel replay (leanchecker) refuses it"
+  else
+    echo "ProverDefinitions.lean H1 attack: UNEXPECTED (Lean exit $h1_lc, Lean layer exit $h1_ll)"; cat "$h1.l"; fail=1
+  fi
+  rm -f "$h1" "$h1.l"
+  # H1: a fresh replay of the committed companion: every constant, core Lean's
+  # included, re-checked by Lean's kernel into an empty environment.
+  h1_dir=$RLT_RUN_TMP/h1-fresh; mkdir -p "$h1_dir"; cp lean/ProverDefinitions.lean "$h1_dir/"
+  h1_pre=$(cd lean && "$lean_bin" --print-prefix 2>/dev/null | tail -1)
+  if (cd "$h1_dir" && PATH="$h1_pre/bin:$PATH" LEAN_PATH= "$h1_pre/bin/lean" -o ProverDefinitions.olean ProverDefinitions.lean >/dev/null 2>&1) \
+     && h1_out=$(cd "$h1_dir" && PATH="$h1_pre/bin:$PATH" LEAN_PATH="$h1_dir" "$h1_pre/bin/leanchecker" --fresh ProverDefinitions 2>&1) && [ -z "$h1_out" ]; then
+    echo "ProverDefinitions.lean: leanchecker --fresh replays every constant (core Lean's included) through Lean's kernel"
+  else
+    echo "ProverDefinitions.lean: leanchecker --fresh replay FAILED: $h1_out"; fail=1
+  fi
+  rm -rf "$h1_dir"
   m3b_n=$(grep -c "^theorem " lean/M3bReadings.lean)
   m3b_listed=$(echo "$lean_log" | grep -cE "RLTM3bReadings\..*(depends on axioms|does not depend on any axioms)")
   m3b_bad=$(echo "$lean_log" | grep "RLTM3bReadings\." | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound' | sort -u)
