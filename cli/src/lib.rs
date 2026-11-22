@@ -3,6 +3,7 @@
 //! golden file.
 
 pub mod compose;
+pub mod defreg;
 pub mod deps;
 pub mod discover;
 pub mod discover_defs;
@@ -26,6 +27,9 @@ use std::path::{Path, PathBuf};
 pub const ACCEPT: i32 = 0;
 pub const REJECT: i32 = 1;
 pub const MALFORMED: i32 = 2;
+/// RLT-DEF-001a: an exploratory check (`--unregistered-definitions`) of a
+/// derivation over unregistered definitions. Never an authoritative result.
+pub const EXPLORATORY: i32 = 4;
 
 pub struct Report {
     pub text: String,
@@ -245,7 +249,45 @@ pub fn load_definitions(root: &Path) -> Result<rlt_syntax::defs::Definitions, St
 /// rule, a registered axiom or a pinned M3b definition, and every cited
 /// source must be registered. Each definition's content identity is the
 /// SHA-256 of its canonical text and its dependencies' identities.
+///
+/// RLT-DEF-001a: authoritative. After those checks the file must also be a
+/// registered definitions file (`spec/definitions-registry.yaml`, rules
+/// I1–I8 in `defreg`); the registration is decided from the bytes read here.
 pub fn load_function_definitions(
+    root: &Path,
+    r: &rlt_syntax::proof::DefinitionsRef,
+) -> Result<rlt_syntax::fdefs::FunctionDefs, String> {
+    load_function_definitions_as(root, r, defreg::Authority::RegisteredOnly).map(|(d, _)| d)
+}
+
+/// As `load_function_definitions`, with the caller's authority. Under
+/// `ExploratoryAllowed` an unregistered (but otherwise valid) file is
+/// returned with `Registration::Unregistered`; a broken registry is refused
+/// in every mode.
+pub fn load_function_definitions_as(
+    root: &Path,
+    r: &rlt_syntax::proof::DefinitionsRef,
+    authority: defreg::Authority,
+) -> Result<(rlt_syntax::fdefs::FunctionDefs, defreg::Registration), String> {
+    // Steps 1–4 (path, bytes against the stated hash, parse, identities)
+    // keep their messages; registration is step 5.
+    let defs = read_function_definitions(root, r)?;
+    let reg = defreg::load_definitions_registry(root)?;
+    match reg.registration_of(&defs) {
+        Ok(id) => Ok((defs, defreg::Registration::Registered(id))),
+        Err(why) => match authority {
+            defreg::Authority::RegisteredOnly => Err(why),
+            defreg::Authority::ExploratoryAllowed => {
+                Ok((defs, defreg::Registration::Unregistered(why)))
+            }
+        },
+    }
+}
+
+/// Steps 1–4 of loading a definitions file (RLT-PROVER-002, unchanged):
+/// path rules, the bytes against the stated SHA-256, parsing and content
+/// identities. Registration is not decided here.
+pub fn read_function_definitions(
     root: &Path,
     r: &rlt_syntax::proof::DefinitionsRef,
 ) -> Result<rlt_syntax::fdefs::FunctionDefs, String> {
@@ -317,11 +359,29 @@ pub fn attach_functions(
     pf: &rlt_syntax::proof::ProofFile,
     convention: &mut rlt_syntax::elab::Convention,
 ) -> Result<Option<std::rc::Rc<rlt_syntax::fdefs::FunctionDefs>>, String> {
+    attach_functions_as(root, pf, convention, defreg::Authority::RegisteredOnly)
+        .map(|o| o.map(|(d, _)| d))
+}
+
+/// As `attach_functions`, with the caller's authority (RLT-DEF-001a).
+pub fn attach_functions_as(
+    root: &Path,
+    pf: &rlt_syntax::proof::ProofFile,
+    convention: &mut rlt_syntax::elab::Convention,
+    authority: defreg::Authority,
+) -> Result<
+    Option<(
+        std::rc::Rc<rlt_syntax::fdefs::FunctionDefs>,
+        defreg::Registration,
+    )>,
+    String,
+> {
     match (convention.functions, &pf.definitions) {
         (true, Some(r)) => {
-            let d = std::rc::Rc::new(load_function_definitions(root, r)?);
+            let (d, reg) = load_function_definitions_as(root, r, authority)?;
+            let d = std::rc::Rc::new(d);
             convention.fdefs = Some(d.clone());
-            Ok(Some(d))
+            Ok(Some((d, reg)))
         }
         (true, None) => Err(format!(
             "convention {}: no (definitions …) field names the registered functions",
@@ -518,23 +578,70 @@ pub fn check_file_outcome_with(
     classify: fn(&rlt_kernel::Prop) -> &'static str,
 ) -> CheckOutcome {
     let budget = std::cell::Cell::new(MAX_CITED_CHECKS);
-    check_inner(root, file, classify, &[], None, &budget)
+    check_inner(
+        root,
+        file,
+        classify,
+        &[],
+        None,
+        &budget,
+        defreg::Authority::RegisteredOnly,
+    )
+}
+
+/// RLT-DEF-001a: `rlt check --unregistered-definitions FILE`. A file over
+/// registered definitions gets exactly its authoritative report; over an
+/// unregistered definitions file the kernel still checks the derivation and
+/// an accepted one gets EXPLORATORY (exit 4), never ACCEPT. Citations inside
+/// are always checked authoritatively.
+pub fn check_file_exploratory(root: &Path, file: &Path) -> CheckOutcome {
+    let budget = std::cell::Cell::new(MAX_CITED_CHECKS);
+    check_inner(
+        root,
+        file,
+        result_kind,
+        &[],
+        None,
+        &budget,
+        defreg::Authority::ExploratoryAllowed,
+    )
 }
 
 /// As `check_file_outcome`, on bytes the caller already read (RLT-004b):
 /// `rlt explain` hashes the proof file once and checks exactly those bytes,
 /// through the same function `rlt check` uses.
 pub fn check_preread_outcome(root: &Path, file: &Path, src: String) -> CheckOutcome {
+    check_preread_outcome_as(root, file, src, defreg::Authority::RegisteredOnly)
+}
+
+/// As `check_preread_outcome`, with the caller's authority (RLT-DEF-001a;
+/// `rlt prove --unregistered-definitions` replays its own certificate so).
+pub fn check_preread_outcome_as(
+    root: &Path,
+    file: &Path,
+    src: String,
+    authority: defreg::Authority,
+) -> CheckOutcome {
     let budget = std::cell::Cell::new(MAX_CITED_CHECKS);
-    check_inner(root, file, result_kind, &[], Some(src), &budget)
+    check_inner(root, file, result_kind, &[], Some(src), &budget, authority)
 }
 
 /// As `check_preread_outcome`, from raw bytes (RLT-004b audit): bytes that
 /// are not UTF-8 get exactly the report `rlt check` gives for them, built from
 /// these bytes without reading the file again.
 pub fn check_bytes_outcome(root: &Path, file: &Path, bytes: Vec<u8>) -> CheckOutcome {
+    check_bytes_outcome_as(root, file, bytes, defreg::Authority::RegisteredOnly)
+}
+
+/// As `check_bytes_outcome`, with the caller's authority (RLT-DEF-001a).
+pub fn check_bytes_outcome_as(
+    root: &Path,
+    file: &Path,
+    bytes: Vec<u8>,
+    authority: defreg::Authority,
+) -> CheckOutcome {
     match String::from_utf8(bytes) {
-        Ok(src) => check_preread_outcome(root, file, src),
+        Ok(src) => check_preread_outcome_as(root, file, src, authority),
         Err(_) => {
             let mut t = String::new();
             let _ = writeln!(t, "RLT check       {}", shown_path(root, file));
@@ -618,6 +725,7 @@ fn check_inner(
     chain: &[PathBuf],
     preread: Option<String>,
     budget: &std::cell::Cell<usize>,
+    authority: defreg::Authority,
 ) -> CheckOutcome {
     let mut t = String::new();
     let mut out = CheckOutcome {
@@ -724,10 +832,13 @@ fn check_inner(
         }
     }
     // RLT-PROVER-002: registered functions, bound to the stated file hash.
-    let fdefs = match attach_functions(root, &pf, &mut convention) {
-        Ok(d) => d,
+    // RLT-DEF-001a: and registered, unless this is an exploratory check.
+    let (fdefs, registration) = match attach_functions_as(root, &pf, &mut convention, authority) {
+        Ok(Some((d, r))) => (Some(d), Some(r)),
+        Ok(None) => (None, None),
         Err(e) => bail!(e),
     };
+    let exploratory = matches!(registration, Some(defreg::Registration::Unregistered(_)));
     let mut po = match pf.to_proof_object(&convention) {
         Ok(p) => p,
         Err(e) => bail!(e),
@@ -800,6 +911,9 @@ fn check_inner(
             }
         );
         let _ = writeln!(t, "  trust         unfolded before the kernel by the RLT elaborator (untrusted, outside the kernel) from the definitions at this hash, recomputed on every check; the kernel checks only the unfolded goal above; definitions add no axiom, rule or symbol");
+        if let Some(defreg::Registration::Unregistered(why)) = &registration {
+            let _ = writeln!(t, "  authority     EXPLORATORY — {why}; this check was requested with --unregistered-definitions and carries no authority for records, citations, libraries, discovery verification or composition");
+        }
     }
     for (n, f) in &po.assumptions {
         let _ = writeln!(t, "declared        {n} : {f}");
@@ -903,7 +1017,16 @@ fn check_inner(
                 ));
             }
             budget.set(budget.get() - 1);
-            let sub = check_inner(root, &path, classify, &here, Some(text), budget);
+            // RLT-DEF-001a: a cited file is always checked authoritatively.
+            let sub = check_inner(
+                root,
+                &path,
+                classify,
+                &here,
+                Some(text),
+                budget,
+                defreg::Authority::RegisteredOnly,
+            );
             let sub_verdict = sub
                 .report
                 .text
@@ -1082,13 +1205,25 @@ fn check_inner(
                 "conditional theorem"
             };
             out.theorem = Some(th);
-            (
-                format!(
-                    "ACCEPT — {kind} relative to registered axiom set {}",
-                    set.id
-                ),
-                ACCEPT,
-            )
+            if exploratory {
+                // RLT-DEF-001a: the kernel accepted, over unregistered
+                // definitions: exit 4, never ACCEPT.
+                (
+                    format!(
+                        "EXPLORATORY — the kernel accepts this derivation ({kind} relative to registered axiom set {}) over unregistered definitions; not an authoritative RLT result",
+                        set.id
+                    ),
+                    EXPLORATORY,
+                )
+            } else {
+                (
+                    format!(
+                        "ACCEPT — {kind} relative to registered axiom set {}",
+                        set.id
+                    ),
+                    ACCEPT,
+                )
+            }
         }
         Verdict::Rejected { step, reason } => {
             let at = step.map(|s| format!(" at step {s}")).unwrap_or_default();
@@ -1096,7 +1231,9 @@ fn check_inner(
         }
     };
     let _ = writeln!(t, "verdict         {verdict_line}");
-    let scope = if code == ACCEPT && po.goal.as_eq().is_none() {
+    let scope = if code == EXPLORATORY {
+        "exploratory only: the kernel accepted the unfolded goal, but the definitions it was unfolded with are unregistered; register the definitions file (a reviewed change) for an authoritative check"
+    } else if code == ACCEPT && po.goal.as_eq().is_none() {
         "the checked formula follows from the listed axioms under Γ by the registered rules; the axioms remain assumptions, and the reading point's meanings and physical claims keep their own separate status"
     } else if code == ACCEPT {
         "the checked equation follows from the listed axioms under Γ; the axioms remain assumptions, and the reading point's meanings and physical claims keep their own separate status"

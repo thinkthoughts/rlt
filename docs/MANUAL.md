@@ -843,3 +843,26 @@ exit 1
 | **Axioms and assumptions** | Robinson's Q (Q4 used); Γ = ∅; the definition adds no axiom |
 | **Result** | PROVED; the certificate ACCEPTs under `rlt check` |
 | **Still open** | the unfolding is done by RLT's elaborator, outside the kernel (`lean/ProverDefinitions.lean` restates each unfolding in Lean; its elaborated declarations are compared, as Lean terms, with RLT's printed statements, and Lean checks each by `Iff.rfl`; this covers the stated goals, not the elaborator in general); that `double` means what a reader means is a correspondence question |
+
+### Registered definitions (RLT-DEF-001a)
+
+A definitions file counts only when it is **registered**: listed in `spec/definitions-registry.yaml` at the exact SHA-256 of its bytes, with every definition's content identity. The registry itself is pinned in the `rlt` binary, so registering or changing a definition is a reviewed change, like changing an axiom set. `rlt definitions` lists it:
+
+```console
+$ rlt definitions DOUBLE; echo "exit $?"
+RLT definitions spec/definitions-registry.yaml
+…
+file            DOUBLE definitions/double.rlt sha256 8dabb459817f7b225419456080a4e81eb675daf9a830dba529192ff50cfbc2f7 (functions, convention NAT-LOGIC, domain Nat)
+  definition    double(x) := x + x
+    content     sha256 066fb635c06d85cf6cbd288468b7d992566056793f44375b47f0ac30c09a1c16
+    expansion   sha256 c8add4bd93ab72866a59909d262b8e81bb560e49f0d006b569a5cafb2cfab949
+names           one content identity per name across the registry
+  double        066fb635c06d85cf6cbd288468b7d992566056793f44375b47f0ac30c09a1c16  (DOUBLE, QUADRUPLE)
+…
+verdict         CONSISTENT — rules I1–I8 hold; authoritative NAT-FUN checks read only these files at these hashes
+exit 0
+```
+
+Three identities stay apart. The **file identity** is the SHA-256 of the file's bytes. The **content identity** of one definition is the SHA-256 of its canonical text (name, parameters, unfolded body, body as written, written form, convention, domain, provenance and the identities of what it uses), so a comment or the order of other definitions leaves it unchanged: `double` in `definitions/double.rlt` and in `definitions/quadruple.rlt` is one definition. The **expansion identity** records only what a use unfolds to; two names may share it, one name never has two content identities.
+
+A file outside the registry, even one declaring `(id DOUBLE)`, gets no authoritative result: `rlt check`, `rlt prove` and `rlt discover --definitions` refuse it (exit 2). To experiment before registering, add `--unregistered-definitions`: the kernel still checks every derivation, and an accepted one ends `verdict EXPLORATORY` with exit 4. Exploratory results never feed a citation, a statement record, a library entry, discovery verification or a composition, because each of those re-decides registration from the definitions bytes themselves, whatever a report, a header line or an exit code says.

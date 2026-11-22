@@ -2,8 +2,9 @@
 //! definition-aware discovery, and the ten Phase 5 adversarial cases. Every
 //! proof-to-definition correspondence check must fail closed.
 
-use rlt_cli::prove::{prove_source, render, Verdict};
-use rlt_cli::{check_file_outcome, sha256_hex, ACCEPT};
+use rlt_cli::defreg::Authority;
+use rlt_cli::prove::{prove_source, prove_source_as, render, Verdict};
+use rlt_cli::{check_file_exploratory, check_file_outcome, sha256_hex, ACCEPT, EXPLORATORY};
 use std::path::{Path, PathBuf};
 
 fn root() -> PathBuf {
@@ -47,6 +48,24 @@ fn prove(src: &str, tag: &str) -> (rlt_cli::prove::ProveOutcome, String) {
     let out = format!("target/definitions-tests/{tag}.rlt");
     let r = prove_source(&root(), src, &[], Some(Path::new(&out)));
     (r, out)
+}
+
+/// RLT-DEF-001a: scratch definitions files are unregistered, so the tests
+/// that need them proved or checked run exploratory (`--unregistered-definitions`).
+fn prove_exploratory(src: &str, tag: &str) -> (rlt_cli::prove::ProveOutcome, String) {
+    let out = format!("target/definitions-tests/{tag}.rlt");
+    let r = prove_source_as(
+        &root(),
+        src,
+        &[],
+        Some(Path::new(&out)),
+        Authority::ExploratoryAllowed,
+    );
+    (r, out)
+}
+
+fn check_exploratory(rel: &str) -> rlt_cli::CheckOutcome {
+    check_file_exploratory(&root(), &root().join(rel))
 }
 
 fn text(r: &rlt_cli::prove::ProveOutcome) -> String {
@@ -182,7 +201,7 @@ fn case2_unfolding_under_quantifiers_never_captures() {
         ),
     ];
     for (i, (st, unfolded)) in cases.iter().enumerate() {
-        let (r, _) = prove(&goal(&format!("c2.{i}"), &defs, st), &format!("c2_{i}"));
+        let (r, _) = prove_exploratory(&goal(&format!("c2.{i}"), &defs, st), &format!("c2_{i}"));
         assert_eq!(
             r.goal_shown.as_deref(),
             Some(*unfolded),
@@ -192,8 +211,12 @@ fn case2_unfolding_under_quantifiers_never_captures() {
     }
     // The last is provable only with the witness x + 1 for y, so the binder
     // structure is what the kernel checked.
-    let (r, _) = prove(&goal("c2.w", &defs, cases[2].0), "c2_w");
+    let (r, _) = prove_exploratory(&goal("c2.w", &defs, cases[2].0), "c2_w");
     assert!(matches!(r.verdict, Verdict::Proved { .. }), "{}", text(&r));
+    // RLT-DEF-001a: over unregistered (scratch) definitions, exploratory only.
+    assert_eq!(r.code(), EXPLORATORY, "{}", text(&r));
+    let (r, _) = prove(&goal("c2.a", &defs, cases[2].0), "c2_a");
+    assert!(matches!(r.verdict, Verdict::Error(_)), "{}", text(&r));
 }
 
 // ── 3, 4, 6, 8, 9 (definitions files): refused before any proof ───────────
@@ -339,9 +362,12 @@ fn case9_reading_point_relationship_and_context_labels_are_refused() {
 #[test]
 fn case5_a_changed_definition_invalidates_the_proof() {
     let defs = scratch("c5_defs.rlt", &registry("C-CHANGE", DOUBLE_FN));
-    let (r, cert) = prove(&goal("c5", &defs, "double(0) = 0"), "c5");
+    let (r, cert) = prove_exploratory(&goal("c5", &defs, "double(0) = 0"), "c5");
     assert!(matches!(r.verdict, Verdict::Proved { .. }), "{}", text(&r));
-    assert_eq!(check(&cert).report.code, ACCEPT);
+    // RLT-DEF-001a: scratch definitions are unregistered: exploratory (exit
+    // 4) on request, refused otherwise.
+    assert_eq!(check_exploratory(&cert).report.code, EXPLORATORY);
+    assert_ne!(check(&cert).report.code, ACCEPT);
     // Same name, new meaning: double(x) := x + 1. The stated hash no longer
     // matches, so nothing is checked against the new definitions.
     scratch(
@@ -633,7 +659,9 @@ fn audit_d1_many_uses_are_refused_with_an_error_not_oom() {
             ),
         );
         let started = std::time::Instant::now();
-        let c = check(&cert);
+        // RLT-DEF-001a: a scratch (unregistered) file, checked exploratory so
+        // the unfolding itself is reached.
+        let c = check_exploratory(&cert);
         assert_ne!(c.report.code, ACCEPT);
         let t = &c.report.text;
         if accepted_size {

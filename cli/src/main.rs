@@ -7,6 +7,7 @@ use std::path::PathBuf;
 const USAGE: &str = "\
 usage:
   rlt check FILE...                      replay proof files (exit 0 accept, 1 reject, 2 malformed)
+  rlt definitions [ID] [--format text|json]  the definition registry (read-only; exit 0 consistent, 2 not)
   rlt written A CONV_A B CONV_B          written identity and elaboration of two expressions
   rlt rp ID                              a reading point: meanings, relationships, correspondence
   rlt validate                           consistency of sources, conventions and records
@@ -28,7 +29,10 @@ usage:
   rlt compose BUNDLE                     layered composition of kernel-checked theorems (RLT-007d;
                                          exit 0 composed, 1 refused, 2 malformed or missing, 3 stale)
 options:
-  --root DIR                             repository root (default: current directory)";
+  --root DIR                             repository root (default: current directory)
+  --unregistered-definitions             with check, prove or discover --definitions: check derivations
+                                         over unregistered definitions files (exit 4 EXPLORATORY; never an
+                                         authoritative result, never usable by records, citations or lib/)";
 
 fn main() {
     // Kernel terms are trees and numerals are unary chains; give the checker a
@@ -49,6 +53,27 @@ fn run() -> i32 {
             args.drain(i..=i + 1);
         }
     }
+    // RLT-DEF-001a: exploratory checking over unregistered definitions is
+    // requested explicitly, and only for check, prove and discover --definitions.
+    let mut explore = false;
+    if let Some(i) = args.iter().position(|a| a == "--unregistered-definitions") {
+        args.remove(i);
+        explore = true;
+        let allowed = match args.first().map(String::as_str) {
+            Some("check") | Some("prove") => true,
+            Some("discover") => args.get(1).map(String::as_str) == Some("--definitions"),
+            _ => false,
+        };
+        if !allowed || args.iter().any(|a| a == "--unregistered-definitions") {
+            eprintln!("{USAGE}");
+            return MALFORMED;
+        }
+    }
+    let authority = if explore {
+        rlt_cli::defreg::Authority::ExploratoryAllowed
+    } else {
+        rlt_cli::defreg::Authority::RegisteredOnly
+    };
     let code = match args.first().map(|s| s.as_str()) {
         Some("check") if args.len() >= 2 => {
             let mut worst = 0;
@@ -56,11 +81,38 @@ fn run() -> i32 {
                 if i > 0 {
                     println!();
                 }
-                let r = check_file(&root, &root.join(f));
+                let r = if explore {
+                    rlt_cli::check_file_exploratory(&root, &root.join(f)).report
+                } else {
+                    check_file(&root, &root.join(f))
+                };
                 print!("{}", r.text);
                 worst = worst.max(r.code);
             }
             worst
+        }
+        Some("definitions") if args.len() <= 4 => {
+            let (mut id, mut json, mut i) = (None, false, 1);
+            while i < args.len() {
+                match (args[i].as_str(), args.get(i + 1).map(String::as_str)) {
+                    ("--format", Some("text")) => i += 2,
+                    ("--format", Some("json")) => {
+                        json = true;
+                        i += 2
+                    }
+                    (x, _) if id.is_none() && !x.starts_with("--") => {
+                        id = Some(x.to_string());
+                        i += 1
+                    }
+                    _ => {
+                        eprintln!("{USAGE}");
+                        return MALFORMED;
+                    }
+                }
+            }
+            let (text, code) = rlt_cli::defreg::definitions_report(&root, id.as_deref(), json);
+            print!("{text}");
+            code
         }
         Some("written") if args.len() == 5 => {
             let r = written_report(&root, &args[1], &args[2], &args[3], &args[4]);
@@ -115,11 +167,12 @@ fn run() -> i32 {
                 }
                 i += 2;
             }
-            let (text, code) = rlt_cli::prove::prove_report(
+            let (text, code) = rlt_cli::prove::prove_report_as(
                 &root,
                 &root.join(&args[1]),
                 &overrides,
                 out.as_deref(),
+                authority,
             );
             print!("{text}");
             code
@@ -150,7 +203,8 @@ fn run() -> i32 {
                     return MALFORMED;
                 }
             };
-            let (text, code) = rlt_cli::discover_defs::discover(&root, &args[2], &args[3], limit);
+            let (text, code) =
+                rlt_cli::discover_defs::discover_as(&root, &args[2], &args[3], limit, authority);
             print!("{text}");
             code
         }

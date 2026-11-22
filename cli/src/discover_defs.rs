@@ -21,9 +21,10 @@
 //! - `inference`: the sides differ after unfolding; the kernel proof uses at
 //!   least one registered axiom.
 
+use crate::defreg::{Authority, Registration};
 use crate::discover::{axioms_column, discovery_bounds, only_generated_comments, AXIOM_SET};
-use crate::prove::{prove_source, Verdict};
-use crate::{functions_column, load_function_definitions, sha256_hex, ACCEPT};
+use crate::prove::{prove_source_as, Verdict};
+use crate::{functions_column, load_function_definitions_as, sha256_hex, ACCEPT};
 use rlt_kernel::Prop;
 use rlt_syntax::fdefs::FunctionDefs;
 use rlt_syntax::proof::DefinitionsRef;
@@ -180,18 +181,38 @@ fn kind_of(p: &Prop) -> &'static str {
     }
 }
 
-fn load(root: &Path, file: &str, sha: &str) -> Result<FunctionDefs, String> {
-    load_function_definitions(
+fn load(
+    root: &Path,
+    file: &str,
+    sha: &str,
+    authority: Authority,
+) -> Result<(FunctionDefs, Registration), String> {
+    load_function_definitions_as(
         root,
         &DefinitionsRef {
             path: file.to_string(),
             sha256: sha.to_string(),
         },
+        authority,
     )
 }
 
 /// Run definition-aware discovery over the functions registered in `file`.
 pub fn discover(root: &Path, file: &str, out_dir: &str, limit: Option<usize>) -> (String, i32) {
+    discover_as(root, file, out_dir, limit, Authority::RegisteredOnly)
+}
+
+/// As `discover`, with the caller's authority (RLT-DEF-001a). Over an
+/// unregistered file (`--unregistered-definitions`) the run is exploratory:
+/// its records say so and `rlt discover --verify` refuses them, since that
+/// check re-decides registration from the definitions bytes.
+pub fn discover_as(
+    root: &Path,
+    file: &str,
+    out_dir: &str,
+    limit: Option<usize>,
+    authority: Authority,
+) -> (String, i32) {
     let fail = |m: String| (format!("rlt discover: {m}\n"), 2);
     let path = match crate::citation_path(root, file) {
         Ok(p) => p,
@@ -201,9 +222,13 @@ pub fn discover(root: &Path, file: &str, out_dir: &str, limit: Option<usize>) ->
         Ok(b) => sha256_hex(&b),
         Err(e) => return fail(format!("definitions: {file}: {}", e.kind())),
     };
-    let d = match load(root, file, &sha) {
-        Ok(d) => d,
+    let (d, registration) = match load(root, file, &sha, authority) {
+        Ok(x) => x,
         Err(e) => return fail(e),
+    };
+    let exploratory = match &registration {
+        Registration::Unregistered(why) => Some(why.clone()),
+        Registration::Registered(_) => None,
     };
     if unary(&d).is_empty() {
         return fail(format!(
@@ -243,13 +268,19 @@ pub fn discover(root: &Path, file: &str, out_dir: &str, limit: Option<usize>) ->
         cands.truncate(n);
     }
     let mut manifest = manifest_head(&d);
+    if exploratory.is_some() {
+        manifest.insert_str(
+            MANIFEST_MARKER.len() + " Every row is a kernel-replayed certificate.\n".len(),
+            "# EXPLORATORY: unregistered definitions; not an authoritative record (rlt discover --verify refuses it).\n",
+        );
+    }
     let mut not_found = String::from(NOT_FOUND_HEADER);
     let (mut unf, mut inf, mut nf, mut err) = (0usize, 0usize, 0usize, 0usize);
     for (i, st) in cands.iter().enumerate() {
         let id = discovery_id(i);
         let src = goal_source(&id, st, &d.file, &d.file_sha256);
         let cert = format!("{out_dir}/{id}.rlt");
-        let r = prove_source(root, &src, &[], Some(Path::new(&cert)));
+        let r = prove_source_as(root, &src, &[], Some(Path::new(&cert)), authority);
         match &r.verdict {
             Verdict::Proved {
                 sha256,
@@ -289,7 +320,10 @@ pub fn discover(root: &Path, file: &str, out_dir: &str, limit: Option<usize>) ->
             }
         }
     }
-    let summary = summary_text(out_dir, &d, cands.len(), unf, inf, nf, err);
+    let mut summary = summary_text(out_dir, &d, cands.len(), unf, inf, nf, err);
+    if let Some(why) = &exploratory {
+        let _ = writeln!(summary, "authority       EXPLORATORY — {why}; this record carries no authority and `rlt discover --verify` refuses it");
+    }
     for (name, body) in [
         ("manifest.tsv", &manifest),
         ("not-found.tsv", &not_found),
@@ -299,7 +333,12 @@ pub fn discover(root: &Path, file: &str, out_dir: &str, limit: Option<usize>) ->
             return fail(format!("cannot write {name}: {}", e.kind()));
         }
     }
-    (summary, if err == 0 { 0 } else { 2 })
+    let code = match (err, &exploratory) {
+        (0, None) => 0,
+        (0, Some(_)) => crate::EXPLORATORY,
+        _ => 2,
+    };
+    (summary, code)
 }
 
 /// Certificates an earlier run left: regular files `DF####.rlt` beginning
@@ -520,8 +559,10 @@ pub fn verify(root: &Path, out_dir: &str) -> (String, i32) {
         return (format!("{t}record  REFUSED — summary.txt names no definitions file\nverified        0 accepted, 1 refused or stale\n"), 1);
     };
     // The definitions the record was discovered with, at that exact hash.
-    let d = match load(root, &file, &sha) {
-        Ok(d) => d,
+    // RLT-DEF-001a: and registered, decided here from the definitions bytes
+    // (never from the record's own words).
+    let d = match load(root, &file, &sha, Authority::RegisteredOnly) {
+        Ok((d, _)) => d,
         Err(e) => {
             return (
                 format!(

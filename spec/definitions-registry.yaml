@@ -1,0 +1,44 @@
+# Registered definitions files (RLT-DEF-001a): trusted inputs to elaboration.
+#
+# A NAT-FUN proof or goal file may name only a definitions file listed here
+# under kind `functions`, at exactly the listed SHA-256. Each function's
+# content identity is the SHA-256 of its canonical text (format
+# rlt-function-definition/1, see docs/RLT-DEF-001a-REPORT.md) and is listed
+# under `defines`; one name has one content identity across this registry.
+# The NAT-DEF entry is read-only: spec/definitions.rlt keeps its own loader
+# and its pin PINNED_DEFINITIONS, which this entry must equal.
+#
+# Changing this file requires changing PINNED_DEFINITION_FILES and
+# PINNED_DEFINITIONS_REGISTRY_SHA in cli/src/defreg.rs, reviewed like kernel
+# code. `rlt definitions` lists the registry and checks rules I1–I8.
+format: rlt-definitions-registry/1
+canonical_text: rlt-function-definition/1
+files:
+  - id: DOUBLE
+    path: definitions/double.rlt
+    sha256: 8dabb459817f7b225419456080a4e81eb675daf9a830dba529192ff50cfbc2f7
+    kind: functions
+    convention: NAT-LOGIC
+    domain: Nat
+    defines:
+      - name: double
+        content_sha256: 066fb635c06d85cf6cbd288468b7d992566056793f44375b47f0ac30c09a1c16
+  - id: QUADRUPLE
+    path: definitions/quadruple.rlt
+    sha256: 7f463b05541ed9643ab98b276bb37de31c2f39054f55502656bd1c20fb703932
+    kind: functions
+    convention: NAT-LOGIC
+    domain: Nat
+    defines:
+      - name: double
+        content_sha256: 066fb635c06d85cf6cbd288468b7d992566056793f44375b47f0ac30c09a1c16
+      - name: quadruple
+        content_sha256: 8a3513697d503ba5f365c237fd2f7e4b84006ff44766fc783d1241a91c81beda
+  - id: NAT-DEF
+    path: spec/definitions.rlt
+    sha256: 122e37fc627b136023a1a5ffac0344162ed77ae95312248a9f6a76c2b639ecda
+    kind: nat-def
+    names:
+      - lt
+      - dvd
+      - free235
