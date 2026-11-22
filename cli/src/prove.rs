@@ -1439,9 +1439,10 @@ pub struct GoalFile {
     pub bounds: Bounds,
 }
 
-const GOAL_FIELDS: [&str; 9] = [
+const GOAL_FIELDS: [&str; 10] = [
     "id",
     "convention",
+    "definitions",
     "goal",
     "mode",
     "assume",
@@ -1552,6 +1553,9 @@ pub struct ProveOutcome {
     pub bounds: Bounds,
     pub stats: Stats,
     pub goal_shown: Option<String>,
+    /// RLT-PROVER-002: under NAT-FUN, the statement with its registered
+    /// functions folded, and the definitions file it was unfolded with.
+    pub folded_shown: Option<(String, String)>,
     pub depth_found: Option<usize>,
 }
 
@@ -1575,6 +1579,7 @@ impl ProveOutcome {
 /// The elaborated header of a goal: what the search works on.
 struct Elaborated {
     goal: Prop,
+    folded: Option<(String, String)>,
     mode: Mode,
     assumptions: Vec<(String, Prop)>,
     axioms: Vec<Axiom>,
@@ -1601,12 +1606,23 @@ fn elaborate(root: &Path, header: &str) -> Result<Elaborated, String> {
             None => return Err("definitions: unavailable".into()),
         }
     }
+    let mut folded = None;
+    if let Some(d) = crate::attach_functions(root, &pf, &mut convention)? {
+        taken.extend(d.list.iter().map(|x| x.name.clone()));
+        let f = rlt_syntax::elab::elaborate_prop_folded(&pf.goal, &convention)
+            .map_err(|e| format!("goal: {e}"))?;
+        folded = Some((
+            f.to_string(),
+            format!("{} sha256 {}", d.file, d.file_sha256),
+        ));
+    }
     let po = pf.to_proof_object(&convention)?;
     let set = load_axiom_set(root, &pf.axiom_set)?;
     taken.extend(set.axioms.iter().map(|a| a.name().to_string()));
     taken.extend(po.assumptions.iter().map(|(n, _)| n.clone()));
     Ok(Elaborated {
         goal: po.goal,
+        folded,
         mode: po.mode,
         assumptions: po.assumptions,
         axioms: set.axioms,
@@ -1837,6 +1853,7 @@ pub fn prove_source(
         bounds: Bounds::default(),
         stats: Stats::default(),
         goal_shown: None,
+        folded_shown: None,
         depth_found: None,
     };
     let goal = match parse_goal_file(goal_src) {
@@ -1863,6 +1880,7 @@ pub fn prove_source(
         }
     };
     res.goal_shown = Some(el.goal.to_string());
+    res.folded_shown = el.folded.clone();
     let mut search = Search::new(&el.axioms, bounds, el.taken.clone());
     let mut ctx = Ctx::default();
     // Declared assumptions enter the context only in conditional mode; an
@@ -2007,6 +2025,10 @@ pub fn prove_report(
 }
 
 pub fn render(t: &mut String, r: &ProveOutcome) {
+    if let Some((f, d)) = &r.folded_shown {
+        let _ = writeln!(t, "statement       {f}");
+        let _ = writeln!(t, "  definitions   {d}");
+    }
     if let Some(g) = &r.goal_shown {
         let _ = writeln!(t, "goal            {g}");
     }

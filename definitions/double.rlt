@@ -1,0 +1,11 @@
+; Registered function definitions (RLT-PROVER-002). Abbreviations only: each
+; use unfolds, before the kernel, to its body over {0, S, +, ×}. A definition
+; adds no axiom, rule or symbol. Proof and goal files read this file under
+; convention NAT-FUN by stating (definitions "definitions/double.rlt" "SHA-256").
+(rlt-definitions
+  (id DOUBLE)
+  (convention NAT-LOGIC)
+  (domain Nat)
+  (define-function double (x) (+ x x)
+    (written "double(x) := x + x")
+    (origin rlt-authored)))

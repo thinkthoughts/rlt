@@ -5,6 +5,7 @@
 pub mod compose;
 pub mod deps;
 pub mod discover;
+pub mod discover_defs;
 pub mod explain;
 pub mod gen;
 pub mod prove;
@@ -234,6 +235,114 @@ pub fn load_definitions(root: &Path) -> Result<rlt_syntax::defs::Definitions, St
     let reg = pinned_registry(root)?;
     definition_source_problem(&defs, &reg)?;
     Ok(defs)
+}
+
+/// RLT-PROVER-002: load the registered function definitions a NAT-FUN file
+/// names. Fail closed: the path is repository-relative, plain and free of
+/// symlinks (the citation rules), the bytes must hash to the SHA-256 the file
+/// states, the definitions must parse (acyclic, closed, at their arity, the
+/// written forms agreeing with the formal bodies), no name may collide with a
+/// rule, a registered axiom or a pinned M3b definition, and every cited
+/// source must be registered. Each definition's content identity is the
+/// SHA-256 of its canonical text and its dependencies' identities.
+pub fn load_function_definitions(
+    root: &Path,
+    r: &rlt_syntax::proof::DefinitionsRef,
+) -> Result<rlt_syntax::fdefs::FunctionDefs, String> {
+    let path = citation_path(root, &r.path).map_err(|e| {
+        format!(
+            "definitions: {}",
+            e.replace("cited path", "definitions path")
+        )
+    })?;
+    let bytes =
+        std::fs::read(&path).map_err(|e| format!("definitions: {}: {}", r.path, e.kind()))?;
+    let actual = sha256_hex(&bytes);
+    if actual != r.sha256 {
+        return Err(format!(
+            "definitions: {} has SHA-256 {actual}, but the file states {}; the definitions changed after this statement was written, so it is not checked against them",
+            r.path, r.sha256
+        ));
+    }
+    let text =
+        String::from_utf8(bytes).map_err(|_| format!("definitions: {} is not UTF-8", r.path))?;
+    let mut forbidden: Vec<String> = rlt_kernel::RULES.iter().map(|r| r.to_string()).collect();
+    for (id, _, _) in PINNED_AXIOM_SETS {
+        let set = load_axiom_set(root, id)?;
+        forbidden.extend(set.axioms.iter().map(|a| a.name().to_string()));
+    }
+    forbidden.extend(load_definitions(root)?.list.iter().map(|d| d.name.clone()));
+    let f: Vec<&str> = forbidden.iter().map(String::as_str).collect();
+    let mut defs = rlt_syntax::fdefs::parse_function_definitions(&text, &f)
+        .map_err(|e| format!("{}: {e}", r.path))?;
+    let reg = pinned_registry(root)?;
+    for d in &defs.list {
+        if let Some(src) = &d.source {
+            match reg.get(src) {
+                Some(s) if AXIOM_SOURCE_STATUS.contains(&s.status.as_str()) => {}
+                _ => {
+                    return Err(format!(
+                        "{}: definition `{}` cites `{src}`, which is not a registered reference or available source",
+                        r.path, d.name
+                    ))
+                }
+            }
+        }
+    }
+    let mut ids: Vec<(String, String)> = Vec::new();
+    for d in defs.list.iter_mut() {
+        let mut canon = d.canonical(&defs.convention, &defs.domain);
+        canon.push_str("deps");
+        for dep in &d.deps {
+            let h = &ids
+                .iter()
+                .find(|(n, _)| n == dep)
+                .expect("deps are earlier")
+                .1;
+            canon.push_str(&format!(" {dep}={h}"));
+        }
+        canon.push('\n');
+        d.content_sha256 = sha256_hex(canon.as_bytes());
+        ids.push((d.name.clone(), d.content_sha256.clone()));
+    }
+    defs.file = r.path.clone();
+    defs.file_sha256 = actual;
+    Ok(defs)
+}
+
+/// RLT-PROVER-002: attach a NAT-FUN file's registered functions to its
+/// convention (one path for `rlt check` and `rlt prove`).
+pub fn attach_functions(
+    root: &Path,
+    pf: &rlt_syntax::proof::ProofFile,
+    convention: &mut rlt_syntax::elab::Convention,
+) -> Result<Option<std::rc::Rc<rlt_syntax::fdefs::FunctionDefs>>, String> {
+    match (convention.functions, &pf.definitions) {
+        (true, Some(r)) => {
+            let d = std::rc::Rc::new(load_function_definitions(root, r)?);
+            convention.fdefs = Some(d.clone());
+            Ok(Some(d))
+        }
+        (true, None) => Err(format!(
+            "convention {}: no (definitions …) field names the registered functions",
+            convention.id
+        )),
+        (false, Some(_)) => Err(format!(
+            "convention {} reads no registered functions; (definitions …) is refused",
+            convention.id
+        )),
+        (false, None) => Ok(None),
+    }
+}
+
+/// The `definitions` column of a definition-aware record: each used
+/// function with its content identity, `name@sha256`, comma-separated.
+pub fn functions_column(d: &rlt_syntax::fdefs::FunctionDefs, used: &[String]) -> String {
+    used.iter()
+        .filter_map(|n| d.get(n))
+        .map(|x| format!("{}@{}", x.name, x.content_sha256))
+        .collect::<Vec<_>>()
+        .join(",")
 }
 
 /// Source statuses an axiom set may cite.
@@ -614,6 +723,11 @@ fn check_inner(
             None => bail!("definitions: unavailable".to_string()),
         }
     }
+    // RLT-PROVER-002: registered functions, bound to the stated file hash.
+    let fdefs = match attach_functions(root, &pf, &mut convention) {
+        Ok(d) => d,
+        Err(e) => bail!(e),
+    };
     let mut po = match pf.to_proof_object(&convention) {
         Ok(p) => p,
         Err(e) => bail!(e),
@@ -636,6 +750,56 @@ fn check_inner(
                 PINNED_DEFINITIONS.1
             );
         }
+    }
+    // RLT-PROVER-002: the folded statement, the exact definitions it was
+    // unfolded with, and where the unfolding happened.
+    if let Some(d) = &fdefs {
+        let folded = rlt_syntax::elab::elaborate_prop_folded(&pf.goal, &convention)
+            .map(|p| p.to_string())
+            .unwrap_or_else(|_| pf.goal.text.clone());
+        let _ = writeln!(t, "  folded        {folded}");
+        let _ = writeln!(
+            t,
+            "definitions     {} ({}, convention {}, domain {}) sha256 {}",
+            d.file, d.id, d.convention, d.domain, d.file_sha256
+        );
+        for x in &d.list {
+            let _ = writeln!(
+                t,
+                "  definition    {}{}  [{}; content sha256 {}{}]",
+                x.written,
+                {
+                    let u = format!("{} := {}", x.head(), x.body);
+                    if u == x.written {
+                        String::new()
+                    } else {
+                        format!(", unfolded {u}")
+                    }
+                },
+                match (&x.source, &x.origin) {
+                    (Some(s), _) => format!("source {s}"),
+                    (_, Some(o)) => format!("origin {o}"),
+                    _ => "unsourced".into(),
+                },
+                x.content_sha256,
+                if x.deps.is_empty() {
+                    String::new()
+                } else {
+                    format!("; uses {}", x.deps.join(", "))
+                }
+            );
+        }
+        let used = d.used_in_order();
+        let _ = writeln!(
+            t,
+            "  unfolded      {}",
+            if used.is_empty() {
+                "none".to_string()
+            } else {
+                used.join(", ")
+            }
+        );
+        let _ = writeln!(t, "  trust         unfolded before the kernel by the RLT elaborator (untrusted, outside the kernel) from the definitions at this hash, recomputed on every check; the kernel checks only the unfolded goal above; definitions add no axiom, rule or symbol");
     }
     for (n, f) in &po.assumptions {
         let _ = writeln!(t, "declared        {n} : {f}");
@@ -1519,6 +1683,12 @@ pub const PINNED_CONVENTIONS: &[(&str, &str, &str)] = &[
         "NAT-DEF",
         "935f9635e563cab1d60cd4b5d7ffbed121933eb59e790edd9fb7c21d088bd208",
         "a6a720b2d61f91e92bfaaf86f2947ec7bcab5a267d83a68c1766898c213b0524",
+    ),
+    // RLT-PROVER-002: NAT-LOGIC plus registered function definitions.
+    (
+        "NAT-FUN",
+        "ee19182b74c2092ac022d00d07c09d8ecc7d062d5e9679cfcea074a5aaf2e142",
+        "24bbd686466fb86a94439e191179b4f5aa3d7b9199c156596dae517bc104162f",
     ),
     (
         "NAT-LOGIC",

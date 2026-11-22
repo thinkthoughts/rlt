@@ -1017,13 +1017,38 @@ echo "$validate_log" | grep -E '^(PiπΠ|problem|verdict)'
 [ $validate_code = 0 ] || fail=1
 
 echo; echo "== Lean replay (independent, outside the trusted base)"
+# RLT-PROVER-002: registered function definitions (NAT-FUN).
+echo; echo "== registered function definitions, RLT-PROVER-002 (definitions/, tests/definitions, research/definition-discovery)"
+pd_ok=0; pd_n=0
+for f in tests/definitions/certificates/*.rlt; do
+  pd_n=$((pd_n + 1))
+  pd_log=$("$rlt" check "$f"); pd_code=$?
+  { [ $pd_code = 0 ] && echo "$pd_log" | grep_q -F "  folded        " && echo "$pd_log" | grep_q '^verdict         ACCEPT — unconditional'; } && pd_ok=$((pd_ok + 1)) || { echo "  UNEXPECTED: $f exit $pd_code"; fail=1; }
+done
+[ "$pd_n" = 7 ] || { echo "  UNEXPECTED: $pd_n definition certificates (want 7)"; fail=1; }
+echo "tests/definitions/certificates: $pd_ok of $pd_n ACCEPT as unconditional theorems under ROBINSON-Q, each re-elaborated from its folded statement and the definitions file at its stated SHA-256"
+pd_v=$("$rlt" discover --verify research/definition-discovery); pd_vc=$?
+echo "$pd_v" | grep -E '^(record|verified)'
+[ $pd_vc = 0 ] || { echo "  UNEXPECTED: research/definition-discovery did not verify"; fail=1; }
+# D6: the Lean declaration correspondence (Lean's elaborated declarations
+# against an expected module built from RLT's printed statements and the
+# registered definitions) is the verdict; the source layout check is an
+# additional defence. Without Lean the script exits 3 (UNVERIFIED).
+python3 -I scripts/check-definitions-lean.py "$rlt" --verbose; pd_lc=$?
+if [ $pd_lc = 3 ] && [ "${RLT_ALLOW_NO_LEAN:-}" = 1 ]; then
+  python3 -I scripts/check-definitions-lean.py "$rlt" --layer text || fail=1
+  echo "SKIPPED (Lean declaration correspondence; lean unavailable; RLT_ALLOW_NO_LEAN=1)"; skipped=1
+elif [ $pd_lc != 0 ]; then
+  fail=1
+fi
+
 lean_bin=$(command -v lean || { [ -x "$HOME/.elan/bin/lean" ] && echo "$HOME/.elan/bin/lean"; })
 if [ -n "$lean_bin" ]; then
   # Run inside lean/ so elan selects lean/lean-toolchain. Any Lean message
   # other than the #print axioms lines (a warning, `sorry`, an error) fails.
   # RLT-007a: the files (23 since RLT-007d) are independent Lean runs, made in parallel; their
   # logs are joined in this fixed order, and any failing run fails the stage.
-  lean_files="RLT001.lean Generated.lean M2Generated.lean M2Readings.lean M3aGenerated.lean M3bGenerated.lean M3bReadings.lean M3cGenerated.lean M3cReadings.lean M3dGenerated.lean M3dReadings.lean M3eGenerated.lean M3eReadings.lean RLT005Direct.lean RLT005Readings.lean RLT006Direct.lean RLT006BGP212.lean RLT007S1.lean RLT007S2a.lean RLT007S2Design.lean RLT007S3.lean RLT007S4.lean RLT007D.lean"
+  lean_files="RLT001.lean Generated.lean M2Generated.lean M2Readings.lean M3aGenerated.lean M3bGenerated.lean M3bReadings.lean M3cGenerated.lean M3cReadings.lean M3dGenerated.lean M3dReadings.lean M3eGenerated.lean M3eReadings.lean RLT005Direct.lean RLT005Readings.lean RLT006Direct.lean RLT006BGP212.lean RLT007S1.lean RLT007S2a.lean RLT007S2Design.lean RLT007S3.lean RLT007S4.lean RLT007D.lean ProverDefinitions.lean"
   lean_log=$(cd lean && "$lean_bin" --version 2>&1); lean_code=$?
   lean_p=$RLT_RUN_TMP/par-lean
   LEAN_BIN=$lean_bin par_map "$lean_p" 'cd lean && "$LEAN_BIN" "$1" 2>&1' $lean_files || lean_code=1
@@ -1045,6 +1070,84 @@ $(cat "$lean_p/$lean_i.out")"
   m2_listed=$(echo "$lean_log" | grep -cE "RLTM2Readings\..*(depends on axioms|does not depend on any axioms)")
   m2_bad=$(echo "$lean_log" | grep "RLTM2Readings\." | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound' | sort -u)
   { [ "$m2_listed" = "$m2_n" ] && [ -z "$m2_bad" ]; } && echo "M2Readings.lean: $m2_n statements, standard axioms only" || { echo "M2Readings.lean: axiom gate FAILED ($m2_listed of $m2_n listed; non-standard: $m2_bad)"; fail=1; }
+  pdl_n=$(grep -c "^theorem " lean/ProverDefinitions.lean)
+  pdl_listed=$(echo "$lean_log" | grep -cE "RLTProverDefinitions\..*(depends on axioms|does not depend on any axioms)")
+  pdl_bad=$(echo "$lean_log" | grep "RLTProverDefinitions\." | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound' | sort -u)
+  { [ "$pdl_listed" = "$pdl_n" ] && [ -z "$pdl_bad" ]; } && echo "ProverDefinitions.lean: $pdl_n statements, standard axioms only (Lean-checked unfolding and truth in ℕ, not RLT theorems)" || { echo "ProverDefinitions.lean: axiom gate FAILED ($pdl_listed of $pdl_n listed; non-standard: $pdl_bad)"; fail=1; }
+  # D5: the audit's attack compiles in Lean yet must be refused by the
+  # comparison script (the correct F3_unfolds hidden in a comment, a
+  # definitionally equal but different F3_unfolds compiled instead).
+  d5=$RLT_RUN_TMP/d5-attack.lean
+  d5_f3='theorem F3_unfolds : (double 2 = 4) ↔ (2 + 2 = 4) := Iff.rfl'
+  D5_F3=$d5_f3 python3 -I -c 'import os,sys; s=open("lean/ProverDefinitions.lean",encoding="utf-8").read(); a=os.environ["D5_F3"]; assert s.count(a)==1; open(sys.argv[1],"w",encoding="utf-8").write(s.replace(a,"/- "+a+" -/\n"+a.replace("(2 + 2 = 4)","(3 + 1 = 4)")))' "$d5"
+  d5_lean=$(cd lean && "$lean_bin" "$d5" 2>&1); d5_lc=$?
+  python3 -I scripts/check-definitions-lean.py "$rlt" --lean "$d5" > "$d5.out" 2>&1; d5_sc=$?
+  if [ $d5_lc = 0 ] && ! echo "$d5_lean" | grep_q -iE "warning|error|sorry" && [ $d5_sc != 0 ] && grep_q "theorem F3_unfolds states" "$d5.out"; then
+    echo "ProverDefinitions.lean D5 attack (correct F3_unfolds in a comment, 3 + 1 = 4 compiled): Lean accepts it, the comparison script refuses it"
+  else
+    echo "ProverDefinitions.lean D5 attack: UNEXPECTED (Lean exit $d5_lc, script exit $d5_sc)"; cat "$d5.out"; fail=1
+  fi
+  rm -f "$d5" "$d5.out"
+  # D6: the release audit's escaped-identifier attack on 0987be5. «/-» and
+  # «-/» are identifiers to Lean but comment delimiters to a text scanner, and
+  # a correct F3_unfolds inside «…» is an identifier too; Lean compiles the
+  # wrong F3_unfolds. The Lean layer alone must refuse it from the elaborated
+  # type, and so must the full checker.
+  d6=$RLT_RUN_TMP/d6-attack.lean
+  python3 -I -c 'import sys
+s=open("lean/ProverDefinitions.lean",encoding="utf-8").read()
+f3="theorem F3_unfolds : (double 2 = 4) ↔ (2 + 2 = 4) := Iff.rfl"
+f2h="theorem F2_holds : double 0 = 0 := rfl"; f3h="theorem F3_holds : double 2 = 4 := rfl"
+assert all(s.count(x)==1 for x in (f3,f2h,f3h))
+t=(s.replace(f2h,"theorem F2_holds : double 0 = 0 := by have \u00ab/-\u00bb : True := trivial; rfl")
+    .replace(f3,f3.replace("(2 + 2 = 4)","(3 + 1 = 4)")+"\nexample : True := by have \u00ab-/\u00bb : True := trivial; trivial")
+    .replace(f3h,"theorem F3_holds : double 2 = 4 := by have \u00ab"+f3+"\u00bb : True := trivial; rfl"))
+open(sys.argv[1],"w",encoding="utf-8").write(t)' "$d6"
+  d6_lean=$(cd lean && "$lean_bin" "$d6" 2>&1); d6_lc=$?
+  python3 -I scripts/check-definitions-lean.py "$rlt" --lean "$d6" --layer lean > "$d6.l" 2>&1; d6_ll=$?
+  python3 -I scripts/check-definitions-lean.py "$rlt" --lean "$d6" > "$d6.b" 2>&1; d6_lb=$?
+  if [ $d6_lc = 0 ] && ! echo "$d6_lean" | grep_q -iE "warning|error|sorry" && [ $d6_ll = 1 ] && [ $d6_lb = 1 ] \
+     && grep_q 'theorem `RLTProverDefinitions.F3_unfolds` has elaborated type' "$d6.l"; then
+    echo "ProverDefinitions.lean D6 attack («/-» … «-/» escaped identifiers, 3 + 1 = 4 compiled): Lean accepts it; the Lean declaration layer refuses it from F3_unfolds' elaborated type, and the full checker refuses it"
+  else
+    echo "ProverDefinitions.lean D6 attack: UNEXPECTED (Lean exit $d6_lc, Lean layer exit $d6_ll, full exit $d6_lb)"; cat "$d6.l" "$d6.b"; fail=1
+  fi
+  rm -f "$d6" "$d6.l" "$d6.b"
+  # H1: a declaration stored without kernel checking. Under
+  # `set_option debug.skipKernelTC true` a metaprogram adds
+  # F3_holds : double 2 = 4 with the proof True.intro; Lean compiles the file
+  # cleanly. The Lean layer must refuse it at the leanchecker kernel replay.
+  h1=$RLT_RUN_TMP/h1-attack.lean
+  python3 -I -c 'import sys
+s=open("lean/ProverDefinitions.lean",encoding="utf-8").read()
+f3h="theorem F3_holds : double 2 = 4 := rfl"; assert s.count(f3h)==1
+bt=chr(96)
+inj=("open Lean Elab Command in\nset_option debug.skipKernelTC true in\nrun_cmd liftTermElabM do\n"
+     "  let ty \u2190 Term.elabType (\u2190 "+bt+"(double 2 = 4))\n  Term.synthesizeSyntheticMVarsNoPostponing\n"
+     "  let ty \u2190 instantiateMVars ty\n"
+     "  addDecl (.thmDecl { name := "+bt+"RLTProverDefinitions.F3_holds, levelParams := [], type := ty, value := mkConst "+bt+bt+"True.intro })")
+open(sys.argv[1],"w",encoding="utf-8").write("import Lean\n"+s.replace(f3h,inj))' "$h1"
+  h1_lean=$(cd lean && "$lean_bin" "$h1" 2>&1); h1_lc=$?
+  python3 -I scripts/check-definitions-lean.py "$rlt" --lean "$h1" --layer lean > "$h1.l" 2>&1; h1_ll=$?
+  if [ $h1_lc = 0 ] && ! echo "$h1_lean" | grep_q -iE "warning|error|sorry" && [ $h1_ll = 1 ] \
+     && grep_q "kernel replay (leanchecker) refused the compiled companion" "$h1.l" \
+     && grep_q "declaration type mismatch, 'RLTProverDefinitions.F3_holds'" "$h1.l"; then
+    echo "ProverDefinitions.lean H1 attack (F3_holds := True.intro added under debug.skipKernelTC): Lean compiles it; the kernel replay (leanchecker) refuses it"
+  else
+    echo "ProverDefinitions.lean H1 attack: UNEXPECTED (Lean exit $h1_lc, Lean layer exit $h1_ll)"; cat "$h1.l"; fail=1
+  fi
+  rm -f "$h1" "$h1.l"
+  # H1: a fresh replay of the committed companion: every constant, core Lean's
+  # included, re-checked by Lean's kernel into an empty environment.
+  h1_dir=$RLT_RUN_TMP/h1-fresh; mkdir -p "$h1_dir"; cp lean/ProverDefinitions.lean "$h1_dir/"
+  h1_pre=$(cd lean && "$lean_bin" --print-prefix 2>/dev/null | tail -1)
+  if (cd "$h1_dir" && PATH="$h1_pre/bin:$PATH" LEAN_PATH= "$h1_pre/bin/lean" -o ProverDefinitions.olean ProverDefinitions.lean >/dev/null 2>&1) \
+     && h1_out=$(cd "$h1_dir" && PATH="$h1_pre/bin:$PATH" LEAN_PATH="$h1_dir" "$h1_pre/bin/leanchecker" --fresh ProverDefinitions 2>&1) && [ -z "$h1_out" ]; then
+    echo "ProverDefinitions.lean: leanchecker --fresh replays every constant (core Lean's included) through Lean's kernel"
+  else
+    echo "ProverDefinitions.lean: leanchecker --fresh replay FAILED: $h1_out"; fail=1
+  fi
+  rm -rf "$h1_dir"
   m3b_n=$(grep -c "^theorem " lean/M3bReadings.lean)
   m3b_listed=$(echo "$lean_log" | grep -cE "RLTM3bReadings\..*(depends on axioms|does not depend on any axioms)")
   m3b_bad=$(echo "$lean_log" | grep "RLTM3bReadings\." | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound' | sort -u)

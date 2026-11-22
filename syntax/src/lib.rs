@@ -8,6 +8,7 @@
 
 pub mod defs;
 pub mod elab;
+pub mod fdefs;
 pub mod proof;
 pub mod records;
 pub mod sexpr;

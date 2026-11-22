@@ -1,0 +1,8 @@
+RLT discover    research/definition-discovery
+grammar         definition-aware (functions double of DOUBLE) — L = R over x, 0, 1, 2 (1430 candidates)
+definitions     definitions/double.rlt sha256 8dabb459817f7b225419456080a4e81eb675daf9a830dba529192ff50cfbc2f7
+axiom set       ROBINSON-Q
+bounds          depth ≤ 1, saturation rounds ≤ 32, e-graph nodes ≤ 2000, numeral witnesses ≤ 4, search calls ≤ 200
+proved          126 (certificates replayed and accepted by the kernel; listed in manifest.tsv): 4 by unfolding alone, 122 by inference from the axioms
+not found       1304 (listed in not-found.tsv; no claim about their truth)
+errors          0

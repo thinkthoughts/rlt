@@ -18,6 +18,7 @@ usage:
                                          bounded proof search; every proof found is replayed by the kernel
                                          (exit 0 PROVED, 1 NOT_FOUND_WITHIN_BOUNDS, 2 ERROR)
   rlt discover DIR [--two-level] [--limit N]  bounded theorem discovery; stores only kernel-replayed theorems
+  rlt discover --definitions FILE DIR [--limit N]  discovery over the functions registered in FILE (NAT-FUN)
   rlt discover --verify DIR              re-hash and re-check every theorem in DIR/manifest.tsv
   rlt residues FILE                      closed quotient–remainder witnesses and their registered readings
   rlt explain RECORD [--format text|json] a statement record: kernel, source, semantic, physical
@@ -124,7 +125,32 @@ fn run() -> i32 {
             code
         }
         Some("discover") if args.len() == 3 && args[1] == "--verify" => {
-            let (text, code) = rlt_cli::discover::verify(&root, &args[2]);
+            // RLT-PROVER-002: a definition-aware record is recognised by its
+            // manifest's first line and verified by its own checker.
+            let (text, code) = if rlt_cli::discover_defs::is_record(&root, &args[2]) {
+                rlt_cli::discover_defs::verify(&root, &args[2])
+            } else {
+                rlt_cli::discover::verify(&root, &args[2])
+            };
+            print!("{text}");
+            code
+        }
+        Some("discover") if args.len() >= 4 && args[1] == "--definitions" => {
+            let limit = match args.get(4).map(String::as_str) {
+                None => None,
+                Some("--limit") => match args.get(5).map(|v| v.parse::<usize>()) {
+                    Some(Ok(n)) if args.len() == 6 => Some(n),
+                    _ => {
+                        eprintln!("{USAGE}");
+                        return MALFORMED;
+                    }
+                },
+                Some(_) => {
+                    eprintln!("{USAGE}");
+                    return MALFORMED;
+                }
+            };
+            let (text, code) = rlt_cli::discover_defs::discover(&root, &args[2], &args[3], limit);
             print!("{text}");
             code
         }

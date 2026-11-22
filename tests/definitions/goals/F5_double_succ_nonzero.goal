@@ -1,0 +1,8 @@
+; RLT-PROVER-002: stage 2 — a negation through the definition (Q2, Q5).
+(rlt-goal
+  (id F5.double_succ_nonzero)
+  (convention NAT-FUN)
+  (definitions "definitions/double.rlt" "8dabb459817f7b225419456080a4e81eb675daf9a830dba529192ff50cfbc2f7")
+  (goal "∀x. ¬(double(x + 1) = 0)")
+  (mode unconditional)
+  (axioms ROBINSON-Q))

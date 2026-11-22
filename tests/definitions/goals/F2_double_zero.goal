@@ -1,0 +1,8 @@
+; RLT-PROVER-002: stage 2 — the definition with Robinson's Q (Q4).
+(rlt-goal
+  (id F2.double_zero)
+  (convention NAT-FUN)
+  (definitions "definitions/double.rlt" "8dabb459817f7b225419456080a4e81eb675daf9a830dba529192ff50cfbc2f7")
+  (goal "double(0) = 0")
+  (mode unconditional)
+  (axioms ROBINSON-Q))

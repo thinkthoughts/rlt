@@ -1,0 +1,8 @@
+; RLT-PROVER-002: stage 2 — evaluation through the definition.
+(rlt-goal
+  (id F3.double_two)
+  (convention NAT-FUN)
+  (definitions "definitions/double.rlt" "8dabb459817f7b225419456080a4e81eb675daf9a830dba529192ff50cfbc2f7")
+  (goal "double(2) = 4")
+  (mode unconditional)
+  (axioms ROBINSON-Q))
