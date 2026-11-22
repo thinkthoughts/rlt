@@ -671,6 +671,8 @@ fn audit_d4_lean_comparison_script_checks_text_not_just_definitional_equality() 
                 rlt,
                 "--lean",
                 &rel,
+                "--layer",
+                "text",
             ])
             .current_dir(root())
             .output()
@@ -682,7 +684,10 @@ fn audit_d4_lean_comparison_script_checks_text_not_just_definitional_equality() 
     };
     let (ok, t) = run("same", &lean);
     assert!(ok, "{t}");
-    assert!(t.contains("7 of 7 goals declared exactly once"), "{t}");
+    assert!(
+        t.contains("PASS for 7 goals") && t.contains("source layout PASS"),
+        "{t}"
+    );
 
     let f3 = "theorem F3_unfolds : (double 2 = 4) ↔ (2 + 2 = 4) := Iff.rfl";
     assert!(lean.contains(f3));
@@ -732,6 +737,8 @@ fn audit_d5_lean_comparison_refuses_hidden_or_misplaced_declarations() {
                 rlt,
                 "--lean",
                 &rel,
+                "--layer",
+                "text",
             ])
             .current_dir(root())
             .output()
@@ -751,7 +758,10 @@ fn audit_d5_lean_comparison_refuses_hidden_or_misplaced_declarations() {
 
     let (ok, t) = run("original", &lean);
     assert!(ok, "the original must pass:\n{t}");
-    assert!(t.contains("7 of 7 goals declared exactly once"), "{t}");
+    assert!(
+        t.contains("PASS for 7 goals") && t.contains("source layout PASS"),
+        "{t}"
+    );
 
     let cases: Vec<(&str, String, &str)> = vec![
         (
@@ -843,5 +853,250 @@ fn audit_d5_lean_comparison_refuses_hidden_or_misplaced_declarations() {
         let (ok, t) = run(tag, &body);
         assert!(!ok, "{tag} passed the comparison script:\n{t}");
         assert!(t.contains(want), "{tag}: expected `{want}` in:\n{t}");
+    }
+}
+
+// ── Audit D6: the verdict rests on Lean's elaborated declarations ──
+
+/// The Lean binary `scripts/check-definitions-lean.py` would use, run from
+/// lean/ so elan selects lean/lean-toolchain; None when Lean is absent.
+fn lean_bin() -> Option<String> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let elan = format!("{home}/.elan/bin/lean");
+    let cands = [
+        std::env::var("RLT_LEAN").ok(),
+        Some("lean".into()),
+        Some(elan),
+    ];
+    cands.into_iter().flatten().find(|c| {
+        std::process::Command::new(c)
+            .arg("--version")
+            .current_dir(root().join("lean"))
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+    })
+}
+
+/// The release-audit bypass of `0987be5` and its relatives. Escaped
+/// identifiers `«/-»` … `«-/»` made the source-text checker skip a compiled
+/// wrong `F3_unfolds` and count a correct one that Lean read as an
+/// identifier. The authoritative layer now compares the declarations Lean
+/// elaborated with an expected module built from RLT's printed statements
+/// and the registered definitions, so every mutant below is refused by the
+/// Lean layer on its own (`--layer lean`) and by the full checker, while the
+/// original passes. Lean must accept the mutants marked `compiles`, so the
+/// refusal comes from the correspondence, not from Lean rejecting the file.
+/// Without Lean this test fails unless RLT_ALLOW_NO_LEAN=1 (as verify.sh).
+#[test]
+fn audit_d6_lean_layer_compares_elaborated_declarations() {
+    let rlt = env!("CARGO_BIN_EXE_rlt");
+    let Some(lean_bin) = lean_bin() else {
+        assert_eq!(
+            std::env::var("RLT_ALLOW_NO_LEAN").as_deref(),
+            Ok("1"),
+            "Lean is unavailable: install elan, or set RLT_ALLOW_NO_LEAN=1 to skip this test explicitly"
+        );
+        eprintln!("SKIPPED audit_d6 (lean unavailable; RLT_ALLOW_NO_LEAN=1)");
+        return;
+    };
+    let lean = read(&root().join("lean/ProverDefinitions.lean"));
+    let check = |rel: &str, layer: &str| {
+        let out = std::process::Command::new("python3")
+            .args([
+                "-I",
+                "scripts/check-definitions-lean.py",
+                rlt,
+                "--lean",
+                rel,
+                "--layer",
+                layer,
+            ])
+            .current_dir(root())
+            .output()
+            .expect("python3");
+        (
+            out.status.code(),
+            String::from_utf8_lossy(&out.stdout).to_string(),
+        )
+    };
+    let compiles = |rel: &str| {
+        let out = std::process::Command::new(&lean_bin)
+            .arg(root().join(rel))
+            .current_dir(root().join("lean"))
+            .output()
+            .expect("lean");
+        let msg = String::from_utf8_lossy(&out.stdout).to_lowercase()
+            + &String::from_utf8_lossy(&out.stderr).to_lowercase();
+        out.status.success() && !msg.contains("warning") && !msg.contains("error")
+    };
+
+    let f3 = "theorem F3_unfolds : (double 2 = 4) ↔ (2 + 2 = 4) := Iff.rfl";
+    let wrong = "theorem F3_unfolds : (double 2 = 4) ↔ (3 + 1 = 4) := Iff.rfl";
+    let f2h = "theorem F2_holds : double 0 = 0 := rfl";
+    let f3h = "theorem F3_holds : double 2 = 4 := rfl";
+    let d = "def double (x : Nat) : Nat := x + x";
+    let ns = "namespace RLTProverDefinitions\n";
+    let end_ns = "end RLTProverDefinitions";
+    for anchor in [f3, f2h, f3h, d, ns, end_ns] {
+        assert_eq!(lean.matches(anchor).count(), 1, "{anchor}");
+    }
+
+    let rel = scratch("d6_original.lean", &lean);
+    assert!(compiles(&rel));
+    for layer in ["lean", "both"] {
+        let (code, t) = check(&rel, layer);
+        assert_eq!(code, Some(0), "the original must pass ({layer}):\n{t}");
+        assert!(
+            t.contains("PASS for 7 goals") && t.contains("Lean declaration correspondence PASS"),
+            "{t}"
+        );
+    }
+
+    let f3_type = "theorem `RLTProverDefinitions.F3_unfolds` has elaborated type";
+    // (tag, mutant, Lean must compile it, Lean-layer reason, text-layer reason)
+    let cases: Vec<(&str, String, bool, &str, &str)> = vec![
+        (
+            "escaped_identifier_attack",
+            lean.replace(
+                f2h,
+                "theorem F2_holds : double 0 = 0 := by have «/-» : True := trivial; rfl",
+            )
+            .replace(
+                f3,
+                &format!("{wrong}\nexample : True := by have «-/» : True := trivial; trivial"),
+            )
+            .replace(
+                f3h,
+                &format!(
+                    "theorem F3_holds : double 2 = 4 := by have «{f3}» : True := trivial; rfl"
+                ),
+            ),
+            true,
+            f3_type,
+            "an escaped identifier",
+        ),
+        (
+            "provable_wrong_f3",
+            lean.replace(f3, wrong),
+            true,
+            f3_type,
+            "theorem F3_unfolds states",
+        ),
+        (
+            "correct_f3_in_comment",
+            lean.replace(f3, &format!("/- {f3} -/\n{wrong}")),
+            true,
+            f3_type,
+            "theorem F3_unfolds states",
+        ),
+        (
+            "missing_f3",
+            lean.replace(f3, "")
+                .replace("#print axioms RLTProverDefinitions.F3_unfolds\n", ""),
+            true,
+            "theorem `RLTProverDefinitions.F3_unfolds` is missing from the companion",
+            "`F3_unfolds` is declared 0 times",
+        ),
+        (
+            "duplicate_f3",
+            lean.replace(f3, &format!("{f3}\n{f3}")),
+            false,
+            "does not elaborate cleanly",
+            "`F3_unfolds` is declared 2 times",
+        ),
+        (
+            "duplicate_in_other_namespace",
+            lean.replace(f3, wrong).replace(
+                end_ns,
+                &format!(
+                    "{end_ns}\nnamespace Decoy\n{}\nend Decoy",
+                    f3.replace("double", "RLTProverDefinitions.double")
+                ),
+            ),
+            true,
+            "unexpected theorem `Decoy.F3_unfolds`",
+            "unsupported command after the namespace",
+        ),
+        (
+            "modified_double_still_compiles",
+            lean.replace(d, "def double (x : Nat) : Nat := x + x + 0"),
+            true,
+            "def `RLTProverDefinitions.double` has value",
+            "registered in definitions/double.rlt",
+        ),
+        (
+            "macro_rewrites_the_statement",
+            lean.replace(ns, &format!("{ns}macro_rules | `(2 + 2) => `(3 + 1)\n")),
+            true,
+            f3_type,
+            "unsupported command `macro_rules",
+        ),
+        (
+            "instance_redefining_addition",
+            lean.replace(
+                ns,
+                &format!("{ns}instance (priority := high) myAdd : HAdd Nat Nat Nat := ⟨Nat.add⟩\n"),
+            ),
+            true,
+            "unexpected def `RLTProverDefinitions.myAdd`",
+            "unsupported command `instance",
+        ),
+        (
+            "extra_axiom",
+            lean.replace(ns, &format!("{ns}axiom cheat : 2 + 2 = 4\n")),
+            true,
+            "unexpected axiom `RLTProverDefinitions.cheat`",
+            "unsupported command `axiom",
+        ),
+        (
+            "hand_written_internal_name",
+            lean.replace(
+                end_ns,
+                &format!(
+                    "theorem F3_holds._proof_9 : (double 2 = 4) ↔ (3 + 1 = 4) := Iff.rfl\n{end_ns}"
+                ),
+            ),
+            true,
+            "unexpected theorem `RLTProverDefinitions.F3_holds._proof_9`",
+            "unsupported command",
+        ),
+        (
+            "import_beyond_init",
+            format!("import Lean\n{lean}"),
+            true,
+            "the companion imports Lean",
+            "the file must begin with `namespace RLTProverDefinitions`",
+        ),
+        (
+            "sorry_proof",
+            lean.replace(f3h, "theorem F3_holds : double 2 = 4 := sorry"),
+            false,
+            "does not elaborate cleanly",
+            "",
+        ),
+    ];
+    for (tag, body, must_compile, lean_why, text_why) in cases {
+        assert_ne!(body, lean, "{tag}: the mutation did not apply");
+        let rel = scratch(&format!("d6_{tag}.lean"), &body);
+        if must_compile {
+            assert!(compiles(&rel), "{tag}: Lean must accept the mutant");
+        }
+        let (code, t) = check(&rel, "lean");
+        assert_eq!(code, Some(1), "{tag} passed the Lean layer:\n{t}");
+        assert!(
+            t.contains(lean_why),
+            "{tag}: expected `{lean_why}` from the Lean layer in:\n{t}"
+        );
+        let (code, t) = check(&rel, "both");
+        assert_eq!(code, Some(1), "{tag} passed the full checker:\n{t}");
+        if !text_why.is_empty() {
+            let (code, t) = check(&rel, "text");
+            assert_eq!(code, Some(1), "{tag} passed the layout layer:\n{t}");
+            assert!(
+                t.contains(text_why),
+                "{tag}: expected `{text_why}` from the layout layer in:\n{t}"
+            );
+        }
     }
 }

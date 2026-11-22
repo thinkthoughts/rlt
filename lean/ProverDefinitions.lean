@@ -14,19 +14,24 @@ two hand-written Lean theorems:
 
 What each part establishes:
 
-1. Textual correspondence (scripts/check-definitions-lean.py, not Lean):
-   the script rewrites RLT's printed `folded` and `checked goal` lines, and
-   the registered written definitions, into Lean syntax and requires each
-   expected theorem and `def` to be declared exactly once, outside comments,
-   with exactly that statement; the file must keep the small declaration
-   grammar the script states (no other commands, names or literals). This is
-   what ties the Lean text to the particular unfolding RLT printed, for these
-   seven goals.
+1. Declaration correspondence (scripts/check-definitions-lean.py and
+   scripts/lean/DeclCheck.lean): from RLT's printed `folded` and
+   `checked goal` lines and the registered written definitions alone, the
+   script builds an expected Lean module; Lean compiles it and this file
+   separately, and DeclCheck (which never imports this file) compares the
+   declarations Lean elaborated: each `def`'s type and value and each
+   theorem's type, as kernel terms, with no other constant and only standard
+   axioms. Comments, escaped identifiers, notation or text inside proofs
+   cannot stand in for a declaration. A source-layout check (comments
+   removed; a small declaration grammar, no other commands, names or
+   literals) is kept as an additional defence. This is what ties these
+   declarations to the particular unfolding RLT printed, for these seven
+   goals.
 2. Lean's checks: Lean confirms the hand-written theorems below. `Iff.rfl`
    shows the two sides are equivalent in Lean's ℕ; it accepts any
    definitionally equal pair (for example `(double 2 = 4) ↔ (3 + 1 = 4)`
    also holds by `Iff.rfl`), so on its own it does not validate RLT's
-   unfolding algorithm; that comes from step 1.
+   unfolding algorithm; that comes from step 1's exact comparison of types.
 3. Not established: a general formal proof that RLT's elaborator and
    unfolder implement the same semantics as Lean. The comparison covers the
    seven stated goals only.

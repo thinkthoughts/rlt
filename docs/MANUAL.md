@@ -842,4 +842,4 @@ exit 1
 | **The kernel checks** | 0 + 0 = 0 |
 | **Axioms and assumptions** | Robinson's Q (Q4 used); Γ = ∅; the definition adds no axiom |
 | **Result** | PROVED; the certificate ACCEPTs under `rlt check` |
-| **Still open** | the unfolding is done by RLT's elaborator, outside the kernel (`lean/ProverDefinitions.lean` checks the same unfolding independently in Lean); that `double` means what a reader means is a correspondence question |
+| **Still open** | the unfolding is done by RLT's elaborator, outside the kernel (`lean/ProverDefinitions.lean` restates each unfolding in Lean; its elaborated declarations are compared, as Lean terms, with RLT's printed statements, and Lean checks each by `Iff.rfl`; this covers the stated goals, not the elaborator in general); that `double` means what a reader means is a correspondence question |

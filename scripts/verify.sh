@@ -1030,7 +1030,17 @@ echo "tests/definitions/certificates: $pd_ok of $pd_n ACCEPT as unconditional th
 pd_v=$("$rlt" discover --verify research/definition-discovery); pd_vc=$?
 echo "$pd_v" | grep -E '^(record|verified)'
 [ $pd_vc = 0 ] || { echo "  UNEXPECTED: research/definition-discovery did not verify"; fail=1; }
-python3 -I scripts/check-definitions-lean.py "$rlt" || fail=1
+# D6: the Lean declaration correspondence (Lean's elaborated declarations
+# against an expected module built from RLT's printed statements and the
+# registered definitions) is the verdict; the source layout check is an
+# additional defence. Without Lean the script exits 3 (UNVERIFIED).
+python3 -I scripts/check-definitions-lean.py "$rlt" --verbose; pd_lc=$?
+if [ $pd_lc = 3 ] && [ "${RLT_ALLOW_NO_LEAN:-}" = 1 ]; then
+  python3 -I scripts/check-definitions-lean.py "$rlt" --layer text || fail=1
+  echo "SKIPPED (Lean declaration correspondence; lean unavailable; RLT_ALLOW_NO_LEAN=1)"; skipped=1
+elif [ $pd_lc != 0 ]; then
+  fail=1
+fi
 
 lean_bin=$(command -v lean || { [ -x "$HOME/.elan/bin/lean" ] && echo "$HOME/.elan/bin/lean"; })
 if [ -n "$lean_bin" ]; then
@@ -1078,6 +1088,31 @@ $(cat "$lean_p/$lean_i.out")"
     echo "ProverDefinitions.lean D5 attack: UNEXPECTED (Lean exit $d5_lc, script exit $d5_sc)"; cat "$d5.out"; fail=1
   fi
   rm -f "$d5" "$d5.out"
+  # D6: the release audit's escaped-identifier attack on 0987be5. «/-» and
+  # «-/» are identifiers to Lean but comment delimiters to a text scanner, and
+  # a correct F3_unfolds inside «…» is an identifier too; Lean compiles the
+  # wrong F3_unfolds. The Lean layer alone must refuse it from the elaborated
+  # type, and so must the full checker.
+  d6=$RLT_RUN_TMP/d6-attack.lean
+  python3 -I -c 'import sys
+s=open("lean/ProverDefinitions.lean",encoding="utf-8").read()
+f3="theorem F3_unfolds : (double 2 = 4) ↔ (2 + 2 = 4) := Iff.rfl"
+f2h="theorem F2_holds : double 0 = 0 := rfl"; f3h="theorem F3_holds : double 2 = 4 := rfl"
+assert all(s.count(x)==1 for x in (f3,f2h,f3h))
+t=(s.replace(f2h,"theorem F2_holds : double 0 = 0 := by have \u00ab/-\u00bb : True := trivial; rfl")
+    .replace(f3,f3.replace("(2 + 2 = 4)","(3 + 1 = 4)")+"\nexample : True := by have \u00ab-/\u00bb : True := trivial; trivial")
+    .replace(f3h,"theorem F3_holds : double 2 = 4 := by have \u00ab"+f3+"\u00bb : True := trivial; rfl"))
+open(sys.argv[1],"w",encoding="utf-8").write(t)' "$d6"
+  d6_lean=$(cd lean && "$lean_bin" "$d6" 2>&1); d6_lc=$?
+  python3 -I scripts/check-definitions-lean.py "$rlt" --lean "$d6" --layer lean > "$d6.l" 2>&1; d6_ll=$?
+  python3 -I scripts/check-definitions-lean.py "$rlt" --lean "$d6" > "$d6.b" 2>&1; d6_lb=$?
+  if [ $d6_lc = 0 ] && ! echo "$d6_lean" | grep_q -iE "warning|error|sorry" && [ $d6_ll = 1 ] && [ $d6_lb = 1 ] \
+     && grep_q 'theorem `RLTProverDefinitions.F3_unfolds` has elaborated type' "$d6.l"; then
+    echo "ProverDefinitions.lean D6 attack («/-» … «-/» escaped identifiers, 3 + 1 = 4 compiled): Lean accepts it; the Lean declaration layer refuses it from F3_unfolds' elaborated type, and the full checker refuses it"
+  else
+    echo "ProverDefinitions.lean D6 attack: UNEXPECTED (Lean exit $d6_lc, Lean layer exit $d6_ll, full exit $d6_lb)"; cat "$d6.l" "$d6.b"; fail=1
+  fi
+  rm -f "$d6" "$d6.l" "$d6.b"
   m3b_n=$(grep -c "^theorem " lean/M3bReadings.lean)
   m3b_listed=$(echo "$lean_log" | grep -cE "RLTM3bReadings\..*(depends on axioms|does not depend on any axioms)")
   m3b_bad=$(echo "$lean_log" | grep "RLTM3bReadings\." | sed -n 's/.*depends on axioms: \[\(.*\)\]/\1/p' | tr ',' '\n' | tr -d ' ' | grep -vxE 'propext|Classical\.choice|Quot\.sound' | sort -u)
