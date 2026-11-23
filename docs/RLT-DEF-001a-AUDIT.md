@@ -254,3 +254,17 @@ Verification of the correction: §8.3.
 | Unchanged against `58e1c70` (`git diff --stat` empty) | `kernel/`, `syntax/`, every axiom set and `spec/definitions.rlt`, `spec/axioms.yaml`, `definitions/`, `tests/`, `research/`, `lib/`, `statements/`, `compose/`, `certificates/`, `sources/`, `lean/`, `conventions/`, `readingpoints/`, `points/`, `residues/`, `RH/`, `index.html`, `index_261111.html`, `init.html` |
 
 H1 is resolved.
+
+## 9. Release record
+
+| | |
+|---|---|
+| Audited implementation | `24089a3` |
+| H1 correction | `fca6da9` |
+| Audit record and verification record | `4a085c4` (branch head, pushed) |
+| Merge into `main` | `e150a66` (`--no-ff`; parents `58e1c70`, `4a085c4`) |
+| Intervening `main` changes | none: `origin/main` was still `58e1c70` at merge time |
+| Merged tree | `7fba341f`, identical to the tree of `4a085c4`, which §8.3 verified in full |
+| Merged-tree checks | release build reproduces binary `da49aee1…` (the binary §8.3 verified); `def001a` 23 of 23 and `def001a_h1` 4 of 4 pass; `rlt definitions` CONSISTENT; Python identity recomputation equal; the 7 definitions certificates ACCEPT |
+
+The audit (§1–§7) was independent of the implementing session. The H1 correction, §8 and this record were written by the auditing session; the correction is a 25-line change to exit aggregation, covered by its own regression tests and the full verification above, and has had no separate third review. Open follow-up items: H2–H6 and L1–L5 (§8.2). Next stage: RLT-DEF-001b, not begun.
