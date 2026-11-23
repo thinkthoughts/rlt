@@ -26,9 +26,7 @@
 //!   modus ponens, instantiating quantified facts and axioms, backward
 //!   chaining) each cost one unit of depth.
 
-use crate::{
-    check_bytes_outcome, load_axiom_set, load_definitions, pinned_conventions, sha256_hex, ACCEPT,
-};
+use crate::{load_axiom_set, load_definitions, pinned_conventions, sha256_hex, ACCEPT};
 use rlt_kernel::{Axiom, Formula, Mode, Prop, Term, Theorem};
 use rlt_syntax::sexpr::{parse_all, Sexp};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
@@ -1557,11 +1555,15 @@ pub struct ProveOutcome {
     /// functions folded, and the definitions file it was unfolded with.
     pub folded_shown: Option<(String, String)>,
     pub depth_found: Option<usize>,
+    /// RLT-DEF-001a: the goal was elaborated over unregistered definitions
+    /// (`--unregistered-definitions`); a proof found is exploratory only.
+    pub exploratory: Option<String>,
 }
 
 impl ProveOutcome {
     pub fn code(&self) -> i32 {
         match self.verdict {
+            Verdict::Proved { .. } if self.exploratory.is_some() => crate::EXPLORATORY,
             Verdict::Proved { .. } => 0,
             Verdict::NotFound => 1,
             Verdict::Error(_) => 2,
@@ -1569,6 +1571,7 @@ impl ProveOutcome {
     }
     pub fn label(&self) -> &'static str {
         match self.verdict {
+            Verdict::Proved { .. } if self.exploratory.is_some() => "EXPLORATORY",
             Verdict::Proved { .. } => "PROVED",
             Verdict::NotFound => "NOT_FOUND_WITHIN_BOUNDS",
             Verdict::Error(_) => "ERROR",
@@ -1584,9 +1587,15 @@ struct Elaborated {
     assumptions: Vec<(String, Prop)>,
     axioms: Vec<Axiom>,
     taken: BTreeSet<String>,
+    /// RLT-DEF-001a: why the definitions are unregistered, in an exploratory run.
+    unregistered: Option<String>,
 }
 
-fn elaborate(root: &Path, header: &str) -> Result<Elaborated, String> {
+fn elaborate(
+    root: &Path,
+    header: &str,
+    authority: crate::defreg::Authority,
+) -> Result<Elaborated, String> {
     let defs =
         rlt_syntax::proof::reads_definitions(header).then(|| load_definitions(root).map(Rc::new));
     let pf = rlt_syntax::proof::parse_proof_file_with(header, defs.clone())?;
@@ -1607,7 +1616,11 @@ fn elaborate(root: &Path, header: &str) -> Result<Elaborated, String> {
         }
     }
     let mut folded = None;
-    if let Some(d) = crate::attach_functions(root, &pf, &mut convention)? {
+    let mut unregistered = None;
+    if let Some((d, reg)) = crate::attach_functions_as(root, &pf, &mut convention, authority)? {
+        if let crate::defreg::Registration::Unregistered(why) = reg {
+            unregistered = Some(why);
+        }
         taken.extend(d.list.iter().map(|x| x.name.clone()));
         let f = rlt_syntax::elab::elaborate_prop_folded(&pf.goal, &convention)
             .map_err(|e| format!("goal: {e}"))?;
@@ -1627,6 +1640,7 @@ fn elaborate(root: &Path, header: &str) -> Result<Elaborated, String> {
         assumptions: po.assumptions,
         axioms: set.axioms,
         taken,
+        unregistered,
     })
 }
 
@@ -1813,6 +1827,24 @@ pub fn certify(
     cert_path: &Path,
     cert: &str,
 ) -> Result<(Theorem, String), String> {
+    certify_as(
+        root,
+        goal,
+        cert_path,
+        cert,
+        crate::defreg::Authority::RegisteredOnly,
+    )
+}
+
+/// As `certify`, with the caller's authority (RLT-DEF-001a): an exploratory
+/// run accepts an EXPLORATORY replay, nothing weaker.
+pub fn certify_as(
+    root: &Path,
+    goal: &GoalFile,
+    cert_path: &Path,
+    cert: &str,
+    authority: crate::defreg::Authority,
+) -> Result<(Theorem, String), String> {
     let top = parse_all(cert).map_err(|e| format!("certificate: {e}"))?;
     let [rootform] = top.as_slice() else {
         return Err("certificate: expected one (rlt-proof …) form".into());
@@ -1828,8 +1860,11 @@ pub fn certify(
     if header != expected {
         return Err("certificate header differs from the goal file (goal, mode, assumptions, convention and axiom set must be stated exactly as given)".into());
     }
-    let out = check_bytes_outcome(root, cert_path, cert.as_bytes().to_vec());
-    if out.report.code != ACCEPT {
+    let out = crate::check_bytes_outcome_as(root, cert_path, cert.as_bytes().to_vec(), authority);
+    let replayed = out.report.code == ACCEPT
+        || (authority == crate::defreg::Authority::ExploratoryAllowed
+            && out.report.code == crate::EXPLORATORY);
+    if !replayed {
         return Err(format!(
             "the kernel did not accept the certificate:\n{}",
             out.report.text
@@ -1848,6 +1883,29 @@ pub fn prove_source(
     overrides: &[(String, u64)],
     out: Option<&Path>,
 ) -> ProveOutcome {
+    prove_source_as(
+        root,
+        goal_src,
+        overrides,
+        out,
+        crate::defreg::Authority::RegisteredOnly,
+    )
+}
+
+/// The second line of every certificate an exploratory run writes. Advisory
+/// only: authority is always decided by re-checking registration against the
+/// definitions bytes, never by this line.
+pub const EXPLORATORY_CERT_LINE: &str =
+    "; UNREGISTERED DEFINITIONS — not an authoritative RLT result (rlt prove --unregistered-definitions).\n";
+
+/// As `prove_source`, with the caller's authority (RLT-DEF-001a).
+pub fn prove_source_as(
+    root: &Path,
+    goal_src: &str,
+    overrides: &[(String, u64)],
+    out: Option<&Path>,
+    authority: crate::defreg::Authority,
+) -> ProveOutcome {
     let mut res = ProveOutcome {
         verdict: Verdict::NotFound,
         bounds: Bounds::default(),
@@ -1855,6 +1913,7 @@ pub fn prove_source(
         goal_shown: None,
         folded_shown: None,
         depth_found: None,
+        exploratory: None,
     };
     let goal = match parse_goal_file(goal_src) {
         Ok(g) => g,
@@ -1872,13 +1931,14 @@ pub fn prove_source(
     }
     res.bounds = bounds;
     let header = format!("{})", header_text(&goal.fields));
-    let el = match elaborate(root, &header) {
+    let el = match elaborate(root, &header, authority) {
         Ok(e) => e,
         Err(e) => {
             res.verdict = Verdict::Error(e);
             return res;
         }
     };
+    res.exploratory = el.unregistered.clone();
     res.goal_shown = Some(el.goal.to_string());
     res.folded_shown = el.folded.clone();
     let mut search = Search::new(&el.axioms, bounds, el.taken.clone());
@@ -1905,13 +1965,16 @@ pub fn prove_source(
         return res;
     };
     res.depth_found = Some(d);
-    let (cert, steps) = certificate(
+    let (mut cert, steps) = certificate(
         &goal.fields,
         &search.created_params,
         &search.created_hyps,
         &pf,
         &el.taken,
     );
+    if res.exploratory.is_some() {
+        cert.insert_str(CERT_HEADER.len(), EXPLORATORY_CERT_LINE);
+    }
     let default_path =
         PathBuf::from("target/rlt-prove").join(format!("{}.rlt", safe_name(&goal.id)));
     let path = out.map(Path::to_path_buf).unwrap_or(default_path);
@@ -1969,7 +2032,7 @@ pub fn prove_source(
         }
     };
     debug_assert_eq!(text.as_bytes(), bytes.as_slice());
-    match certify(root, &goal, &full, &text) {
+    match certify_as(root, &goal, &full, &text, authority) {
         Ok((theorem, replay_report)) => {
             res.verdict = Verdict::Proved {
                 certificate: path.display().to_string(),
@@ -2005,6 +2068,23 @@ pub fn prove_report(
     overrides: &[(String, u64)],
     out: Option<&Path>,
 ) -> (String, i32) {
+    prove_report_as(
+        root,
+        goal_file,
+        overrides,
+        out,
+        crate::defreg::Authority::RegisteredOnly,
+    )
+}
+
+/// As `prove_report`, with the caller's authority (RLT-DEF-001a).
+pub fn prove_report_as(
+    root: &Path,
+    goal_file: &Path,
+    overrides: &[(String, u64)],
+    out: Option<&Path>,
+    authority: crate::defreg::Authority,
+) -> (String, i32) {
     let mut t = String::new();
     let shown = goal_file
         .strip_prefix(root)
@@ -2019,7 +2099,7 @@ pub fn prove_report(
             return (t, 2);
         }
     };
-    let r = prove_source(root, &src, overrides, out);
+    let r = prove_source_as(root, &src, overrides, out, authority);
     render(&mut t, &r);
     (t, r.code())
 }
@@ -2066,7 +2146,12 @@ pub fn render(t: &mut String, r: &ProveOutcome) {
             );
             let _ = writeln!(t, "certificate     {certificate}");
             let _ = writeln!(t, "  sha256        {sha256}");
-            let _ = writeln!(t, "replay          ACCEPT — the certificate bytes were re-read, re-parsed and replayed by the RLT kernel (`rlt check {certificate}`)");
+            if let Some(why) = &r.exploratory {
+                let _ = writeln!(t, "replay          EXPLORATORY — the kernel replayed the certificate bytes over unregistered definitions (`rlt check --unregistered-definitions {certificate}`)");
+                let _ = writeln!(t, "  authority     {why}; this certificate carries no authority for records, citations, libraries, discovery verification or composition");
+            } else {
+                let _ = writeln!(t, "replay          ACCEPT — the certificate bytes were re-read, re-parsed and replayed by the RLT kernel (`rlt check {certificate}`)");
+            }
             let g: Vec<String> = theorem
                 .assumptions()
                 .iter()
@@ -2091,7 +2176,11 @@ pub fn render(t: &mut String, r: &ProveOutcome) {
                     ax.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ")
                 }
             );
-            let _ = writeln!(t, "verdict         PROVED — the kernel-checked theorem holds under the axioms used and Γ above; their truth stays assumed");
+            if r.exploratory.is_some() {
+                let _ = writeln!(t, "verdict         EXPLORATORY — a proof was found and replayed by the kernel over unregistered definitions; not an authoritative RLT result");
+            } else {
+                let _ = writeln!(t, "verdict         PROVED — the kernel-checked theorem holds under the axioms used and Γ above; their truth stays assumed");
+            }
         }
         Verdict::NotFound => {
             let _ = writeln!(t, "verdict         NOT_FOUND_WITHIN_BOUNDS — no proof was found within the bounds above; this says nothing about whether the goal is true, false or independent of the axioms");

@@ -1016,6 +1016,30 @@ validate_log=$("$rlt" validate); validate_code=$?
 echo "$validate_log" | grep -E '^(PiπΠ|problem|verdict)'
 [ $validate_code = 0 ] || fail=1
 
+# RLT-DEF-001a: the canonical definition registry (rules I1–I8), and an
+# independent Python recomputation of every registered identity.
+echo; echo "== definition registry, RLT-DEF-001a (spec/definitions-registry.yaml)"
+dr_log=$("$rlt" definitions); dr_code=$?
+echo "$dr_log" | grep -E '^(registry|file|verdict)' | cut -c1-160
+[ $dr_code = 0 ] || { echo "  UNEXPECTED: rlt definitions exit $dr_code"; fail=1; }
+python3 -I scripts/check-definition-identities.py "$rlt" || fail=1
+dr_mut=0
+for m in body formal written params deps; do
+  python3 -I scripts/check-definition-identities.py "$rlt" --mutate "$m" >/dev/null; [ $? = 1 ] && dr_mut=$((dr_mut + 1))
+done
+[ "$dr_mut" = 5 ] && echo "identity cross-check: 5 of 5 mutated canonical texts detected" || { echo "  UNEXPECTED: $dr_mut of 5 mutations detected"; fail=1; }
+dr_evil=target/verify-def001a; rm -rf "$dr_evil"; mkdir -p "$dr_evil"
+printf '(rlt-definitions\n  (id DOUBLE)\n  (convention NAT-LOGIC)\n  (domain Nat)\n  (define-function double (x) (+ x 1)\n    (written "double(x) := x + 1")\n    (origin rlt-authored)))\n' > "$dr_evil/evil.rlt"
+dr_h=$(sha256sum "$dr_evil/evil.rlt" | cut -c1-64)
+printf '(rlt-goal\n  (id evil.two)\n  (convention NAT-FUN)\n  (definitions "%s" "%s")\n  (goal "double(2) = 3")\n  (mode unconditional)\n  (axioms ROBINSON-Q))\n' "$dr_evil/evil.rlt" "$dr_h" > "$dr_evil/evil.goal"
+"$rlt" prove "$dr_evil/evil.goal" --out "$dr_evil/a.rlt" >/dev/null; dr_a=$?
+"$rlt" --unregistered-definitions prove "$dr_evil/evil.goal" --out "$dr_evil/e.rlt" >/dev/null; dr_e=$?
+"$rlt" check "$dr_evil/e.rlt" >/dev/null; dr_c=$?
+"$rlt" --unregistered-definitions check "$dr_evil/e.rlt" >/dev/null; dr_x=$?
+echo "D2 case (a second file declaring id DOUBLE): prove exit $dr_a (want 2), exploratory prove exit $dr_e (want 4), check exit $dr_c (want 2), exploratory check exit $dr_x (want 4)"
+[ "$dr_a $dr_e $dr_c $dr_x" = "2 4 2 4" ] || fail=1
+rm -rf "$dr_evil"
+
 echo; echo "== Lean replay (independent, outside the trusted base)"
 # RLT-PROVER-002: registered function definitions (NAT-FUN).
 echo; echo "== registered function definitions, RLT-PROVER-002 (definitions/, tests/definitions, research/definition-discovery)"
