@@ -1,0 +1,39 @@
+name: rlt-cstar
+
+# RLT-CSTAR verification gates (RLT-CSTAR-009). scripts/verify.sh (ci.yml) checks
+# RLT's own suites; this workflow checks the RLT-CSTAR certificates and Lean
+# companions against the unchanged kernel. Read-only: no cache writes, no secrets.
+on:
+  push:
+    branches: ['research/rlt-cstar-*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rlt-cstar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Kernel unchanged since 6128c97
+        run: |
+          changed=$(git diff --name-only 6128c974db184ecbac553d2e5e583a2c0e1b3125 HEAD -- kernel cli lib Cargo.toml Cargo.lock rust-toolchain.toml spec)
+          if [ -n "$changed" ]; then echo "kernel sources changed:"; echo "$changed"; exit 1; fi
+          echo "kernel sources identical to 6128c97"
+      # The Rust version comes from rust-toolchain.toml (pinned).
+      - run: cargo build --release --locked
+      - run: sha256sum target/release/rlt
+      - name: Certificates against their manifests, with tampered controls
+        run: python3 research/rlt-cstar-009/check_rlt_cstar.py target/release/rlt
+      - name: Install Lean (lean/lean-toolchain selects the version)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/v4.2.4/elan-init.sh | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Lean companions, axiom audit
+        run: |
+          cd lean && elan toolchain install "$(cat lean-toolchain)" && cd ..
+          research/rlt-cstar-009/check_lean.sh "$(cd lean && elan which lean)"
