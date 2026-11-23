@@ -1,0 +1,10 @@
+; RLT-CSTAR-007 goal G08_coarse_edge_150_21. init_coarse for llm = 300, np_xi = 21: gnxc = 150,
+; nxc = ceiling(150/21) = 8 (21*7 < 150 <= 21*8), so its "coarse tile <= 2 points" test passes;
+; off_xc = 21*8 - 150 = 18 is taken as 18/2 = 9 from the first tile and (18+1)/2 = 9 from the
+; last, and 9 = 8 + 1 exceeds the 8 points each holds: both edge tiles are left with 8 - 9 = -1.
+(rlt-goal
+  (id CSTAR007.G08_coarse_edge_150_21)
+  (convention NAT-LOGIC)
+  (goal "21 × 7 + 3 = 150 ∧ 21 × 8 = 150 + 18 ∧ 9 + 9 = 18 ∧ 8 + 1 = 9")
+  (mode unconditional)
+  (axioms ROBINSON-Q))
