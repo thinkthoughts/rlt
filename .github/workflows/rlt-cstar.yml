@@ -28,7 +28,7 @@ jobs:
       - run: cargo build --release --locked
       - run: sha256sum target/release/rlt
       - name: Certificates against their manifests, with tampered controls
-        run: python3 research/rlt-cstar-009/check_rlt_cstar.py target/release/rlt
+        run: python3 research/rlt-cstar-009/check_rlt_cstar.py target/release/rlt --expect ACCEPT=17 MALFORMED=1
       - name: Install Lean (lean/lean-toolchain selects the version)
         run: |
           curl -sSfL https://raw.githubusercontent.com/leanprover/elan/v4.2.4/elan-init.sh | sh -s -- -y --default-toolchain none
