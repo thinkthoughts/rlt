@@ -87,7 +87,9 @@ fn run() -> i32 {
                     check_file(&root, &root.join(f))
                 };
                 print!("{}", r.text);
-                worst = worst.max(r.code);
+                // RLT-DEF-001a audit H1: by severity, so EXPLORATORY (4)
+                // never hides a REJECT or MALFORMED file in the batch.
+                worst = rlt_cli::worse_check_code(worst, r.code);
             }
             worst
         }

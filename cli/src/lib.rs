@@ -31,6 +31,29 @@ pub const MALFORMED: i32 = 2;
 /// derivation over unregistered definitions. Never an authoritative result.
 pub const EXPLORATORY: i32 = 4;
 
+/// RLT-DEF-001a audit H1: the severity of a `rlt check` exit code, for the
+/// exit of a multi-file run: ACCEPT (0) < EXPLORATORY (4) < REJECT (1) <
+/// MALFORMED (2). Any other code ranks above MALFORMED (fail closed). On
+/// authoritative runs (codes 0, 1, 2) this is the numeric maximum.
+pub fn check_code_severity(code: i32) -> u8 {
+    match code {
+        ACCEPT => 0,
+        EXPLORATORY => 1,
+        REJECT => 2,
+        MALFORMED => 3,
+        _ => 4,
+    }
+}
+
+/// The more severe of two `rlt check` exit codes (`check_code_severity`).
+pub fn worse_check_code(a: i32, b: i32) -> i32 {
+    if check_code_severity(b) > check_code_severity(a) {
+        b
+    } else {
+        a
+    }
+}
+
 pub struct Report {
     pub text: String,
     pub code: i32,
