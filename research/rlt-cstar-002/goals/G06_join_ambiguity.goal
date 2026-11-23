@@ -1,0 +1,7 @@
+; RLT-CSTAR-002 goal G06_join_ambiguity. Rho-only grid with 2 interior rows on 2 tiles: each tile has 1 interior row plus 1 ghost row, so both rows of tiles have eta_rho = 2 and sizes alone cannot place them.
+(rlt-goal
+  (id CSTAR002.G06_join_ambiguity)
+  (convention NAT-LOGIC)
+  (goal "2 × 1 = 2 + 0 ∧ 1 + 1 = 2")
+  (mode unconditional)
+  (axioms ROBINSON-Q))

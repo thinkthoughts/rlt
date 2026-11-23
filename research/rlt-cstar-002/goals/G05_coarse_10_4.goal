@@ -1,0 +1,7 @@
+; RLT-CSTAR-002 goal G05_coarse_10_4. init_coarse for llm = 20, np_xi = 4: nxc = ceiling(10/4) = 3 (4*2 < 10 <= 4*3): accepted.
+(rlt-goal
+  (id CSTAR002.G05_coarse_10_4)
+  (convention NAT-LOGIC)
+  (goal "4 × 2 + 2 = 10 ∧ 4 × 3 = 10 + 2")
+  (mode unconditional)
+  (axioms ROBINSON-Q))

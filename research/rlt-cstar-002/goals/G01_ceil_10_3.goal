@@ -1,0 +1,7 @@
+; RLT-CSTAR-002 goal G01_ceil_10_3. ucla-roms mpi_setup, gnx = 10, npx = 3: nx = ceiling(10/3) = 4 (3*3 < 10 <= 3*4), offx = 2.
+(rlt-goal
+  (id CSTAR002.G01_ceil_10_3)
+  (convention NAT-LOGIC)
+  (goal "3 × 3 + 1 = 10 ∧ 3 × 4 = 10 + 2")
+  (mode unconditional)
+  (axioms ROBINSON-Q))

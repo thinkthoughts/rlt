@@ -1,0 +1,7 @@
+; RLT-CSTAR-002 goal G07: roms-tools before 3557a25 required 3 | 10 (interior xi_rho points on np_xi = 3).
+(rlt-goal
+  (id CSTAR002.G07_ndiv_10_3)
+  (convention NAT-DEF)
+  (goal "¬(3 ∣ 10)")
+  (mode unconditional)
+  (axioms ROBINSON-Q))

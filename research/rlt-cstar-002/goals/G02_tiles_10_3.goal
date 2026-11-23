@@ -1,0 +1,7 @@
+; RLT-CSTAR-002 goal G02_tiles_10_3. Tiles nx - offx/2 = 3, 4, nx - (offx+1)/2 = 3; iSW_corn 0, 3, 7; the tiles are contiguous and cover 10.
+(rlt-goal
+  (id CSTAR002.G02_tiles_10_3)
+  (convention NAT-LOGIC)
+  (goal "3 + 1 = 4 ∧ 0 + 3 = 3 ∧ 3 + 4 = 7 ∧ 7 + 3 = 10")
+  (mode unconditional)
+  (axioms ROBINSON-Q))

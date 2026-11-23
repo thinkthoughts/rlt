@@ -1,0 +1,7 @@
+; RLT-CSTAR-002 goal G04_coarse_10_8. init_coarse for llm = 20, np_xi = 8: gnxc = 10, nxc = ceiling(10/8) = 2 (8*1 < 10 <= 8*2): 2 <= 2, ROMS stops.
+(rlt-goal
+  (id CSTAR002.G04_coarse_10_8)
+  (convention NAT-LOGIC)
+  (goal "8 × 1 + 2 = 10 ∧ 8 × 2 = 10 + 6")
+  (mode unconditional)
+  (axioms ROBINSON-Q))

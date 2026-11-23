@@ -1,0 +1,18 @@
+file	sha256	exit	verdict
+C_dvd_16_208.rlt	dd2fb640d33d34de299dd16e48dc703b7c35813c9980dff76c2569409f8f32b8	0	ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q
+C_dvd_16_224.rlt	85209e82146dbf0792e39340e134c3579d4ab3c616aeb932549d2487df93a01a	0	ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q
+C_dvd_16_384.rlt	38e3f143ab5423aa3cc07b5feabdcff8dfc2a83aba8204b2bc3eb8fe7afd33d5	0	ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q
+C_dvd_16_512.rlt	35ae392ead4654cdd8b9615f1db529087bd881231c04cf09d0cf6b42bc33eb3d	2	MALFORMED — proof file would build 1006520 term nodes, above the limit 1000000
+C_dvd_20_440.rlt	b060e9d7d65e93e68a32577b6c016ea70894e646e6797f6e804eef7b93da5bbf	0	ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q
+C_dvd_2_10.rlt	9dbbbe9011545e48da840fe0a3c74a0b4f2e47c262bd56a6d981177f3f65c3b9	0	ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q
+C_dvd_2_20.rlt	eb07fc4bf13c197ac32a0b1c42b08afc8e806a01c1c46ba904f186fdedcc851e	0	ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q
+C_dvd_5_10.rlt	ca33e9288dff430d831ffbc21afeb4c5e826f92ab18eaab76a1074d6a015f662	0	ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q
+C_dvd_5_20.rlt	d5da5c53c841144e96497bbb661ccb9f2550366383f7f08af0f7ae12b98e77bc	0	ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q
+C_dvd_8_192.rlt	ad8a78b0dee990a0faf5891793b23cf548730f13188b990a701a0e0a82bc6810	0	ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q
+G01_ceil_10_3.rlt	097b7af1abe85cf71e64d370575bc6e72afee6a9be82b126a60643a811116b0e	0	ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q
+G02_tiles_10_3.rlt	30554bade39581b3cf7299f1492fd7f6499c90e1d4bafd6ed7421ce069743c95	0	ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q
+G03_fine_20_8.rlt	d87ce7cdbceec446494d3f9e744e1b1111981c47689e8f6e0f615db17bef8326	0	ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q
+G04_coarse_10_8.rlt	dd81a9f67e1d31994a71c95b1c16a7bf38504bf7b788842dbbd4974bdb9d7af7	0	ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q
+G05_coarse_10_4.rlt	e31545f26a7871db431da94b75ad081427f09fa2fafd6ed33ee2589267e8bc5c	0	ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q
+G06_join_ambiguity.rlt	934cdbe1be1440fb690586c6aa6f3d0ff027d4080a1123f88d6249b4e9680cba	0	ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q
+G07_ndiv_10_3.rlt	978ac127f4ee3cb5bc42d1f148320b01ad3dede2dc00e98f65eb5d1da50e1042	0	ACCEPT — unconditional theorem relative to registered axiom set ROBINSON-Q
