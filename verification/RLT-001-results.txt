@@ -1,5 +1,5 @@
 RLT-001 verification
-commit   9ccc8f88f5615973b3e4465cf9b0a087c2776cb3
+commit   fca6da9147c622bd016efee745f43b4a8ce1633a
 rustc    rustc 1.97.0 (2d8144b78 2026-07-07)
 
 == format and lints
@@ -10,38 +10,39 @@ clippy   ok
 ok
 
 == RLT-006 generated certificates (materialized before any check; tests/rlt006/manifest.sha256)
-630 of 630 certificates generated in 0.7 s, each equal to its manifest hash; 57528 KB on disk (630 files)
+630 of 630 certificates generated in 0.6 s, each equal to its manifest hash; 57528 KB on disk (630 files)
 
 == RLT-007b stage 1 generated theorems (materialized before any check; tests/rlt007s1/manifest.sha256)
 44 of 44 per-element distinctness theorems generated, each equal to its manifest hash; 13404 KB on disk
 
 == RLT-007b stage 4 generated certificates (materialized before any check; tests/rlt007s4/manifest.sha256)
-1485 of 1485 element certificates generated in 0.4 s, each equal to its manifest hash; 52752 KB on disk
+1485 of 1485 element certificates generated in 0.6 s, each equal to its manifest hash; 52752 KB on disk
 
 == cargo test (unit + golden)
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.46s
-test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 110.55s
-test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 430.15s
-test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.41s
-test result: ok. 69 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.25s
-test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.67s
-test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.63s
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 73.39s
-test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.45s
-test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.34s
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.24s
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.00s
-test result: ok. 47 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.32s
-test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.81s
-test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 539.82s
-test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 351.64s
-test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 29.77s
-test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 36.33s
-test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.56s
-test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 59.81s
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.30s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.73s
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 235.20s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 512.19s
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.32s
+test result: ok. 69 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.07s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.07s
+test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.22s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 78.78s
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.95s
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.68s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.27s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 11.45s
+test result: ok. 47 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.93s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.31s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1163.17s
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 709.86s
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 57.15s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 70.61s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.12s
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 115.00s
 test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
-test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.59s
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.19s
 
 == proof files (expect accept → exit 0, reject → exit 1)
 tests/accept/M1_comm_instance.rlt                    exit 0  ACCEPT — unconditional theorem relative to registered axiom set PEANO-ARITH
@@ -147,9 +148,9 @@ spec/robinson-q.rlt sha256 4ad55192222576e3901abc4ee7ea5a6760b64ff212e8c55796ab9
 spec/definitions.rlt sha256 122e37fc627b136023a1a5ffac0344162ed77ae95312248a9f6a76c2b639ecda
 
 == H45 residue certificates, RLT-006 (tests/rlt006, certificates/h45)
-scripts/gen-rlt006.py reproduces every committed output and all 630 certificates (0.7 s)
-1. element certificates: 630 of 630 ACCEPT as unconditional theorems under ROBINSON-Q (32.6 s)
-2. per-prime theorems: 14 of 14 ACCEPT, each citing its 45 certificates (45 of 64 cited-file checks) (32.5 s)
+scripts/gen-rlt006.py reproduces every committed output and all 630 certificates (0.6 s)
+1. element certificates: 630 of 630 ACCEPT as unconditional theorems under ROBINSON-Q (57.3 s)
+2. per-prime theorems: 14 of 14 ACCEPT, each citing its 45 certificates (45 of 64 cited-file checks) (60.8 s)
 tests/rlt006/reject: 6 of 6 give the required exit code and reason
 refused: a generated certificate missing (rlt check MALFORMED, rlt deps exit 2, manifest mismatch)
 refused: a generated certificate modified (rlt check MALFORMED, rlt deps exit 2, manifest mismatch)
@@ -188,8 +189,8 @@ tests/rlt007s3/reject: 9 of 9 give the required exit code and reason
 generator self-test: 6 of 6 altered inputs refused, each for its own reason
 scripts/gen-rlt007s4.py --check: 1564 outputs, 0 differ (certificates, manifest, summaries, rejected cases, Lean file and records reproduced)
 source transcription checked (not kernel-checked): the tuple; the 33 primes 47 … 211 and their least omitted classes recomputed; every summary and record statement rebuilt from them; each Lean om_P is the summary symbol for symbol
-1. element certificates: 1485 of 1485 ACCEPT as unconditional theorems under ROBINSON-Q (80.0 s)
-2. per-prime theorems: 33 of 33 current and ACCEPT, each citing its 45 certificates (45 of 64 cited-file checks, chain 1) (81.9 s)
+1. element certificates: 1485 of 1485 ACCEPT as unconditional theorems under ROBINSON-Q (145.0 s)
+2. per-prime theorems: 33 of 33 current and ACCEPT, each citing its 45 certificates (45 of 64 cited-file checks, chain 1) (159.6 s)
 tests/rlt007s4/reject: 7 of 7 give the required exit code and reason
 statement guards: 3 of 3 kernel-accepted summaries of another shape (a conjunct dropped, reordered, repeated) refused by the statement rebuild
 refused: a certificate missing (rlt check MALFORMED, manifest mismatch)
@@ -217,7 +218,7 @@ composed by both (rust exit 0, python exit 0): compose/h45.yaml
 composed by both (rust exit 0, python exit 0): tests/rlt007d/accept/range_6.yaml
 composed by both (rust exit 0, python exit 0): tests/rlt007d/accept/tail.yaml
 composed by both (rust exit 0, python exit 0): tests/rlt007d/accept/tail_renamed.yaml
-full bundle and controls: 300 s wall, both checkers in parallel
+full bundle and controls: 531 s wall, both checkers in parallel
 tests/rlt007d/negative: 52 of 52 refused by rlt compose with the required class, exit and reason, and by compose-check with the same class and exit
 refused: a component's cited file changed (tests/rlt007s2a/accept/O_1.rlt, cited by the classification) (both checkers: stale, exit 3)
 refused: a component's cited file absent (both checkers: missing, exit 2)
