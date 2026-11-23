@@ -1,0 +1,24 @@
+tree /home/claude/r3/roms-tools
+case                                        U0 (design)     U actual         flux     DIC diff  gap DIC-flux  gap at 1st record
+1 OAE, equal start                               999655       999655       999655       999655             0                 -0
+1 DOR, equal start                              1249569      1249569      1249569     -1342431      -2592000             -36000
+2 OAE, unsupported offset D0=5e5                 999655       611220       611220      1111220        500000             500000
+2 DOR, unsupported offset D0=5e5                1249569       861134       861134     -1230866      -2092000             464000
+3 OAE restart, D0 = c A0 = 5e5                   999655       999655       999655      1499655        500000             500000
+3 DOR restart, D0 = c A0 = 5e5                  1249569      1249569      1249569      -842431      -2092000             464000
+tree /home/claude/r3/wt/rt-003
+case                                        U0 (design)     U actual         flux     DIC diff  gap DIC-flux  gap at 1st record
+1 OAE, equal start                               999655       999655       999655       999655             0                 -0
+1 DOR, equal start                              1249569      1249569      1249569     -1342431      -2592000             -36000
+2 OAE, unsupported offset D0=5e5                 999655       611220       611220      1111220        500000             500000
+2 DOR, unsupported offset D0=5e5                1249569       861134       861134     -1230866      -2092000             464000
+3 OAE restart, D0 = c A0 = 5e5                   999655       999655       999655      1499655        500000             500000
+3 DOR restart, D0 = c A0 = 5e5                  1249569      1249569      1249569      -842431      -2092000             464000
+tree /home/claude/r3/wt/rt-005-dic-uptake
+case                                        U0 (design)     U actual         flux     DIC diff  gap DIC-flux  gap at 1st record
+1 OAE, equal start                               999655       999655       999655       999655             0                 -0
+1 DOR, equal start                              1249569      1249569      1249569      1249569            -0                 -0
+2 OAE, unsupported offset D0=5e5                 999655       611220       611220      1111220        500000             500000
+2 DOR, unsupported offset D0=5e5                1249569       861134       861134      1361134        500000             500000
+3 OAE restart, D0 = c A0 = 5e5                   999655       999655       999655      1499655        500000             500000
+3 DOR restart, D0 = c A0 = 5e5                  1249569      1249569      1249569      1749569        500000             500000

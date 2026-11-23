@@ -1,0 +1,94 @@
+# RLT-CSTAR-008 · Acceptance report
+
+Independent research by thinkthoughts (RLT); not affiliated with or endorsed by [C]Worthy. Everything below is local: no branch was merged into `main`, pushed, opened as a pull request, or released, and no upstream project was contacted. Evidence: `RLT-CSTAR-008-VERIFICATION.md`. Scientific questions: `RLT-CSTAR-008-SCIENTIFIC-QUESTIONS.md`.
+
+## 1. Decisions
+
+Legend for the review columns: **M** mathematical correctness, **S** scientific meaning, **C** source correspondence, **N** numerical accuracy, **B** backward compatibility, **P** performance and resources, **T** test coverage, **D** dependency compatibility, **R** reproducibility. "✓" = checked and satisfied with executable evidence; "n/a" = the criterion does not bear on the change.
+
+### roms-tools
+
+| Commit (research → integration) | Change | Decision | Justification |
+|---|---|---|---|
+| `3557a25b` → `a8904c3b` | partition uneven tilings by ucla-roms' rule | **ACCEPT** | M ✓ (Lean `cover`, `start_*`); C ✓ (19,200 pairs vs compiled `mpi_setup`/`partit`/`init_coarse` in 002; 68 tilings vs `partit` on two grids here); B ✓ (even tilings: identical tiles apart from the added attribute); P ✓ (002 benchmark); T ✓ (13 tests); D: releases ≤ 5.4.0 lack it, so C-Star's floor must follow (§4); R ✓ |
+| `f79e0c05` → `3f5c90a0` | write and read ucla-roms' `partition` attribute; place tiles by it | **ACCEPT** | C ✓ (attribute equal to `partit`'s on all 68 tilings); B ✓ (files without it join by the old inference; ucla-roms ignores extra attributes and `partit` writes the same one); T ✓ (9 tests) |
+| `ae3d658c` → `0432197b` | copy whole coarse dimensions when joining | **ACCEPT** | M ✓ (Lean `split_never_all_whole`); C ✓ (equals `ncjoin` on 68 tilings); B ✓ (split coarse grids join as before); T ✓ (10 tests, 6 fail without) |
+| `a1c52ff7` → `b4858b98` | partition guide | **ACCEPT** | every number reproduced by a run; the notebook itself not re-executed (needs NERSC paths and ERA5); its stale error output cleared |
+| `755fef69` → `2fb91ac9` | independent tonnes-CO₂ test; constant cited as IUPAC 2007 | **ACCEPT** | N ✓ (exact rational check, end to end); value unchanged |
+| `e7358b79` + `bee13449` → `0fc363ea`, `d50de4c8` | explicit dimensional units contract; case-sensitive symbols | **REVISE → ACCEPT** | the replay found `Mmol` (megamole) read as mmol (F-025); revised in `bee13449`. S ✓ (dimensions of every input fixed by ucla-roms/MARBL output); C ✓ (all ucla-roms 0.16.0 spellings accepted, results unchanged); B: unrecognised strings now raise where they were silently read as mmol, which is intended; missing units keep the mmol default with a warning; T ✓ (83 tests in `test_cdr_analysis.py`) |
+| `23a7b518` → `90e8b478` | accept θ_s = 0, θ_b = 0 | **ACCEPT** | C ✓ (equal to compiled `CSF`); T ✓ |
+| `e24817f4` → `f696c7c9` | stable stretching | **ACCEPT** | N ✓ (≤ 6.7×10⁻¹⁶ vs 50-digit reference; NaN removed); B ✓ (≤ 7.6×10⁻¹⁵ change at θ_s ≥ 0.5, inside the `np.allclose` check of ROMS output's `Cs_w`); P: same operation count; T ✓ (20 tests, 6 fail without) |
+| `9cc9e95d` | add a release's removed DIC back to the DIC-based uptake (F-009) | **HOLD** (scientific) | numerically established against the oracle; whether it is the intended quantity is Q1 of the scientific questions |
+| `cbeacaa2` | analytic box-model oracle | **HOLD** with F-009 | its DOR cases encode the proposed meaning; kept with the change it tests |
+
+### C-Star
+
+| Commit (research → integration) | Change | Decision | Justification |
+|---|---|---|---|
+| `f4ba79ff` → `cebfb69c` | Rule L: refuse coarse tilings `init_coarse` stops on | **ACCEPT** | C ✓ (102,272 pairs, 0 mismatches against the verbatim lines); T ✓ |
+| `f0587cb8` + `7f03ec61` → `5331bca7`, `1f38d8b9` | refuse empty edge coarse tiles; message says whether ROMS stops | **REVISE → ACCEPT** | the replay found the message wrong for the empty-edge case (F-026); revised in `7f03ec61`. M ✓ (Lean `ruleL_tiles`, RLT G08); C ✓ (43,803 empty-tile tilings, all refused); B: refuses only tilings that leave a coarse tile empty |
+| `438b1913` | Forge refuses partitioned tilings the installed ROMS-Tools cannot split (F-024) | **HOLD** (maintainer decision) | correct against roms-tools 5.4.0, but C-Star's CI installs 5.4.0 and its fixtures build executors on toy uneven grids without `use_pio`; the fixtures, or C-Star's floor, change first |
+
+### ucla-roms
+
+| Commit (research → integration) | Change | Decision | Justification |
+|---|---|---|---|
+| `0c63d80d` → `13e71c94` | stable `CSF` (`sinh`, `expm1` via `iso_c_binding`) | **ACCEPT** for the fork; upstream gate below | N ✓; full ROMS builds and runs of three analytical configurations: the pin reproduces ucla-roms' CI hashes bit for bit, and the change moves the outputs at roundoff (≤ 2.5×10⁻¹² relative, except 5.6×10⁻⁹ in a near-zero field). Gate: CI reference hashes (`results_github_gnu.json`, `results_github_ifx.json`) must be regenerated by ucla-roms' CI; the Intel `ifx` build is untested here |
+
+### rlt
+
+`research/rlt-cstar-007` (docs, certificate G08, `RLTCSTAR007.lean`) and `research/rlt-cstar-008` (this round's documents and replay scripts): **ACCEPT** as research records. The kernel is unchanged; every certificate and theorem was rechecked (VERIFICATION §2, rows 6–7).
+
+## 2. Integration branches (local)
+
+| Repository | Branch | Base | Head | Commits (each `cherry-pick -x` of the reviewed commit) |
+|---|---|---|---|---|
+| roms-tools | `integration/rlt-cstar-008` | `ede4fe62` | `f696c7c9` | `a8904c3b`, `3f5c90a0`, `0432197b`, `b4858b98`, `2fb91ac9`, `0fc363ea`, `d50de4c8`, `90e8b478`, `f696c7c9` |
+| C-Star | `integration/rlt-cstar-008` | `0991b445` | `1f38d8b9` | `cebfb69c`, `5331bca7`, `1f38d8b9` (tree equal to `research/rlt-cstar-002`) |
+| ucla-roms | `integration/rlt-cstar-008` | `f83d2ef6` | `13e71c94` | `13e71c94` (tree equal to `research/rlt-cstar-007-stable-csf`) |
+
+Held, kept apart: roms-tools `research/rlt-cstar-005-dic-uptake` (`cbeacaa2`), roms-tools `hold/rlt-cstar-008-f009-on-integration` (`cfc038e9`), C-Star `research/rlt-cstar-008-partition-support` (`438b1913`).
+
+## 3. Gates
+
+| Gate | Trees | Result |
+|---|---|---|
+| ROMS-Tools full suite | integration `f696c7c9` vs pin `ede4fe62` (007 log, same environment) | 1,876 common tests, **0 changed**; 112 new, all passing (64 CDR analysis, 16 vertical coordinate, 13 uneven partition, 10 whole-coarse join, 9 partition attribute); 29 tidal tests blocked in both (Git LFS data) |
+| C-Star unit suite, released ROMS-Tools | C-Star integration `1f38d8b9` vs pin `0991b445`, both with roms-tools **5.4.0** from PyPI (C-Star's CI version) | 10,047 common tests, **0 changed**; 39 new, all passing (31 precheck, 7 Forge refusals, 1 simulation); 4 environmental failures in both (GitHub token in this environment, git stale-index behaviour, network-guard plugin) |
+| C-Star unit suite, research ROMS-Tools | C-Star integration with roms-tools integration | 10,017 passed, same 4 environmental failures; vs 007's patched run: 10,085 common tests, 0 changed |
+| Partition/join vs ucla-roms | roms-tools integration, `partit`/`ncjoin` from the fresh pin | 34/34 tilings on 37×23 and 34/34 on 41×29 |
+| C-Star coarse checks vs `init_coarse` | C-Star integration | 102,272 `(llm, np_xi)` pairs, 0 mismatches |
+| Held F-009 on top of integration | `hold/rlt-cstar-008-f009-on-integration` | 162 analysis tests passed, 18 skipped |
+| ucla-roms | integration `13e71c94` (tree identical to the research branch run in §2 row 5b) | analytical configurations: pin bit-identical to upstream CI; change at roundoff |
+
+Logs: `evidence/suites/` (`*.which` names the imported trees and the ROMS-Tools version; `*.rev` the commits).
+
+## 4. Cross-repository compatibility and release ordering
+
+- **C-Star ↔ ROMS-Tools (F-001, F-024).** C-Star accepts uneven tilings, as ucla-roms runs them. Every ROMS-Tools release through 5.4.0, C-Star's floor and its CI version, refuses to partition them, so a `use_pio=False` run on such a tiling fails at `pre_run` after its inputs are generated. This is pre-existing, and the integration branches neither cause nor widen it.
+  - Required order: (1) release ROMS-Tools with the partition changes; (2) raise C-Star's `roms_tools` floor to that release (`pyproject.toml`, `environment-*.yml`).
+  - Until then, the held guard `438b1913` is the alternative, after C-Star's fixtures move to even tilings or `use_pio`.
+- **C-Star's coarse checks ↔ ROMS-Tools.** For every tiling the amended Rule L accepts, ROMS-Tools splits the coarse grid (25,445 tilings in 007), so C-Star's retry without coarse dimensions is never reached for coarse-forcing runs.
+- **ROMS-Tools ↔ ucla-roms stretching.** Either side can be released first: mixed versions differ by ≤ 7.6×10⁻¹⁵ at θ_s ≥ 0.5, within ROMS-Tools' `np.allclose` check of `Cs_w`.
+- **ROMS-Tools output files.** Tiles carry one new global attribute, `partition`, identical to what ucla-roms' `partit` writes.
+- **ucla-roms fork `main`** (`bf7b5f4d`, 2 commits past the pin): the stretching commit applies without conflict.
+
+## 5. Proposed upstream contribution sequence (separate pull requests)
+
+1. **roms-tools · partition and join follow ucla-roms**: `3557a25b`, `f79e0c05`, `ae3d658c`, `a1c52ff7`. These could be split into uneven tiling (with the guide), partition attribute, and whole-coarse join.
+2. **roms-tools · CDR tonnes-CO₂ test and constant citation**: `755fef69` (small, independent).
+3. **roms-tools · CDR units contract**: `e7358b79` + `bee13449`.
+4. **roms-tools · θ = 0**: `23a7b518`.
+5. **roms-tools · stable stretching**: `e24817f4`, cross-referencing 6.
+6. **ucla-roms · stable `CSF`**: `0c63d80d`, with CI reference hashes regenerated by `tests/update_references.py` from the PR's own CI run.
+7. **C-Star · Rule L**: `f4ba79ff`, `f0587cb8`, `7f03ec61`.
+8. **C-Star · raise the `roms_tools` floor** to the release containing 1 (new, one line per file), after that release.
+9. **Discussion, not PR**: F-009 with its oracle, and the scientific questions, opened with [C]Worthy when you choose to make contact.
+
+## 6. Outstanding blockers to merging into the forks
+
+- **F-009**: scientific approval (Q1–Q4). Until then it stays on its hold branches.
+- **C-Star guard `438b1913`**: a maintainer decision and fixture changes, or step 8 of §5.
+- **ucla-roms stretching**: the fork's CI references must be regenerated, and an `ifx` build checked. Both happen in the fork's CI; neither can be done here.
+- **Locally blocked tests**: 29 ROMS-Tools tidal tests and ucla-roms' realistic configurations need TPXO data that are Git LFS objects. This session's proxy serves no LFS objects, so they run in the forks' CI, not here. No accepted change touches tidal code.
+- **roms-tools partition guide**: re-execute the notebook where its data paths exist.
