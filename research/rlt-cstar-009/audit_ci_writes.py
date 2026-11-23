@@ -6,7 +6,7 @@ import fnmatch, re, subprocess, sys, yaml
 repo, branch, base = sys.argv[1:4]
 ref = sys.argv[4] if len(sys.argv) > 4 else branch   # commit to read; branch = name the triggers see
 git = lambda *a: subprocess.check_output(["git", "-C", repo, *a], text=True)
-changed = git("diff", "--name-only", f"{base}...{ref}").split()
+changed = git("diff", "--name-only", f"{base}...{ref}", "--").split()
 WRITE = [  # (label, regex over the job or step text)
     ("packages: write", r"packages:\s*write"), ("contents: write", r"contents:\s*write"),
     ("ghcr/docker login", r"docker/login-action|docker login"), ("image push", r"docker/build-push-action|docker push"),
