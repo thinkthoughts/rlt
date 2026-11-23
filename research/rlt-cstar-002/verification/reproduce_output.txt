@@ -1,0 +1,21 @@
+roms_mpi.F90: OK
+partit.F: OK
+roms_read_write.F90: OK
+set_scoord_mod.F90: OK
+pairs                                         19200
+valid                                         8098
+F1!=F2 widths                                 0
+F1!=C edge                                    0
+F1!=C accept                                  0
+F1!=R xi_rho                                  0
+F1!=R xi_u                                    0
+F3!=R coarse                                  0
+R accepts invalid                             0
+R accepts invalid coarse                      0
+C-Star accepts, ucla-roms aborts if interp_frc 998  e.g. (points, tiles, coarse width) [(20, 5, 2), (20, 6, 2), (20, 7, 2), (20, 8, 2), (20, 10, 1), (20, 11, 1)]
+round trip (all point types): 14884 partitions, 0 failed to join back; first failure None
+round trip (rho point types): 14884 partitions, 0 failed to join back; first failure None
+{'even': '0 of 3364 fail', 'uneven': '0 of 11520 fail'}
+valid tilings 8098: Lean (width, start) differs from compiled Fortran in 0
+invalid tilings 11102: same classification in 11102, different in 0
+RLT-CSTAR-002 verification complete in /home/claude/w2/repro_run
