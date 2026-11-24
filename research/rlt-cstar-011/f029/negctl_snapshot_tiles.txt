@@ -1,0 +1,5 @@
+FAILED cstar/tests/unit_tests/applications/forge/test_early_refusals.py::TestGeneratedTileSettings::test_stale_interp_frc_is_refused
+FAILED cstar/tests/unit_tests/applications/forge/test_early_refusals.py::TestGeneratedTileSettings::test_stale_tiles_with_a_runnable_partitioning_pass
+FAILED cstar/tests/unit_tests/applications/forge/test_early_refusals.py::TestGeneratedTileSettings::test_stale_tiles_with_a_bad_partitioning_cite_the_written_tiles
+FAILED cstar/tests/unit_tests/applications/forge/test_early_refusals.py::TestGeneratedTileSettings::test_never_with_stale_interp_frc_passes
+4 failed, 7 passed, 90 deselected, 1 warning in 2.80s
