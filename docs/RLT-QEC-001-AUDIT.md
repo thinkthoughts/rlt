@@ -96,14 +96,24 @@ All eight stay open. Revision 3 registers specifications that their discharge wi
 | O-7 | open | source audit (hashes) |
 | O-8 | open; candidate Φ, `bb_cycle_bound_iff_dual_bound` named | later middle/top-floor milestone |
 
-## 8. Confirming read of Revision 3
+## 8. Confirming read of Revision 3 (self-check)
 
-The independent auditor reread Revision 3 of `docs/RLT-QEC-001.md` and `research/qec-001/MANIFEST.yaml` against findings B1–B10 and the pinned sources:
+**Two activities, kept distinct.**
+
+| Activity | Performed by | Independence | Record |
+|---|---|---|---|
+| Audit of `a3daea2`, findings B1–B10 | a fresh session, separate from the author of `ac1d378` and `a3daea2` | independent audit | §6 |
+| Revision 3 (`52aeae7`) and this confirming read | the same session that produced B1–B10, which also wrote Revision 3 | **self-check**: the author of Revision 3 checked its own revision against its own findings | this section |
+
+The findings B1–B10 stand as independent audit findings. Their resolution in Revision 3, and the confirmation below, carry the weight of a self-check: they show that the author addressed each finding as the author understood it, and they leave open whether a separate reviewer reads each resolution the same way.
+
+**What the self-check covered.** The author reread Revision 3 of `docs/RLT-QEC-001.md` and `research/qec-001/MANIFEST.yaml` against B1–B10 and the pinned sources:
 
 - §2.1 maps agree with `BBChainComplex.lean:390–395` and `BBDuality.lean` (`reflect`, `blockSwapNeg`, `cutMap`, `dualBoundary`); σ satisfies ∂2′ = σ ∘ ∂2 and ∂1 = ∂1′ ∘ σ; RA = x⁶ + y + y², RB = 1 + x⁵ + x⁴; the encoding formulas match `Defs.lean:62–76` and the audit spot check.
+- 23 cited source locations were compared line by line with the pinned files; one citation was corrected (`Bravyi360/README.md:59–61`, previously 58–61).
 - §3 and §5 citations match the pinned files; the manifest parses as YAML and agrees with the document field by field.
 - §7 assigns each RLT-QEC-002 result a level, names its completeness basis, applies the composition rule and uses mask-set equality as acceptance.
 - O-1 to O-8 are open in §6 of the specification, in this record and in the manifest.
 - The diff from `main` touches three documentation files; kernel, registries, code and upstream repositories are unchanged.
 
-**Result.** B1–B10 resolved. The documentation branch is accepted for merge.
+**Result.** By self-check, B1–B10 are resolved, and the documentation branch was merged at `1aa2bda`. An independent reading of the Revision 3 resolutions remains available as a follow-up review; it is recommended alongside the independent review of RLT-QEC-002a, which builds on §2.1 and §7.
