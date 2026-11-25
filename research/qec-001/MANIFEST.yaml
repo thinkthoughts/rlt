@@ -1,0 +1,128 @@
+# RLT-QEC-001 source and dependency manifest (documentation only).
+# Read 2026-11-25 by shallow fetch of the pinned commits; no Lean build.
+# status: confirmed = read in the pinned files; pending = awaits independent
+# verification (see docs/RLT-QEC-001.md §5 and §6).
+# Revision 2 (2026-11-25): corrections from docs/RLT-QEC-001-AUDIT.md.
+# Revision 3 (2026-11-25): findings B1-B10 of the independent audit of a3daea2
+# (docs/RLT-QEC-001-AUDIT.md §6).
+
+milestone: RLT-QEC-001
+specifications:
+  - {id: RLT-QEC-001,  title: Quantum Error Correction}
+  - {id: RLT-QEC-001a, title: Homological Distance Lower Bound}
+  - {id: RLT-QEC-001b, title: Binary Algebra and Independent Certificate Verification}
+
+verification_targets:
+  - {id: GF2-01, title: Binary field arithmetic}
+  - {id: GF2-02, title: Finite group convolution}
+  - {id: GF2-03, title: Boundary operator composition}
+  - {id: GF2-04, title: Kernel and image membership}
+  - {id: GF2-05, title: Hamming weight}
+  - {id: GF2-06, title: Finite enumeration completeness}
+
+repositories:
+  - name: bb-distance-lean
+    upstream: https://github.com/QECLean/bb-distance-lean
+    fork: https://github.com/thinkthoughts/bb-distance-lean
+    commit: a83cafad4d041427af4ddb54085493d3f9dd02d2
+    commit_date: 2026-11-04
+    status: confirmed   # HEAD of upstream and fork on 2026-11-25
+  - name: QECLean (Lean package QEC)
+    url: https://github.com/Stavan-Jain/QECLean
+    commit: f51011bd6d1af9e225a19a5d5ff672000f3c9d94
+    commit_date: 2026-11-04
+    pinned_in: [lakefile.toml, lake-manifest.json]
+    status: confirmed
+  - name: lean
+    toolchain: leanprover/lean4:v4.30.0-rc2
+    status: confirmed   # lean-toolchain in both repositories
+  - name: mathlib
+    url: https://github.com/leanprover-community/mathlib4
+    commit: a3fde5017d59fa3cef8d4d24999f6b9b71b89a3b
+    status: confirmed   # lake-manifest.json; further transitive pins there
+
+target:
+  theorem: base_logical_floor
+  statement: "baseCover.LogicalFloor 8"
+  file: BBDistance/Bravyi360/BaseFloor.lean
+  line: 83
+  namespace: Quantum.Stabilizer.Homological.BB.Bravyi360
+  definition_used: QEC/Stabilizer/Framework/Homological/BBDoubling.lean:157 (LogicalFloor)
+  code: {qubits: 90, syndrome_positions_C0: 45, face_generators_C2: 45, group: "ZMod 15 × ZMod 3", A: "x^9 + y + y^2", B: "1 + x^10 + x^11"}
+  convention: "∂2 f = (A⋆f, B⋆f); ∂1 (u,v) = B⋆u + A⋆v; (a⋆b)(g) = Σ_h a(h) b(g−h)  (QECLean BBChainComplex.lean:51,390–395)"
+  encoding:   # docs/RLT-QEC-001.md §2.1; source Defs.lean:62-76, F2Mask.lean:143-147
+    face: "3*((-x) mod 15) + ((-y) mod 3)"
+    qubit: "45*j + face(x, y)"
+    mask_bit: "bit k <-> index k"
+    status: registered; compared with source data by the a3daea2 audit; correspondence pending (O-3)
+  correspondences:   # docs/RLT-QEC-001.md §2.1
+    block_swap: {map: "sigma(u,v) = (v,u)", relation: isomorphism of chain complexes, sector: same, floor_transfers: directly}
+    reflection: {map: "(Rf)(g) = f(-g)", relation: "isomorphism onto bbChainComplex (RA) (RB), RA = x^6+y+y^2, RB = 1+x^5+x^4", floor_transfers: onto that complex}
+    dual_complex: {maps: "d1T s = (RB*s, RA*s); d2T (u,v) = RA*u + RB*v", sector: other (Z), floor_transfers: "via Phi = R o sigma (blockSwapNeg, bb_cycle_bound_iff_dual_bound, QECLean BBDuality.lean:359)", status: pending (O-8)}
+  floor_path: [base_cycle_lt_eight_boundary, base_floor_eight, baseCycle10_complete, baseFloor_checked, baseBoundaryWindow_mem]
+  used_by: [MiddleFloor.lean:61, MiddleFloor.lean:68]
+  scope: base quotient only; distinct from stabilizerCode_hasDistance24 (360 qubits, distance 24)
+
+certificate_data:
+  - name: cycleSyndrome
+    file: BBDistance/Bravyi360/ConcreteKernelSpan.lean
+    line: 212
+    entries: 90
+    role: packed syndrome columns defining baseCycle10Target; tied to d1 by baseCensusSyndrome_columns and baseBoundary1_eq_reconLinear
+    status: confirmed by reading; compared with the registered encoding by the a3daea2 audit
+  - name: allBaseCycles10
+    file: BBDistance/Bravyi360/BaseCycleCensus.lean
+    entries: 1954
+    weight_distribution: {0: 1, 6: 45, 8: 90, 10: 1818}
+    status: confirmed by parsing; independent recomputation pending
+  - name: baseBoundaryWindow
+    file: BBDistance/Bravyi360/BaseCycleCensus.lean
+    entries: 45
+    status: confirmed by parsing; face-check equality pending
+  - name: baseFloorPairs
+    file: BBDistance/Bravyi360/BaseCycleCensus.lean
+    entries: 46
+    role: boundary witnesses (coefficient 0 or a single window bit), read by baseFloorCoefficient
+    status: confirmed by parsing; independent witness verification pending (002b)
+  - name: baseCycle10_complete
+    file: BBDistance/Bravyi360/BaseCycleCensus.lean
+    line: 2033
+    rests_on: [allBaseCycles10_checked, baseCycle10Target_card_le]
+    status: pending   # completeness content is baseCycle10Target_card_le (trellis census)
+  - name: generator
+    file: scripts/bravyi360/generate.py
+    role: regenerates Lean certificates from checked-in candidate data (scripts/bravyi360/certificates/*.gz); replays small parity searches; original large-distance search taken as recorded
+    hashes: scripts/bravyi360/audit_manifest.json
+    status: pending   # O-7
+
+reported_axioms:
+  value: [propext, Classical.choice, Quot.sound]
+  reported_for: [distance_lower_bound, stabilizerCode_hasDistance24, stabilizerCodeWithDistance]   # Bravyi360/README.md
+  base_logical_floor: unreported   # no #print axioms line for it in source
+  status: pending   # O-6, requires a build under the pinned toolchain
+
+qeclean_sorry_text_search: "zero sorry proof terms found; occurrences sit in documentation text"
+text_search_scope: [BBDistance/, QEC/]   # Mathlib outside the search; covered by the O-6 build
+kernel_replay:
+  declarations: 39227
+  layout: original QECLean layout, before extraction (Bravyi360/README.md:59-61)
+  status: reported; the pinned tree awaits its own replay or build
+qeclean_upstream_head_2026_11_25: 47876ae   # ahead of the pin; the pin governs
+
+obligations: [O-1, O-2, O-3, O-4, O-5, O-6, O-7, O-8]   # all open after Revision 3
+next_milestones:
+  - {id: RLT-QEC-002a, title: Independent enumeration of all cycles of weight less than eight, expected: "46 cycles (1 of weight 0, 45 of weight 6)", soundness: V, completeness: "R (reviewed argument); V only with a completeness certificate"}
+  - {id: RLT-QEC-002b, title: Independent GF(2) boundary witness construction and verification, witnesses: V, floor: "minimum of 002a, 002b, O-3, O-5"}
+  - {id: RLT-QEC-002c, title: Complete weight-ten census reproduction, expected: "1954 cycles", soundness: V, completeness: "R (reviewed argument); V only with a completeness certificate"}
+evidence_levels:
+  R: independent computational reproduction
+  V: independent certificate verification
+  K: kernel-checked mathematical proof (RLT)
+  ordering: "R < V < K"
+  lean_result: "K (Lean), reported, pending O-6; outside the RLT ordering; enters RLT results as a correspondence only"
+completeness_bases:
+  reviewed_argument: "written argument, reviewed and recorded; completeness executed by a reproducing program is level R"
+  completeness_certificate: "finite data from which a small independent checker derives |T| <= |L| or T subset of L; the only basis for completeness at level V"
+composition_rule: "weakest obligation: level = minimum of component levels; open obligations = union; pending while any is open or any relied-on argument is unreviewed"
+acceptance_criterion: "mask-set equality under the registered encoding; counts and weight distributions are diagnostics only"
+enumeration_procedure: [restrict to translation representatives (optional), close under all 45 translations, deduplicate by mask, recheck cycle condition and weight; meet-in-the-middle matches rebuilt, rechecked and deduplicated]
