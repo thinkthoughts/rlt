@@ -2,6 +2,7 @@
 # Read 2026-11-25 by shallow fetch of the pinned commits; no Lean build.
 # status: confirmed = read in the pinned files; pending = awaits independent
 # verification (see docs/RLT-QEC-001.md §5 and §6).
+# Revision 2 (2026-11-25): corrections from docs/RLT-QEC-001-AUDIT.md.
 
 milestone: RLT-QEC-001
 specifications:
@@ -45,7 +46,10 @@ target:
   line: 83
   namespace: Quantum.Stabilizer.Homological.BB.Bravyi360
   definition_used: QEC/Stabilizer/Framework/Homological/BBDoubling.lean:157 (LogicalFloor)
-  code: {qubits: 90, checks: 45, group: "ZMod 15 × ZMod 3", A: "x^9 + y + y^2", B: "1 + x^10 + x^11"}
+  code: {qubits: 90, syndrome_positions_C0: 45, face_generators_C2: 45, group: "ZMod 15 × ZMod 3", A: "x^9 + y + y^2", B: "1 + x^10 + x^11"}
+  convention: "∂2 f = (A⋆f, B⋆f); ∂1 (u,v) = B⋆u + A⋆v; (a⋆b)(g) = Σ_h a(h) b(g−h)  (QECLean BBChainComplex.lean:51,390–395)"
+  encoding: "baseFaceEnum negates both coordinates (Defs.lean:62); baseQubitEnum puts the Fin 2 half first (Defs.lean:74)"
+  used_by: [MiddleFloor.lean:61, MiddleFloor.lean:68]
   scope: base quotient only; distinct from stabilizerCode_hasDistance24 (360 qubits, distance 24)
 
 certificate_data:
@@ -71,7 +75,15 @@ certificate_data:
 
 reported_axioms:
   value: [propext, Classical.choice, Quot.sound]
+  reported_for: [distance_lower_bound, stabilizerCode_hasDistance24, stabilizerCodeWithDistance]   # Bravyi360/README.md
+  base_logical_floor: unreported   # no #print axioms line for it in source
   status: pending   # O-6, requires a build under the pinned toolchain
 
+qeclean_sorry_text_search: "zero sorry proof terms found; occurrences sit in documentation text"
+
 obligations: [O-1, O-2, O-3, O-4, O-5, O-6, O-7, O-8]
-next_milestone: RLT-QEC-002 (independent census verification)
+next_milestones:
+  - {id: RLT-QEC-002a, title: Independent enumeration of all cycles of weight less than eight, expected: "46 cycles (1 of weight 0, 45 of weight 6)"}
+  - {id: RLT-QEC-002b, title: Independent GF(2) boundary witness construction and verification}
+  - {id: RLT-QEC-002c, title: Complete weight-ten census reproduction, expected: "1954 cycles"}
+evidence_levels: {R: independent computational reproduction, V: independent certificate verification, K: kernel-checked mathematical proof}
