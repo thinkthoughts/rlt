@@ -1,0 +1,77 @@
+# RLT-QEC-001 source and dependency manifest (documentation only).
+# Read 2026-11-25 by shallow fetch of the pinned commits; no Lean build.
+# status: confirmed = read in the pinned files; pending = awaits independent
+# verification (see docs/RLT-QEC-001.md §5 and §6).
+
+milestone: RLT-QEC-001
+specifications:
+  - {id: RLT-QEC-001,  title: Quantum Error Correction}
+  - {id: RLT-QEC-001a, title: Homological Distance Lower Bound}
+  - {id: RLT-QEC-001b, title: Binary Algebra and Independent Certificate Verification}
+
+verification_targets:
+  - {id: GF2-01, title: Binary field arithmetic}
+  - {id: GF2-02, title: Finite group convolution}
+  - {id: GF2-03, title: Boundary operator composition}
+  - {id: GF2-04, title: Kernel and image membership}
+  - {id: GF2-05, title: Hamming weight}
+  - {id: GF2-06, title: Finite enumeration completeness}
+
+repositories:
+  - name: bb-distance-lean
+    upstream: https://github.com/QECLean/bb-distance-lean
+    fork: https://github.com/thinkthoughts/bb-distance-lean
+    commit: a83cafad4d041427af4ddb54085493d3f9dd02d2
+    commit_date: 2026-11-04
+    status: confirmed   # HEAD of upstream and fork on 2026-11-25
+  - name: QECLean (Lean package QEC)
+    url: https://github.com/Stavan-Jain/QECLean
+    commit: f51011bd6d1af9e225a19a5d5ff672000f3c9d94
+    commit_date: 2026-11-04
+    pinned_in: [lakefile.toml, lake-manifest.json]
+    status: confirmed
+  - name: lean
+    toolchain: leanprover/lean4:v4.30.0-rc2
+    status: confirmed   # lean-toolchain in both repositories
+  - name: mathlib
+    url: https://github.com/leanprover-community/mathlib4
+    commit: a3fde5017d59fa3cef8d4d24999f6b9b71b89a3b
+    status: confirmed   # lake-manifest.json; further transitive pins there
+
+target:
+  theorem: base_logical_floor
+  statement: "baseCover.LogicalFloor 8"
+  file: BBDistance/Bravyi360/BaseFloor.lean
+  line: 83
+  namespace: Quantum.Stabilizer.Homological.BB.Bravyi360
+  definition_used: QEC/Stabilizer/Framework/Homological/BBDoubling.lean:157 (LogicalFloor)
+  code: {qubits: 90, checks: 45, group: "ZMod 15 × ZMod 3", A: "x^9 + y + y^2", B: "1 + x^10 + x^11"}
+  scope: base quotient only; distinct from stabilizerCode_hasDistance24 (360 qubits, distance 24)
+
+certificate_data:
+  - name: allBaseCycles10
+    file: BBDistance/Bravyi360/BaseCycleCensus.lean
+    entries: 1954
+    weight_distribution: {0: 1, 6: 45, 8: 90, 10: 1818}
+    status: confirmed by parsing; independent recomputation pending
+  - name: baseBoundaryWindow
+    file: BBDistance/Bravyi360/BaseCycleCensus.lean
+    entries: 45
+    status: confirmed by parsing; face-check equality pending
+  - name: baseCycle10_complete
+    file: BBDistance/Bravyi360/BaseCycleCensus.lean
+    line: 2033
+    rests_on: [allBaseCycles10_checked, baseCycle10Target_card_le]
+    status: pending   # completeness content is baseCycle10Target_card_le (trellis census)
+  - name: generator
+    file: scripts/bravyi360/generate.py
+    role: re-emits Lean certificates from checked-in candidate data (scripts/bravyi360/certificates/*.gz)
+    hashes: scripts/bravyi360/audit_manifest.json
+    status: pending   # O-7
+
+reported_axioms:
+  value: [propext, Classical.choice, Quot.sound]
+  status: pending   # O-6, requires a build under the pinned toolchain
+
+obligations: [O-1, O-2, O-3, O-4, O-5, O-6, O-7, O-8]
+next_milestone: RLT-QEC-002 (independent census verification)
