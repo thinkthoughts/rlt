@@ -1,6 +1,6 @@
 # RLT-QEC-002b — Boundary witnesses and logical-floor correspondence
 
-**Status.** Revision 2, 2026-11-25, on branch `rlt-qec-002b` (unmerged). Revision 1 (`70a1d9f`) was the specification for review; it was approved in principle with five review resolutions (§13), which this revision incorporates, together with the implementation and its results. Merge waits for independent review and an independent execution audit.
+**Status.** Revision 3, 2026-11-25, on branch `rlt-qec-002b` (unmerged). Revision 1 (`70a1d9f`) was the specification for review, approved in principle with five resolutions; Revision 2 (`20561e0`) incorporated them with the implementation and results; a preliminary review of Revision 2 was favorable and asked for one classification refinement, made here (§13). Merge waits for independent specification, implementation, certificate and execution audits.
 
 **Baseline.** `main` at `3da96cd` (merge of RLT-QEC-002a).
 
@@ -28,9 +28,11 @@ Throughout, G = Z15 × Z3, GF(2) = Z/2, and X = `bbChainComplex A B` with A = x�
 | Homology | H₁ = Z₁ / B₁, of dimension k; its 2^k elements are the logical classes of this (X) sector, the trivial class included |
 | Nontrivial logical class | a class [u] ≠ 0 in H₁, i.e. u ∈ Z₁ with u ∉ B₁; u is a *nontrivial cycle* |
 | Logical-weight lower bound d | every nontrivial cycle u has wt(u) ≥ d (statement F_d) |
-| Minimum logical weight d_min | min{wt(u) : u ∈ Z₁ ∖ B₁}, defined when k ≥ 1 |
+| Minimum logical weight d_X | min{wt(u) : u ∈ Z₁ ∖ B₁}, defined when k ≥ 1: the minimum weight of a nontrivial cycle in the X sector of the 90-qubit base complex |
 
-**Lower bound versus exact minimum.** F_d says d ≤ d_min when k ≥ 1, and holds vacuously when k = 0. The exact value d_min = d needs, in addition, a nontrivial cycle of weight d (§7.4). RLT-QEC-002b establishes the lower bound F8 and its nonvacuity; the exact minimum stays open.
+**Lower bound, upper bound, exact minimum.** F_d says d ≤ d_X when k ≥ 1, and holds vacuously when k = 0. A nontrivial cycle of weight w certifies d_X ≤ w. The exact value d_X = d needs a nontrivial cycle of weight exactly d together with F_d (§7.4). RLT-QEC-002b establishes the lower bound F8, its nonvacuity and the upper bound d_X ≤ 10; the exact minimum stays open.
+
+**d_X versus code distance.** d_X is an X-sector quantity of the 90-qubit base complex. The quantum code distance of that base code is min(d_X, d_Z), with d_Z the minimum weight of a nontrivial class in the other sector (§7.5, O-8); the 360-qubit Bravyi360 code has its own distance 24 (`docs/RLT-QEC-001.md` §4). RLT-QEC-002b states results about d_X only.
 
 **Sector.** H₁ above is the homology of X: cycles of ∂1 modulo boundaries of ∂2. The other sector, cocycles of the dual complex Xᵀ modulo coboundaries (`docs/RLT-QEC-001.md` §2.1), is related to it by Φ = R ∘ σ (`blockSwapNeg`) only through the duality recorded in O-8. RLT-QEC-002b makes claims about the X sector alone.
 
@@ -107,14 +109,14 @@ Together they fix rank M = r exactly. Certificates are produced for M₂ (90 × 
 
 F8 is nonvacuous exactly when k ≥ 1.
 
-**Nonvacuity witness.** A pair (u, h) of vectors in C1 with ∂1 u = 0, hᵀ∂2 = 0 and hᵀu = 1 over GF(2). Then u ∈ Z₁, and u ∉ B₁ because hᵀ(∂2 c) = (hᵀ∂2) c = 0 for every c while hᵀu = 1; so [u] is a nontrivial class. The builder takes u as the first ∂1-kernel vector of the rank certificate (in its fixed order) that the solver reports outside im ∂2, and h as the first vector of a basis of the left kernel of M₂ with hᵀu = 1. It searches for no particular weight. This witness establishes nonvacuity independently of the dimension count; the two are cross-checked (k ≥ 1).
+**Nonvacuity witness and upper bound.** A pair (u, h) of vectors in C1 with ∂1 u = 0, hᵀ∂2 = 0 and hᵀu = 1 over GF(2), stated together with wt(u). Then u ∈ Z₁, and u ∉ B₁ because hᵀ(∂2 c) = (hᵀ∂2) c = 0 for every c while hᵀu = 1; so [u] is a nontrivial class, and d_X ≤ wt(u). The checker recomputes wt(u) and rejects a stated weight that differs from it. The builder takes u as the first ∂1-kernel vector of the rank certificate (in its fixed order) that the solver reports outside im ∂2, and h as the first vector of a basis of the left kernel of M₂ with hᵀu = 1. It searches for no particular weight. This witness establishes nonvacuity independently of the dimension count; the two are cross-checked (k ≥ 1).
 
 ### 4.4 Outputs
 
 | File | Content |
 |---|---|
 | `W.txt` | 46 lines `u c`, canonical decimal masks, ascending by u, one per census mask |
-| `ranks.json` | rank certificates for ∂2 and ∂1, k, the number of homology classes, the nonvacuity witness (masks as decimal strings) |
+| `ranks.json` | rank certificates for ∂2 and ∂1, k, the number of homology classes, the nonvacuity witness u, h (masks as decimal strings) with its weight (an integer) |
 | `structure.txt` | 45 lines `u i x y equal\|kernel` |
 
 ---
@@ -136,7 +138,7 @@ F8 is nonvacuous exactly when k ≥ 1.
 | 9 | ∂2 rank certificate (§4.2), schema exact | rank changed, inverse altered, duplicate row index, repeated kernel vector, missing field |
 | 10 | ∂1 rank certificate (§4.2) | rank changed, a kernel vector moved off the kernel |
 | 11 | k = 90 − rank ∂1 − rank ∂2 and homology classes = 2^k as stated | k = 7; 128 classes |
-| 12 | nonvacuity: ∂1 u = 0, hᵀ∂2 = 0, hᵀu = 1, and k ≥ 1 | u off the kernel; h with hᵀu = 1 but hᵀ∂2 ≠ 0; u a boundary; missing h; a boundary-shifted u is *accepted* |
+| 12 | nonvacuity and upper bound: ∂1 u = 0, hᵀ∂2 = 0, hᵀu = 1, the stated weight is an integer equal to wt(u) as recomputed by the checker, and k ≥ 1 | u off the kernel; h with hᵀu = 1 but hᵀ∂2 ≠ 0; u a boundary; missing weight; stated weight 8 (lighter than wt(u)), 11, `"10"` or `true`; a boundary-shifted u with its recomputed weight is *accepted* |
 | 13 | structure: each nonzero census mask equals ∂2 δ_g for its listed face, and `equal`/`kernel` is reported correctly | swapped face, misreported relation, missing line |
 
 ---
@@ -192,8 +194,9 @@ Premise (i) is the completeness of RLT-QEC-002a (level R). Premise (ii) is the c
 
 ### 7.2 Scope
 
-- F8 is a **lower bound**: d_min ≥ 8. With k = 8 certified (§8), H₁ has 256 classes, 255 of them nontrivial, so F8 is **nonvacuous**: it constrains the weights of existing nontrivial cycles.
-- F8 concerns the **X sector of the 90-qubit base complex** only.
+- F8 is a **lower bound**: d_X ≥ 8. With k = 8 certified (§8), H₁ has 256 classes, 255 of them nontrivial, so F8 is **nonvacuous**: it constrains the weights of existing nontrivial cycles.
+- The nonvacuity witness gives the **upper bound** d_X ≤ 10 (§4.3, level V). Together, **8 ≤ d_X ≤ 10**, at level R by the weakest-obligation rule (§8).
+- F8 and the interval concern the **X sector of the 90-qubit base complex** only; they are statements about d_X, separate from the base code's quantum distance min(d_X, d_Z) and from the 360-qubit distance.
 - F8 is the base-level ingredient of the Bravyi360 argument; the 360-qubit distance 24 rests on further middle- and top-level results (`docs/RLT-QEC-001.md` §4).
 
 ### 7.3 Corollary (the source statement, by correspondence)
@@ -206,9 +209,9 @@ Under the correspondence of §6.2 (O-3, O-4, O-5), F8 is the statement `baseCove
 
     ∂1 u = 0,   wt(u) = d,   hᵀ ∂2 = 0,   hᵀ u = 1.
 
-As in §4.3, it shows u is a nontrivial cycle of weight d, so d_min ≤ d; combined with F_d, d_min = d. Checking such a pair needs only the checker's existing ∂1, ∂2 and parity; condition 12 already verifies the three algebraic equations.
+As in §4.3, it shows u is a nontrivial cycle of weight d, so d_X ≤ d; combined with F_d, d_X = d. Checker condition 12 verifies exactly these four relations for a stated weight.
 
-**Status in 002b.** Finding a certificate with d = 8 is outside this milestone. The nonvacuity witness of §4.3 has the registered shape without the weight condition; its u has weight 10, recorded as a diagnostic: d_min ≤ 10, from a checker-verified nontrivial cycle. RLT-QEC-002b makes no exact-minimum claim; it leaves d_min ∈ {8, 9, 10}, with the lower end at level R (F8) and the upper end from a V-level witness.
+**Status in 002b.** Finding a certificate with d = 8 is outside this milestone, and no search for a light cycle was made. The nonvacuity witness of §4.3 is a certificate of this form with d = 10: it is registered as the **upper bound d_X ≤ 10 at level V**. With F8 it leaves 8 ≤ d_X ≤ 10, i.e. d_X ∈ {8, 9, 10}, an interval at level R.
 
 ### 7.5 Z sector
 
@@ -231,12 +234,13 @@ The Z-sector floor (cocycles of Xᵀ modulo coboundaries) follows from F8 only t
 | dim ker ∂2 | 4 |
 | k = 90 − 41 − 41 | **8** |
 | Homology classes | **256** (the trivial class and 255 nontrivial) |
-| Nonvacuity witness | (u, h) verified; wt(u) = 10 |
+| Nonvacuity witness | (u, h) verified; wt(u) = 10, recomputed by the checker |
+| Bounds on d_X | 8 ≤ d_X ≤ 10 |
 | Source report A | EQUAL (45/45 indexed columns) |
 | Source report B | VERIFIED (46/46 source witnesses; census set equal) |
 | Source report C (diagnostic) | 42 equal coefficients; 4 kernel-shifted |
 | SHA-256 `W.txt` | `d9d9cf96da969c488a6d25600b4223dd3906677e58279b95825405ec2891f2b4` |
-| SHA-256 `ranks.json` | `34fbbe895e3fed664ad5d62232a7a62dd25df02c3dbbe881319013884db226e5` |
+| SHA-256 `ranks.json` | `be4b70353afcdd47ce84c06d8393820afb911b38236e4df711a14df073bbf175` |
 | SHA-256 `structure.txt` | `803e50d79913bccf20ac7ef18d285551cf9ad004b3dc0b00398080cf066a942e` |
 
 **Classification (weakest-obligation rule, `docs/RLT-QEC-001.md` §7.1; review resolution 5).**
@@ -248,16 +252,18 @@ The Z-sector floor (cocycles of Xᵀ modulo coboundaries) follows from F8 only t
 | rank ∂2 = 41, rank ∂1 = 41 | certificates accepted (conditions 9, 10) | **V** | review |
 | k = 8, 256 classes | ranks (V) + C-2 (V) + dimension argument §4.3 (reviewed) | **V** | review |
 | Nonvacuity: a nontrivial class exists | witness (u, h) accepted (condition 12); consistent with k ≥ 1 | **V** | review |
+| **d_X ≤ 10** | witness (u, h) with checker-recomputed wt(u) = 10 (condition 12) | **V** | review |
 | Source witnesses verified | report B | **V** (verification of the source certificate) | review |
 | ∂2 columns = source window | report A | correspondence (no level) | review |
 | **F8** for the base complex, X sector | 002a completeness (**R**) ∧ 002a soundness (V) ∧ Z₇ ⊆ B₁ (V) ∧ Theorem 7.1 (reviewed argument) | **R** (weakest component: 002a completeness) | review; O-3, O-4, O-5 for the correspondence |
 | F8 ≙ `baseCover.LogicalFloor 8` | §6.2 | correspondence (no level) | O-3, O-4, O-5 |
 | `base_logical_floor` (Lean) | Lean development | K (Lean), reported | O-6 |
-| d_min ≤ 10 | nonvacuity witness | **V**, diagnostic | — |
-| d_min = 8 | — | not claimed (§7.4) | certificate discovery (later milestone) |
+| **8 ≤ d_X ≤ 10** | F8 (**R**) ∧ d_X ≤ 10 (V) | **R** (weakest component: 002a completeness) | as for F8 |
+| d_X = 8 (exact) | — | not claimed (§7.4) | certificate discovery (later milestone) |
+| quantum distance of the base code, min(d_X, d_Z) | — | not claimed | O-8 |
 | Z-sector floor | — | not claimed (§7.5) | O-8 |
 
-The certified ranks, k and nonvacuity are separate results; they enter neither premise of Theorem 7.1 and leave the completeness of the 002a census, and therefore F8, at level **R**. F8 reaches V only if the 002a completeness reaches V through a machine-checkable completeness certificate (Revision 3 §7.1), a possible later extension outside 002b.
+The certified ranks, k, nonvacuity and the upper bound are separate results; they enter neither premise of Theorem 7.1 and leave the completeness of the 002a census, and therefore F8 and the interval, at level **R**. F8 reaches V only if the 002a completeness reaches V through a machine-checkable completeness certificate (Revision 3 §7.1), a possible later extension outside 002b.
 
 ---
 
@@ -270,11 +276,11 @@ RLT-QEC-002b is accepted when all of the following hold and have been independen
 3. C-2 holds in the checker; C-1 is reviewed.
 4. `W.txt` has 46 lines, one per census mask, and `check_witness.py W.txt Z7.txt ranks.json structure.txt` returns ACCEPT; any witness c with ∂2 c = u is acceptable.
 5. The structural cross-check identifies the face generator of every nonzero census mask and reports `equal`/`kernel` correctly (checker condition 13).
-6. Rank certificates for ∂2 and ∂1 are accepted, fixing both ranks exactly; k and the number of homology classes are reported and verified; the nonvacuity witness is accepted and k ≥ 1.
+6. Rank certificates for ∂2 and ∂1 are accepted, fixing both ranks exactly; k and the number of homology classes are reported and verified; the nonvacuity witness is accepted with its weight recomputed, k ≥ 1, and d_X ≤ 10 is registered at V.
 7. Source reports A (EQUAL) and B (VERIFIED) hold; report C is printed as a diagnostic and imposes no condition.
 8. The §6.2 correspondence table is reviewed row by row against the pinned Lean text.
 9. The test suite passes (§10), including brute-force toy complexes and every rejection condition, and every recorded mutation is detected.
-10. The document states the classification of §8 (F8 at R; ranks, k, nonvacuity at V, without elevating completeness), the lower-bound-only scope (§7.2, §7.4) and the X-sector-only scope (§7.5).
+10. The document states the classification of §8 (F8 and 8 ≤ d_X ≤ 10 at R; ranks, k, nonvacuity and d_X ≤ 10 at V, without elevating completeness), the absence of an exact-minimum claim (§7.4), the X-sector-only scope and the distinction between d_X and code distance (§1, §7.5).
 11. Kernel, registries, CI and existing gates are unchanged; the CI `check` job passes on the branch.
 
 ---
@@ -288,7 +294,7 @@ RLT-QEC-002b is accepted when all of the following hold and have been independen
 | Maps | builder ∂2 and ∂1 equal the checker's convolution on all unit vectors; builder ∂1 equals the accepted 002a columns; ∂2 columns equal the registered six points; ∂1 ∘ ∂2 = 0 in both programs |
 | Elimination | 60 random matrices up to 9 × 9: rank, solvability of every right-hand side and every certificate against brute force (certificates verified with the checker's `check_rank`) |
 | Toy complexes | six small bicycle complexes: rank ∂2 = log₂ #B₁ and rank ∂1 = n − log₂ #Z₁ by enumerating all of C2 and C1; k against #Z₁/#B₁; the solver finds a witness exactly for the cycles in B₁ and reports *no solution* for the rest; certificates verified; cases include k = 0 and k ≥ 1 |
-| Outputs | `witness.py` reproduces the committed outputs byte for byte; ranks 41, 41, k = 8, 256 classes; nonvacuity cycle of weight ≥ 8 (consistency with F8); 002a manifest passes |
+| Outputs | `witness.py` reproduces the committed outputs byte for byte; ranks 41, 41, k = 8, 256 classes; nonvacuity cycle of weight ≥ 8 (consistency with F8) and stated weight 10 equal to its popcount; 002a manifest passes |
 | Checker | acceptance, and the rejection examples of §5 for conditions 1–4, 6, 7, 9–13; a kernel-shifted witness and a boundary-shifted nonvacuity cycle are accepted |
 | Independence | no source names in `witness.py` or `check_witness.py`; checker imports exactly `hashlib`, `json`, `re`, `sys` and loads no code dynamically; builder imports only the standard library |
 | Source (`QEC_SRC`) | reports A EQUAL, B VERIFIED, C printed; kernel-shifted RLT witnesses still pass (coefficient equality unrequired); an altered census is detected |
@@ -303,6 +309,7 @@ RLT-QEC-002b is accepted when all of the following hold and have been independen
 | witness condition removed from the checker | condition 6 and 7 rejection tests |
 | rank lower-bound check removed from the checker | rank-certificate rejection test |
 | hᵀ∂2 = 0 check removed from the checker | nonvacuity rejection test (h with hᵀu = 1 and hᵀ∂2 ≠ 0), added after this mutation first survived |
+| weight check removed from the checker (Revision 3) | four nonvacuity rejection cases (weight 8, 11, `"10"`, `true`) |
 | block swap in the checker's ∂2 | 11 tests (k, nonvacuity, structure, witnesses) |
 
 ---
@@ -348,4 +355,10 @@ All eight remain open.
 | 4 | Exact-minimum certificate registered as (u, h) with ∂1 u = 0, wt(u) = d, hᵀ∂2 = 0, hᵀu = 1; discovery outside 002b | §7.4 |
 | 5 | F8 at level R under the weakest-obligation rule; certified ranks and nonvacuity leave census completeness at R | §7.1, §8 |
 
-**Outstanding before merge:** independent review of this revision and the implementation; independent execution audit.
+**Revision 2** (`20561e0`): preliminary review favorable — rank certificates and the direct nonvacuity pair accepted; the separation of independent witnesses, source-witness verification and coefficient diagnostics accepted. One refinement:
+
+| # | Request | Resolution (Revision 3) |
+|---|---|---|
+| 6 | The nonvacuity pair with a weight-10 cycle certifies d_X ≤ 10; register it at V once its weight is independently checked, adding the check and a rejection test if needed; keep 8 ≤ d_X ≤ 10 at R; no light-cycle search; keep the X-sector minimum distinct from full quantum-code distance | `ranks.json` states the weight; checker condition 12 recomputes it and rejects a mismatch (four rejection cases; mutation detected); d_X ≤ 10 at V and 8 ≤ d_X ≤ 10 at R (§7.2, §7.4, §8); d_X defined and separated from code distance (§1) |
+
+**Outstanding before merge:** independent specification, implementation, certificate and execution audits.

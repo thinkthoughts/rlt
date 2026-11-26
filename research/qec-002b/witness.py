@@ -16,8 +16,9 @@ Outputs (in the output directory, default: this directory):
                  with d2 c = u, found by Gaussian elimination
   ranks.json     rank certificates for d2 and d1 (an invertible minor with its
                  inverse: rank >= r; a kernel basis in unit form: rank <= r),
-                 k = 90 - rank d1 - rank d2, and a nonvacuity witness (u, h):
-                 d1 u = 0, h^T d2 = 0, h^T u = 1
+                 k = 90 - rank d1 - rank d2, and a nonvacuity witness (u, h)
+                 with the weight of u: d1 u = 0, h^T d2 = 0, h^T u = 1, wt(u)
+                 (an upper-bound certificate d_X <= wt(u))
   structure.txt  for every nonzero census mask, the face g with d2 delta_g = u
 
 Usage: witness.py [--outdir DIR]       Requires Python 3.8 or later.
@@ -185,7 +186,7 @@ def build(bb, census):
     if nontrivial is not None:
         left = Elim(transpose(bb.d2, bb.n1)).certificate()["kernel"]   # h with h^T d2 = 0
         h = next(int(v) for v in left if bin(int(v) & nontrivial).count("1") % 2 == 1)
-        nonvac = {"u": str(nontrivial), "h": str(h)}
+        nonvac = {"u": str(nontrivial), "h": str(h), "weight": bin(nontrivial).count("1")}
     k = bb.n1 - e1.rank - e2.rank
     structure = []
     for u, c in witnesses:

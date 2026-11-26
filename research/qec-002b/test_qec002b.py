@@ -141,6 +141,8 @@ class Outputs(unittest.TestCase):
         self.assertEqual((r["d2"]["rank"], r["d1"]["rank"], r["k"], r["homology_classes"]), (41, 41, 8, "256"))
         u = int(r["nonvacuity"]["u"])
         self.assertGreaterEqual(popcount(u), 8, "a nontrivial cycle lighter than 8 would contradict F8")
+        self.assertEqual(r["nonvacuity"]["weight"], popcount(u))
+        self.assertEqual(r["nonvacuity"]["weight"], 10)
         with open(os.path.join(HERE, "W.txt")) as f:
             lines = f.read().split("\n")[:-1]
         self.assertEqual(len(lines), 46)
@@ -288,13 +290,18 @@ class Checker(unittest.TestCase):
         with open(self.path("ranks.json")) as f:
             r = json.load(f)
         u, h = int(r["nonvacuity"]["u"]), int(r["nonvacuity"]["h"])
+        w = r["nonvacuity"]["weight"]
         face = BASE.d2[0]
         cases = [
-            ({"u": str(u ^ 1), "h": str(h)}, "d1 u != 0"),
-            ({"u": str(u), "h": str(h ^ (1 << next(q for q in range(90) if not (u >> q) & 1)))},
+            ({"u": str(u ^ 1), "h": str(h), "weight": w}, "d1 u != 0"),
+            ({"u": str(u), "h": str(h ^ (1 << next(q for q in range(90) if not (u >> q) & 1))), "weight": w},
              "h^T d2 != 0"),   # h^T u stays 1; only the annihilation of im d2 fails
-            ({"u": str(face), "h": str(h)}, "h^T u != 1"),
-            ({"u": str(u)}, "keys u, h"),
+            ({"u": str(face), "h": str(h), "weight": 6}, "h^T u != 1"),
+            ({"u": str(u), "h": str(h)}, "keys u, h, weight"),
+            ({"u": str(u), "h": str(h), "weight": w - 2}, "stated weight"),   # claims a lighter cycle
+            ({"u": str(u), "h": str(h), "weight": w + 1}, "stated weight"),
+            ({"u": str(u), "h": str(h), "weight": str(w)}, "stated weight"),
+            ({"u": str(u), "h": str(h), "weight": True}, "stated weight"),
         ]
         for nv, needle in cases:
             with self.subTest(nv=nv):
@@ -307,7 +314,7 @@ class Checker(unittest.TestCase):
         with open(self.path("ranks.json")) as f:
             r = json.load(f)
         u = int(r["nonvacuity"]["u"]) ^ BASE.d2[3]
-        self.edit_json(lambda r: r["nonvacuity"].__setitem__("u", str(u)))
+        self.edit_json(lambda r: r["nonvacuity"].update({"u": str(u), "weight": popcount(u)}))
         code, out = self.verdict()
         self.assertEqual(code, 0, out)
 

@@ -17,7 +17,9 @@ check_witness.py W.txt Z7.txt RANKS.json STRUCTURE.txt
    9-10 rank certificates for d2 and d1 (rank >= r by an inverted minor,
         rank <= r by a unit-form kernel basis), so each rank is exact
    11 k = 90 - rank d1 - rank d2 as stated, and 2^k homology classes
-   12 nonvacuity witness (u, h): d1 u = 0, h^T d2 = 0, h^T u = 1, and k >= 1
+   12 nonvacuity witness (u, h, weight): d1 u = 0, h^T d2 = 0, h^T u = 1,
+      wt(u) equal to the stated weight, and k >= 1; this certifies a
+      nontrivial X-sector class and the upper bound d_X <= weight
    13 structure: every nonzero census mask equals d2 delta_g for its listed face
   REJECT (exit 1) with the first failing condition; exit 2 on usage errors.
 Requires Python 3.8 or later.
@@ -187,8 +189,8 @@ def check(w_path, z7_path, ranks_path, structure_path):
     if ranks["k"] != k or ranks["homology_classes"] != str(2 ** k):                 # 11
         raise Reject(f"ranks.json: k must be {k} and homology_classes {2 ** k}")
     nv = ranks["nonvacuity"]                                                        # 12
-    if not isinstance(nv, dict) or set(nv) != {"u", "h"}:
-        raise Reject("nonvacuity: expected an object with keys u, h")
+    if not isinstance(nv, dict) or set(nv) != {"u", "h", "weight"}:
+        raise Reject("nonvacuity: expected an object with keys u, h, weight")
     nu = canon_int(nv["u"], "nonvacuity u", 1 << NQ)
     nh = canon_int(nv["h"], "nonvacuity h", 1 << NQ)
     if d1(nu):
@@ -197,6 +199,9 @@ def check(w_path, z7_path, ranks_path, structure_path):
         raise Reject("nonvacuity: h^T d2 != 0")
     if parity(nh & nu) != 1:
         raise Reject("nonvacuity: h^T u != 1")
+    w = nv["weight"]
+    if type(w) is not int or w != bin(nu).count("1"):
+        raise Reject("nonvacuity: stated weight differs from wt(u)")
     if k < 1:
         raise Reject("nonvacuity witness present but k < 1")
     with open(structure_path) as f:                                                 # 13
@@ -219,7 +224,7 @@ def check(w_path, z7_path, ranks_path, structure_path):
         if (row[4] == "equal") != (c == 1 << i):
             raise Reject(f"structure.txt: relation for u = {u} misreported")
     return {"witnesses": len(pairs), "rank_d2": r2, "rank_d1": r1, "k": k,
-            "nonvacuity_weight": bin(nu).count("1")}
+            "nonvacuity_weight": w}
 
 
 def main(argv):
@@ -237,7 +242,8 @@ def main(argv):
     print(f"ACCEPT: {res['witnesses']} witnesses with d2 c = u for every census mask; "
           f"rank d2 = {res['rank_d2']}, rank d1 = {res['rank_d1']} (certified both ways); "
           f"k = {res['k']}, {2 ** res['k']} homology classes; nonvacuity witness verified "
-          f"(cycle of weight {res['nonvacuity_weight']} outside im d2); d1 d2 = 0; structure verified")
+          f"(cycle of weight {res['nonvacuity_weight']} outside im d2, so d_X <= {res['nonvacuity_weight']}); "
+          f"d1 d2 = 0; structure verified")
     return 0
 
 
