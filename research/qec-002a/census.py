@@ -30,6 +30,9 @@ import hashlib
 import sys
 from itertools import combinations
 
+if sys.version_info < (3, 8):
+    sys.exit("census.py requires Python 3.8 or later")
+
 # Registered Bravyi360 base complex (docs/RLT-QEC-001.md §3.1).
 BASE = {
     "l": 15,

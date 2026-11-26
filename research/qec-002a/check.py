@@ -9,16 +9,24 @@ It accepts a list of masks L (one decimal integer per line) only if:
   4. every u is a cycle: d1 u = 0, with d1(u, v) = B*u + A*v evaluated by the
      convolution definition (f*g)(h) = sum_g f(h - g) g(g) over Z15 x Z3
      (GF2-02, GF2-03), after decoding u through the registered encoding;
-  5. the set is closed under all 45 translations T_t (g, j) -> (g + t, j).
+  5. the set is closed under all 45 translations T_t (g, j) -> (g + t, j);
+  6. the zero vector is present (the first line is 0).
 
-This establishes soundness of L (every element lies in Z_W, no repeats) and
-orbit closure. It says nothing about completeness, which rests on the
-reviewed argument of docs/RLT-QEC-002a.md §4 (level R).
+This establishes soundness of L (every element lies in Z_W, no repeats),
+orbit closure and the presence of the trivial cycle 0. Requirement 6 checks
+one known element; it leaves the classification unchanged: soundness at
+level V, with completeness resting on the reviewed argument of
+docs/RLT-QEC-002a.md §4 (level R).
+
+Requires Python 3.8 or later.
 
 Usage: check.py FILE [--wmax W]     Exit 0 ACCEPT, 1 REJECT (reason on stderr).
 """
 import re
 import sys
+
+if sys.version_info < (3, 8):
+    sys.exit("check.py requires Python 3.8 or later")
 
 L_, M_ = 15, 3
 N_G = L_ * M_
@@ -81,6 +89,8 @@ def check(lines, wmax):
     for i in range(1, len(masks)):
         if masks[i - 1] >= masks[i]:
             return f"line {i + 1}: list is not strictly increasing"
+    if not masks or masks[0] != 0:
+        return "the zero vector is missing (the first line must be 0)"
     present = set(masks)
     for i, u in enumerate(masks, 1):
         halves = decode(u)
@@ -117,7 +127,7 @@ def main(argv):
         print(f"REJECT: {reason}", file=sys.stderr)
         return 1
     print(f"ACCEPT: {len(text.splitlines())} masks; each a cycle of weight <= {wmax}, "
-          f"strictly increasing, closed under the {N_G} translations")
+          f"strictly increasing, closed under the {N_G} translations, zero vector present")
     return 0
 
 

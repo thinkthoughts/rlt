@@ -28,6 +28,9 @@ EXPECTED_LENGTH = 1954                                 # allBaseCycles10_length
 PINNED_READ = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                            "..", "..", "scripts", "pinned_read.py")
 
+if sys.version_info < (3, 8):
+    sys.exit("compare.py requires Python 3.8 or later")
+
 
 def source_list(checkout):
     data = subprocess.run([sys.executable, "-I", PINNED_READ, checkout, COMMIT, PATH],

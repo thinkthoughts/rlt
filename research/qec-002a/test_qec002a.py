@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Tests for RLT-QEC-002a. Run: python3 -I research/qec-002a/test_qec002a.py
-Set QEC_SRC to a bb-distance-lean checkout containing the pinned commit to
+Requires Python 3.8 or later. Set QEC_SRC to a bb-distance-lean checkout containing the pinned commit to
 also run the source-comparison tests (skipped otherwise)."""
 import hashlib
 import importlib.util
@@ -178,6 +178,14 @@ class Checker(unittest.TestCase):
     def test_accepts_committed_list(self):
         self.assertEqual(self.verdict(self.masks), 0)
 
+    def test_zero_vector_required(self):
+        """Regression (review item 2): a list that is sound and closed except
+        for omitting 0 is rejected, and the reason names the zero vector."""
+        self.assertEqual(self.masks[0], 0)
+        self.assertIsNone(check.check([str(u) for u in self.masks], 7))
+        self.assertIn("zero vector", check.check([str(u) for u in self.masks[1:]], 7))
+        self.assertIn("zero vector", check.check([], 7))
+
     def face_mask(self, g):
         """Face generator d2 delta_g = (A*delta_g, B*delta_g), built here."""
         halves = ({h: 0 for h in check.GROUP}, {h: 0 for h in check.GROUP})
@@ -213,6 +221,8 @@ class Checker(unittest.TestCase):
         with self.subTest("leading zero"):
             raw = "0\n" + f"0{m[1]}\n" + "".join(f"{x}\n" for x in m[2:])
             self.assertEqual(self.verdict(None, raw=raw), 1)
+        with self.subTest("zero vector missing"):
+            self.assertEqual(self.verdict(m[1:]), 1)
         with self.subTest("missing final newline"):
             self.assertEqual(self.verdict(None, raw="\n".join(map(str, m))), 1)
 
