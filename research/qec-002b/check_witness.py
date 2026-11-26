@@ -15,13 +15,16 @@ check_witness.py W.txt Z7.txt RANKS.json STRUCTURE.txt
    5 every u is a cycle;  6 d2 c = u for every line;  7 the zero vector's witness
    8 C-2: d1(d2 delta_g) = 0 for all 45 faces
    9-10 rank certificates for d2 and d1 (rank >= r by an inverted minor,
-        rank <= r by a unit-form kernel basis), so each rank is exact
-   11 k = 90 - rank d1 - rank d2 as stated, and 2^k homology classes
+        rank <= r by a unit-form kernel basis), so each rank is exact; every
+        field is type-checked (lists, JSON integers, canonical strings)
+   11 k = 90 - rank d1 - rank d2 as stated (a JSON integer), 2^k homology
+      classes, and the complex label naming the Bravyi360 base complex
    12 nonvacuity witness (u, h, weight): d1 u = 0, h^T d2 = 0, h^T u = 1,
       wt(u) equal to the stated weight, and k >= 1; this certifies a
       nontrivial X-sector class and the upper bound d_X <= weight
    13 structure: every nonzero census mask equals d2 delta_g for its listed face
-  REJECT (exit 1) with the first failing condition; exit 2 on usage errors.
+  REJECT (exit 1) with the first failing condition, also for malformed input
+  of any shape; exit 2 on usage errors.
 Requires Python 3.8 or later.
 """
 import hashlib
@@ -39,6 +42,7 @@ GROUP = [(x, y) for x in range(L_) for y in range(M_)]
 A_SUPP = {(9, 0), (0, 1), (0, 2)}
 B_SUPP = {(0, 0), (10, 0), (11, 0)}
 CANON = re.compile(r"0|[1-9][0-9]*")
+COMPLEX = "Bravyi360 base, bbChainComplex A B over Z15 x Z3"
 
 
 class Reject(Exception):
@@ -117,11 +121,14 @@ def check_rank(name, cert, column, nrows, ncols):
         raise Reject(f"{name}: rank out of range")
     R, C, D = cert["rows"], cert["cols"], cert["free"]
     for what, idx, bound, size in (("rows", R, nrows, r), ("cols", C, ncols, r), ("free", D, ncols, ncols - r)):
-        if (not isinstance(idx, list) or len(idx) != size or len(set(idx)) != size
-                or any(type(i) is not int or not 0 <= i < bound for i in idx)):
+        # element types are checked before set(), so unhashable entries reject cleanly
+        if (not isinstance(idx, list) or len(idx) != size
+                or any(type(i) is not int or not 0 <= i < bound for i in idx)
+                or len(set(idx)) != size):
             raise Reject(f"{name}: {what} must be {size} distinct indices below {bound}")
-    if len(cert["inverse"]) != r or len(cert["kernel"]) != ncols - r:
-        raise Reject(f"{name}: inverse must have {r} entries and kernel {ncols - r}")
+    for what, seq, size in (("inverse", cert["inverse"], r), ("kernel", cert["kernel"], ncols - r)):
+        if not isinstance(seq, list) or len(seq) != size:
+            raise Reject(f"{name}: {what} must be a list of {size} entries")
     N = [canon_int(t, f"{name} inverse", 1 << r) for t in cert["inverse"]]
     K = [canon_int(v, f"{name} kernel", 1 << ncols) for v in cert["kernel"]]
     cols = [column(j) for j in range(ncols)]
@@ -183,10 +190,12 @@ def check(w_path, z7_path, ranks_path, structure_path):
     keys = {"complex", "d1", "d2", "k", "homology_classes", "nonvacuity"}
     if not isinstance(ranks, dict) or set(ranks) != keys:
         raise Reject(f"ranks.json: keys must be {sorted(keys)}")
+    if ranks["complex"] != COMPLEX or type(ranks["complex"]) is not str:
+        raise Reject(f"ranks.json: complex must be {COMPLEX!r}")
     r2 = check_rank("d2", ranks["d2"], lambda j: columns2[j], NQ, NG)               # 9
     r1 = check_rank("d1", ranks["d1"], lambda j: d1(1 << j), NG, NQ)                # 10
     k = NQ - r1 - r2
-    if ranks["k"] != k or ranks["homology_classes"] != str(2 ** k):                 # 11
+    if type(ranks["k"]) is not int or ranks["k"] != k or ranks["homology_classes"] != str(2 ** k):                 # 11
         raise Reject(f"ranks.json: k must be {k} and homology_classes {2 ** k}")
     nv = ranks["nonvacuity"]                                                        # 12
     if not isinstance(nv, dict) or set(nv) != {"u", "h", "weight"}:
@@ -238,6 +247,11 @@ def main(argv):
         return 1
     except (OSError, ValueError, UnicodeDecodeError) as e:
         print(f"REJECT: unreadable input ({e})", file=sys.stderr)
+        return 1
+    except (TypeError, KeyError, AttributeError, IndexError) as e:
+        # defence in depth: every malformed shape found so far is rejected
+        # explicitly above; anything missed still yields the documented status
+        print(f"REJECT: malformed input ({type(e).__name__}: {e})", file=sys.stderr)
         return 1
     print(f"ACCEPT: {res['witnesses']} witnesses with d2 c = u for every census mask; "
           f"rank d2 = {res['rank_d2']}, rank d1 = {res['rank_d1']} (certified both ways); "

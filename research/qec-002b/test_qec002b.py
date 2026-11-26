@@ -334,6 +334,104 @@ class Checker(unittest.TestCase):
         self.rejects("one line per nonzero")
 
 
+class CheckerHardening(unittest.TestCase):
+    """Audit findings B1, B2 (444844c): malformed ranks.json fields of any JSON
+    type must give the documented REJECT, never an uncaught exception or an
+    acceptance; the complex label and the integer type of k are validated."""
+    VALUES = (None, 0, 8.0, "x", "8", [], {}, True, False, [None], [[]], {"a": 1})
+
+    @classmethod
+    def setUpClass(cls):
+        # test-only speed-up: memoize the checker's pure boundary maps for this
+        # class (hundreds of check() calls); restored afterwards
+        import functools
+        cls._saved = (chk.d1, chk.d2)
+        chk.d1, chk.d2 = functools.lru_cache(maxsize=None)(chk.d1), functools.lru_cache(maxsize=None)(chk.d2)
+
+    @classmethod
+    def tearDownClass(cls):
+        chk.d1, chk.d2 = cls._saved
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        with open(os.path.join(HERE, "ranks.json")) as f:
+            self.base = json.load(f)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp)
+
+    def run_check(self, ranks):
+        path = os.path.join(self.tmp, "ranks.json")
+        with open(path, "w") as f:
+            json.dump(ranks, f)
+        return chk.check(os.path.join(HERE, "W.txt"), Z7, path, os.path.join(HERE, "structure.txt"))
+
+    def paths(self, obj, prefix=()):
+        if prefix:
+            yield prefix
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                yield from self.paths(v, prefix + (k,))
+        elif isinstance(obj, list) and obj:
+            yield from self.paths(obj[0], prefix + (0,))
+            yield from self.paths(obj[-1], prefix + (len(obj) - 1,))
+
+    def test_every_field_every_type_rejects(self):
+        import copy
+        tried = 0
+        for path in set(self.paths(self.base)):
+            for val in self.VALUES:
+                r = copy.deepcopy(self.base)
+                o = r
+                for k in path[:-1]:
+                    o = o[k]
+                if type(o[path[-1]]) is type(val) and o[path[-1]] == val:
+                    continue   # unchanged value: not a malformation
+                o[path[-1]] = val
+                tried += 1
+                with self.subTest(path=path, val=val):
+                    with self.assertRaises(chk.Reject):
+                        self.run_check(r)
+        self.assertGreater(tried, 300)
+
+    def test_cli_status_for_former_type_errors(self):
+        import copy
+        for mutate in (lambda r: r["d2"].__setitem__("inverse", 0),
+                       lambda r: r["d1"].__setitem__("kernel", None),
+                       lambda r: r["d2"]["rows"].__setitem__(0, []),
+                       lambda r: r["d1"]["free"].__setitem__(0, {})):
+            r = copy.deepcopy(self.base)
+            mutate(r)
+            path = os.path.join(self.tmp, "ranks.json")
+            with open(path, "w") as f:
+                json.dump(r, f)
+            p = run("check_witness.py", os.path.join(HERE, "W.txt"), Z7, path, os.path.join(HERE, "structure.txt"))
+            self.assertEqual(p.returncode, 1, p.stderr)
+            self.assertIn("REJECT", p.stderr)
+            self.assertNotIn("Traceback", p.stderr)
+
+    def test_complex_label(self):
+        import copy
+        for val in ("Bravyi360 base", self.base["complex"] + " ", self.base["complex"].lower(), 1, None):
+            r = copy.deepcopy(self.base)
+            r["complex"] = val
+            with self.subTest(val=val):
+                with self.assertRaisesRegex(chk.Reject, "complex must be"):
+                    self.run_check(r)
+
+    def test_k_integer_type(self):
+        import copy
+        for val in (8.0, "8", True, 7, 9):
+            r = copy.deepcopy(self.base)
+            r["k"] = val
+            with self.subTest(val=val):
+                with self.assertRaisesRegex(chk.Reject, "k must be"):
+                    self.run_check(r)
+
+    def test_unchanged_certificate_still_accepted(self):
+        self.assertEqual(self.run_check(self.base)["k"], 8)
+
+
 class Independence(unittest.TestCase):
     SOURCE = r"allBaseCycles10|BaseCycleCensus|baseBoundaryWindow|baseFloorPairs|pinned_read|bb-distance|\.lean"
 

@@ -1,6 +1,6 @@
 # RLT-QEC-002b — Boundary witnesses and logical-floor correspondence
 
-**Status.** Revision 3, 2026-11-25, on branch `rlt-qec-002b` (unmerged). Revision 1 (`70a1d9f`) was the specification for review, approved in principle with five resolutions; Revision 2 (`20561e0`) incorporated them with the implementation and results; a preliminary review of Revision 2 was favorable and asked for one classification refinement, made here (§13). Merge waits for independent specification, implementation, certificate and execution audits.
+**Status.** Accepted, 2026-11-25. Revision 1 (`70a1d9f`) was the specification for review, approved in principle with five resolutions; Revision 2 (`20561e0`) incorporated them with the implementation and results; Revision 3 (`444844c`) registered d_X ≤ 10 at V after a favorable preliminary review; an independent execution audit of `444844c` returned ACCEPT with two nonblocking checker-hardening findings, addressed in Revision 4 (§13). Merged into `main` after the CI merge gates passed on the final tree.
 
 **Baseline.** `main` at `3da96cd` (merge of RLT-QEC-002a).
 
@@ -140,6 +140,8 @@ F8 is nonvacuous exactly when k ≥ 1.
 | 11 | k = 90 − rank ∂1 − rank ∂2 and homology classes = 2^k as stated | k = 7; 128 classes |
 | 12 | nonvacuity and upper bound: ∂1 u = 0, hᵀ∂2 = 0, hᵀu = 1, the stated weight is an integer equal to wt(u) as recomputed by the checker, and k ≥ 1 | u off the kernel; h with hᵀu = 1 but hᵀ∂2 ≠ 0; u a boundary; missing weight; stated weight 8 (lighter than wt(u)), 11, `"10"` or `true`; a boundary-shifted u with its recomputed weight is *accepted* |
 | 13 | structure: each nonzero census mask equals ∂2 δ_g for its listed face, and `equal`/`kernel` is reported correctly | swapped face, misreported relation, missing line |
+
+**Input validation (Revision 4).** Every field of `ranks.json` is type-checked before use: index lists are lists of JSON integers (checked before any set is formed), `inverse` and `kernel` are lists of canonical decimal strings, `rank`, `k` and `weight` are JSON integers (booleans and floats rejected), and `complex` must equal the label `Bravyi360 base, bbChainComplex A B over Z15 x Z3`. Malformed input of any shape yields REJECT (exit 1); a residual `TypeError`, `KeyError`, `AttributeError` or `IndexError` is caught in `main` and also reported as REJECT, as defence in depth. The mathematical conditions 1–13 are unchanged.
 
 ---
 
@@ -287,7 +289,7 @@ RLT-QEC-002b is accepted when all of the following hold and have been independen
 
 ## 10. Tests
 
-`python3 -I research/qec-002b/test_qec002b.py` runs 29 tests (26 offline; 3 more with `QEC_SRC`); all pass on Python 3.8.20 and 3.13.18.
+`python3 -I research/qec-002b/test_qec002b.py` runs 34 tests (31 offline; 3 more with `QEC_SRC`); all pass on Python 3.8.20 and 3.13.18.
 
 | Group | Tests |
 |---|---|
@@ -296,6 +298,7 @@ RLT-QEC-002b is accepted when all of the following hold and have been independen
 | Toy complexes | six small bicycle complexes: rank ∂2 = log₂ #B₁ and rank ∂1 = n − log₂ #Z₁ by enumerating all of C2 and C1; k against #Z₁/#B₁; the solver finds a witness exactly for the cycles in B₁ and reports *no solution* for the rest; certificates verified; cases include k = 0 and k ≥ 1 |
 | Outputs | `witness.py` reproduces the committed outputs byte for byte; ranks 41, 41, k = 8, 256 classes; nonvacuity cycle of weight ≥ 8 (consistency with F8) and stated weight 10 equal to its popcount; 002a manifest passes |
 | Checker | acceptance, and the rejection examples of §5 for conditions 1–4, 6, 7, 9–13; a kernel-shifted witness and a boundary-shifted nonvacuity cycle are accepted |
+| Hardening (Revision 4) | every field of `ranks.json` replaced by each of 12 malformed JSON values (over 300 cases) must raise the checker's REJECT, never another exception or an acceptance; the CLI returns exit 1 with REJECT and no traceback for the former `TypeError` cases; wrong or non-string `complex` labels; `k` as 8.0, "8", true, 7, 9; the unchanged certificate still accepted |
 | Independence | no source names in `witness.py` or `check_witness.py`; checker imports exactly `hashlib`, `json`, `re`, `sys` and loads no code dynamically; builder imports only the standard library |
 | Source (`QEC_SRC`) | reports A EQUAL, B VERIFIED, C printed; kernel-shifted RLT witnesses still pass (coefficient equality unrequired); an altered census is detected |
 
@@ -310,6 +313,7 @@ RLT-QEC-002b is accepted when all of the following hold and have been independen
 | rank lower-bound check removed from the checker | rank-certificate rejection test |
 | hᵀ∂2 = 0 check removed from the checker | nonvacuity rejection test (h with hᵀu = 1 and hᵀ∂2 ≠ 0), added after this mutation first survived |
 | weight check removed from the checker (Revision 3) | four nonvacuity rejection cases (weight 8, 11, `"10"`, `true`) |
+| the Revision 3 checker of `444844c`, without the input validation (Revision 4) | the hardening tests: 93 field-and-type cases, 5 label cases, the integer-k test and the CLI-status test |
 | block swap in the checker's ∂2 | 11 tests (k, nonvacuity, structure, witnesses) |
 
 ---
@@ -361,4 +365,40 @@ All eight remain open.
 |---|---|---|
 | 6 | The nonvacuity pair with a weight-10 cycle certifies d_X ≤ 10; register it at V once its weight is independently checked, adding the check and a rejection test if needed; keep 8 ≤ d_X ≤ 10 at R; no light-cycle search; keep the X-sector minimum distinct from full quantum-code distance | `ranks.json` states the weight; checker condition 12 recomputes it and rejects a mismatch (four rejection cases; mutation detected); d_X ≤ 10 at V and 8 ≤ d_X ≤ 10 at R (§7.2, §7.4, §8); d_X defined and separated from code distance (§1) |
 
-**Outstanding before merge:** independent specification, implementation, certificate and execution audits.
+**Independent execution audit of `444844c`** (2026-11-25, ChatGPT environment, from the offline archive `rlt-qec-002b-audit-444844c.tar.gz`, SHA-256 `4ea70ffb45c60db8e7ecc9cbea47c66311022aff5f946e1711e9b382bbe01217`): **ACCEPT**.
+
+| Verified by the auditor | Result |
+|---|---|
+| Archive SHA-256 and the 78 internal hashes | match |
+| Supplied diff `3da96cd..444844c` | applies; reproduces the 11 added files byte for byte |
+| Pinned sources | all 13 files authenticated (bb-distance-lean `a83cafa`, QECLean `f51011b`) |
+| Dependencies | all 13 dependency Git blob ids match |
+| Generated bytecode | none |
+| Builder | reproduces `W.txt`, `ranks.json`, `structure.txt` |
+| Standalone checker | ACCEPT |
+| Regression tests | all 29 test methods pass, across split execution invocations |
+| Source reports | A EQUAL; B VERIFIED; C 42 equal, 4 kernel-shifted |
+| Independently authored GF(2) routine (importing none of this implementation) | confirms both exact ranks, both inverse-minor certificates, both kernel-basis certificates, ∂1 ∘ ∂2 = 0, all 46 boundary witnesses, and the separating certificate u = 619685614089, h = 206561871363, wt(u) = 10 |
+| Lean definitions (authenticated copies) | inspected; support the registered `LogicalFloor` correspondence of §6.2 |
+
+*Execution note.* The auditor's environment ran the 29 regression test methods across split invocations rather than in one run; together they cover the suite, and all pass.
+
+*Limitations recorded by the audit.*
+1. The accepted RLT-QEC-002a dependency was integrity-checked (hashes, blob ids, manifest), and its census was not re-enumerated in this audit; its completeness stays at R as accepted in 002a.
+2. The complete RLT commit tree requires repository-side confirmation; the audit verified the supplied diff, its 11 files and the dependency blobs.
+3. No independent Lean replay was performed; `base_logical_floor` stays K (Lean), reported, pending O-6.
+
+*Repository-side confirmation (author).* Against the repository at `444844c`: the archived diff is byte-identical to `git diff --full-index --binary 3da96cd 444844c`; all 24 archived `repo/` files equal their blobs at `444844c` and are every file of the archived paths; the tree id is `diff/tree-444844c.txt`; the 13 dependency files are unchanged between `3da96cd` and `444844c`; `444844c` descends from `main` at `3da96cd`, and the diff touches only `docs/RLT-QEC-002b.md` and `research/qec-002b/`.
+
+**Revision 4: hardening findings.**
+
+| # | Finding | Resolution |
+|---|---|---|
+| B1 | Some malformed JSON field types raise an uncaught `TypeError` instead of the documented REJECT | index lists type-checked before set formation; `inverse`/`kernel` required to be lists; a residual exception guard in `main`; tests: every field × 12 malformed values, CLI status without traceback |
+| B2 | The `complex` label is unvalidated, and `k` accepts non-integer values equal to 8 | `complex` must equal the registered label; `k` must be a JSON integer; tests for both |
+
+Revision 4 changes `check_witness.py` and `test_qec002b.py` only; `W.txt`, `ranks.json` and `structure.txt` are byte-identical to `444844c`, and the classification is unchanged: d_X ≤ 10 at **V**; F8 (d_X ≥ 8) and 8 ≤ d_X ≤ 10 at **R**; O-1 to O-8 open; the RLT kernel unchanged.
+
+**Merge gates.** The CI `check` job (formatting, Clippy, `scripts/verify.sh`: kernel tests, verification, Lean replay) and the GDT comparison job pass on the final branch tree before merge.
+
+**Next milestone.** RLT-QEC-002c — extended cycle census through weight 10 (O-1) and investigation of the exact X-sector minimum d_X ∈ {8, 9, 10}, using the registered exact-minimum certificate of §7.4.
