@@ -1,6 +1,6 @@
 # RLT-QEC-002a — Independent enumeration of all cycles of weight less than eight
 
-**Status.** Implementation and evidence for review, 2026-11-25, on branch `rlt-qec-002a` (unmerged). A preliminary independent review of `aef75a6` was favorable and requested five changes, made in Revision 2 of this milestone (§12). The independent execution audit and the complete diff review remain outstanding; merge waits for them.
+**Status.** Accepted, 2026-11-25. A preliminary independent review of `aef75a6` requested five changes, made in Revision 2 (`790d45d`); an independent execution audit of `790d45d` (ChatGPT environment, offline archive) returned ACCEPT (§12). Merged into `main` after the CI merge gates passed on the audited branch.
 
 **Baseline.** `main` at `d8d0252` (RLT-QEC-001 Revision 3, with §8 of the audit record identifying the Revision 3 confirming read as a self-check).
 
@@ -131,10 +131,10 @@ Weight distributions are printed as diagnostics. `test_unreflected_encoding_dete
 
 | Claim | Basis | Level | Pending |
 |---|---|---|---|
-| Soundness of `Z7.txt` (each element a cycle of weight ≤ 7, no repeats, translation-closed) | `check.py` accepts the list | **V** | independent review of `check.py` |
-| Completeness of `Z7.txt` (every element of Z₇ listed) | reviewed mathematical argument §4, executed by `census.py` (two routes) | **R** | independent review of §4 and of `census.py` against §3 |
-| Z₇ = the 46 masks of `Z7.txt` | composition of the two rows | **R** (weakest component) | both reviews |
-| Agreement with the source census at weight ≤ 7 | mask-set equality, `compare.py` | correspondence (no level) | review of `compare.py` |
+| Soundness of `Z7.txt` (each element a cycle of weight ≤ 7, no repeats, translation-closed) | `check.py` accepts the list | **V** | — (reviewed; execution audit ACCEPT) |
+| Completeness of `Z7.txt` (every element of Z₇ listed) | reviewed mathematical argument §4, executed by `census.py` (two routes) | **R** | — (§4 accepted at the algorithm-description level; implementation correspondence verified in the execution audit) |
+| Z₇ = the 46 masks of `Z7.txt` | composition of the two rows | **R** (weakest component) | — |
+| Agreement with the source census at weight ≤ 7 | mask-set equality, `compare.py` | correspondence (no level) | — (reproduced in the execution audit) |
 | The Lean result `base_logical_floor` | Lean development | K (Lean), reported | O-6 |
 
 Completeness at level V would need a machine-checkable completeness certificate (Revision 3 §7.1); RLT-QEC-002a has none, so its completeness stays at R. The logical floor itself needs the boundary witnesses of RLT-QEC-002b and is outside this milestone's claims.
@@ -168,9 +168,9 @@ All eight stay open; this milestone contributes evidence to four of them (O-1, O
 
 | ID | Status after RLT-QEC-002a | Remaining |
 |---|---|---|
-| O-1 | open. Weight < 8: independent census at level R, equal to the source as mask sets. | independent review; weight ≤ 10 in RLT-QEC-002c |
+| O-1 | open. Weight < 8: independent census at level R, equal to the source as mask sets; reviewed and execution-audited. | weight ≤ 10 in RLT-QEC-002c |
 | O-2 | open. The 45 weight-6 cycles are exactly the 45 face generators (test), the sufficient check of O-2 given O-1. | witness verification in RLT-QEC-002b, zero vector included |
-| O-3 | open. RLT-QEC-002a uses the registered source encoding as its own, so its map to the source is the identity; mask-set equality holds under it and fails under the unreflected encoding. | review; the encodings of 002b and 002c |
+| O-3 | open. RLT-QEC-002a uses the registered source encoding as its own, so its map to the source is the identity; mask-set equality holds under it and fails under the unreflected encoding. | the encodings of 002b and 002c |
 | O-4 | open. ∂1: the column construction equals the convolution definition for all 90 unit vectors. | ∂2 and the correspondence with the source operators in RLT-QEC-002b |
 | O-5 | open | RLT-QEC-002b |
 | O-6 | open | Lean build (Mathlib included) |
@@ -198,6 +198,31 @@ All eight stay open; this milestone contributes evidence to four of them (O-1, O
 | 5 | Record the CI integration status without altering existing kernel verification gates | §13 |
 
 Classifications after Revision 2: soundness V, completeness R, Z₇ as a whole R; O-1 to O-8 open; the RLT kernel unchanged.
+
+**Independent execution audit of `790d45d`** (2026-11-25, ChatGPT environment, from the offline archive `rlt-qec-002a-audit-790d45d.tar.gz`, SHA-256 `757ea890b7e87f9a525ffb469e26a6ace32bf94d6f63112b10c22ed15ab6a9ed`): **ACCEPT**.
+
+| Verified by the auditor | Result |
+|---|---|
+| Archive SHA-256 and the 34 internal hashes | match |
+| Supplied diff `d8d0252..790d45d` | applies cleanly; reproduces the nine added files byte for byte |
+| Pinned source (`bb-distance-lean@a83cafa`, `BaseCycleCensus.lean`) | Git object chain authenticated; SHA-256 equals the pin |
+| Census routes 1 and 2 | both reproduce `Z7.txt` |
+| Soundness checker | ACCEPT |
+| Mask-set comparison with the source | EQUAL: 46 masks, weights {0: 1, 6: 45} |
+| Test suite with source, Python 3.13.5 | 21 tests pass, none skipped |
+| Completeness argument (§4) and implementation correspondence | accepted |
+
+*Execution note.* The auditor's first `reproduce.sh` run reached source equality before the execution tool's time limit; the source-inclusive test gate then ran separately and passed.
+
+*Archive finding (nonblocking).* The archive contained `repo/research/qec-002a/__pycache__/compare.cpython-313.pyc`, outside the audited diff. It was generated while the archive was being prepared: `tools/compare_without_git.py` loads `compare.py` through `importlib` without `sys.dont_write_bytecode`, and one pre-seal trial run wrote the bytecode file into the tree, so it also appears among the 34 entries of the archive's `SHA256SUMS`. The auditor removed it before reproduction. Future audit archives exclude generated bytecode: the archive tool sets `sys.dont_write_bytecode`, and packaging rejects any `__pycache__` or `*.pyc` entry. The file lies outside the repository, so the Git tree is unaffected.
+
+*Audit limitation.* The auditor verified the supplied diff and its nine files; the complete RLT commit tree was outside offline authentication. The author then confirmed against the repository that `git diff --full-index --binary d8d0252 790d45d` is byte-identical to the archived diff, that every archived `repo/` file equals its blob at `790d45d`, that the tree id of `790d45d` is `c814c2ef93b0053e2131f518bedc8cdc6b9bdd22` as recorded, and that `790d45d` descends from `main` at `d8d0252`. The base `d8d0252` is the accepted, pushed `main`.
+
+**Merge gates.** The CI `check` job (formatting, Clippy, `scripts/verify.sh`: kernel tests, verification, Lean replay) passed on the audited branch before merge; this record change touches documentation only.
+
+Classifications after the audit: soundness **V**, completeness **R**, Z₇ as a whole **R**; O-1 to O-8 open; the RLT kernel unchanged. RLT-QEC-002a makes no claim about the logical floor, which needs RLT-QEC-002b.
+
+**Next milestone.** RLT-QEC-002b — boundary witnesses and logical-floor correspondence (Revision 3 §7.3; O-2, O-4, O-5).
 
 ## 13. CI integration status
 
