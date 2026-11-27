@@ -1,0 +1,35 @@
+name: RLT NAT-FUN provenance reproduction
+on:
+  push:
+    branches: [rlt-agent-000e]
+permissions:
+  contents: read
+jobs:
+  reproduce:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Build and record identity
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1)"
+          mkdir "$RUNNER_TEMP/ag-f02"
+          git rev-parse HEAD | tee "$RUNNER_TEMP/ag-f02/commit.txt"
+          cargo build --release --locked
+          sha256sum target/release/rlt | tee "$RUNNER_TEMP/ag-f02/binary.sha256"
+      - name: Execute predeclared reproduction
+        run: |
+          set -euo pipefail
+          python3 -B research/agent-000e/reproduce.py "$RUNNER_TEMP/ag-f02/results" | tee "$RUNNER_TEMP/ag-f02/reproduction.log"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ag-f02-evidence
+          path: ${{ runner.temp }}/ag-f02/
+          if-no-files-found: error
+          retention-days: 14
