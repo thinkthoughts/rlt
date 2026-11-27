@@ -8,7 +8,7 @@
 //! it cannot change what the kernel accepts.
 
 use crate::explain::{
-    json_write, kernel_fields, obj, one, row, Json, KernelBlock, StaleItem, STALE,
+    json_write, legacy_kernel_fields, obj, one, row, Json, KernelBlock, StaleItem, STALE,
 };
 use crate::{
     check_bytes_outcome, citation_path, sha256_hex, CheckOutcome, ACCEPT, MALFORMED,
@@ -155,7 +155,7 @@ pub fn statement_parts(out: &CheckOutcome, k: &KernelBlock) -> Option<StatementP
         axiom_set: pf.axiom_set.clone(),
         axiom_file: ax_file.to_string(),
         axiom_sha256: ax_sha.to_string(),
-        definitions: if k.definitions_used.is_empty() {
+        definitions: if pf.convention == "NAT-FUN" || k.definitions_used.is_empty() {
             None
         } else {
             Some((
@@ -408,7 +408,7 @@ fn build(
     sha: &str,
     lib: Option<&Library>,
 ) -> Node {
-    let k = kernel_fields(out, path, sha);
+    let k = legacy_kernel_fields(out, path, sha);
     let parts = statement_parts(out, &k);
     let text = parts.as_ref().map(fingerprint_text);
     let children = out

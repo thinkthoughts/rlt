@@ -24,7 +24,7 @@ use std::path::Path;
 use yaml_rust2::Yaml;
 
 use crate::deps::{canonical, fingerprint_text, load_library, statement_parts};
-use crate::explain::{kernel_fields, STALE};
+use crate::explain::{legacy_kernel_fields, STALE};
 use crate::{
     check_preread_outcome, sha256_hex, ACCEPT, MALFORMED, PINNED_AXIOM_SETS, PINNED_CONVENTIONS,
     PINNED_DEFINITIONS, REJECT,
@@ -677,7 +677,7 @@ pub fn compose(root: &Path, bundle_path: &str) -> Composition {
                 Err(_) => refuse!("malformed", format!("{}: not UTF-8", pp.path)),
             };
             let out = check_preread_outcome(root, &root.join(&pp.path), src);
-            let k = kernel_fields(&out, &pp.path, &sha);
+            let k = legacy_kernel_fields(&out, &pp.path, &sha);
             if out.report.code != ACCEPT {
                 let class = if out.report.code == STALE || citation_problem(&out, " has SHA-256 ") {
                     "stale"
@@ -744,7 +744,7 @@ pub fn compose(root: &Path, bundle_path: &str) -> Composition {
             };
             let out = check_preread_outcome(root, &root.join(&a.path), src);
             if out.report.code != ACCEPT {
-                let k = kernel_fields(&out, &a.path, &sha);
+                let k = legacy_kernel_fields(&out, &a.path, &sha);
                 refuse!(
                     "kernel",
                     format!(
@@ -756,7 +756,7 @@ pub fn compose(root: &Path, bundle_path: &str) -> Composition {
             if !out.citations.is_empty() {
                 refuse!("graph", format!("node `{}`: assembly {} cites other files; an assembly takes its premises as assumptions only", n.id, a.path));
             }
-            let k = kernel_fields(&out, &a.path, &sha);
+            let k = legacy_kernel_fields(&out, &a.path, &sha);
             let Some(parts) = statement_parts(&out, &k) else {
                 refuse!(
                     "kernel",
@@ -905,7 +905,7 @@ pub fn probe_parts(
     sha: &str,
 ) -> Result<crate::deps::StatementParts, String> {
     let so = check_preread_outcome(root, &root.join(path), src);
-    let sk = kernel_fields(&so, path, sha);
+    let sk = legacy_kernel_fields(&so, path, sha);
     let Some(sp) = (so.report.code == ACCEPT)
         .then(|| statement_parts(&so, &sk))
         .flatten()

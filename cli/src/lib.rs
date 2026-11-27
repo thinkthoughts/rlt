@@ -552,6 +552,16 @@ pub fn load_axiom_set(root: &Path, id: &str) -> Result<AxiomSet, String> {
     })
 }
 
+/// Identity of definitions loaded and expanded outside the mathematical kernel.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DefinitionProvenance {
+    pub file: String,
+    pub sha256: String,
+    pub used: Vec<String>,
+    /// None for pinned NAT-DEF abbreviations; Some for NAT-FUN files.
+    pub registration: Option<defreg::Registration>,
+}
+
 /// Everything `check_file` learned, for callers that bind proofs to records.
 pub struct CheckOutcome {
     pub report: Report,
@@ -561,6 +571,7 @@ pub struct CheckOutcome {
     /// The checked goal as a formula (RLT-003 M3a).
     pub prop: Option<rlt_kernel::Prop>,
     pub theorem: Option<Theorem>,
+    pub definitions: Option<DefinitionProvenance>,
     /// RLT-004c: the citations this check resolved, in the file's order, each
     /// with the outcome of checking the cited bytes. Recorded during the one
     /// check `rlt check` performs; reports and verdicts are unaffected.
@@ -682,6 +693,7 @@ pub fn check_bytes_outcome_as(
                 goal: None,
                 prop: None,
                 theorem: None,
+                definitions: None,
                 citations: Vec::new(),
             }
         }
@@ -760,6 +772,7 @@ fn check_inner(
         goal: None,
         prop: None,
         theorem: None,
+        definitions: None,
         citations: Vec::new(),
     };
     macro_rules! bail {
@@ -875,6 +888,12 @@ fn check_inner(
     if let Some(Ok(d)) = &defs {
         let used: Vec<String> = d.used.borrow().iter().cloned().collect();
         if !used.is_empty() {
+            out.definitions = Some(DefinitionProvenance {
+                file: PINNED_DEFINITIONS.0.to_string(),
+                sha256: PINNED_DEFINITIONS.1.to_string(),
+                used: used.clone(),
+                registration: None,
+            });
             let _ = writeln!(t, "  folded        {}", pf.goal.text.escape_debug());
             let _ = writeln!(
                 t,
@@ -924,6 +943,12 @@ fn check_inner(
             );
         }
         let used = d.used_in_order();
+        out.definitions = Some(DefinitionProvenance {
+            file: d.file.clone(),
+            sha256: d.file_sha256.clone(),
+            used: used.clone(),
+            registration: registration.clone(),
+        });
         let _ = writeln!(
             t,
             "  unfolded      {}",
@@ -1330,6 +1355,7 @@ pub fn bind_proof(
             goal: None,
             prop: None,
             theorem: None,
+            definitions: None,
             citations: Vec::new(),
         };
         return (
@@ -1360,6 +1386,7 @@ pub fn bind_proof(
             goal: None,
             prop: None,
             theorem: None,
+            definitions: None,
             citations: Vec::new(),
         };
         return (

@@ -216,6 +216,13 @@ fn dr01_a_second_file_claiming_id_double_is_refused_on_every_authoritative_path(
         .text
         .contains("is not a registered definitions file"));
     assert!(c.theorem.is_none());
+    assert!(c.definitions.is_none());
+    let exploratory = check_file_exploratory(&root(), &root().join(&cert));
+    assert_eq!(exploratory.report.code, EXPLORATORY);
+    let provenance = exploratory.definitions.as_ref().unwrap();
+    assert!(!provenance.registration.as_ref().unwrap().is_registered());
+    let k = rlt_cli::explain::kernel_fields(&exploratory, &cert, &sha_at(&root(), &cert));
+    assert!(k.definitions_sha256.is_none());
     // prove
     let g = goal("evil.two", &defs, &sha_at(&root(), &defs), "double(2) = 3");
     let r = prove_source(

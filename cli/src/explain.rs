@@ -140,6 +140,7 @@ pub struct KernelBlock {
     pub proof_id: Option<String>,
     pub written_goal: Option<String>,
     pub convention: Option<String>,
+    pub definitions_file: Option<String>,
     pub definitions_used: Vec<String>,
     pub definitions_sha256: Option<String>,
     pub checked_goal: Option<String>,
@@ -328,13 +329,13 @@ pub fn kernel_fields(out: &crate::CheckOutcome, rel: &str, sha: &str) -> KernelB
     k.convention = line(r, "convention")
         .and_then(|v| v.split_whitespace().next())
         .map(String::from);
-    if let Some(d) = line(r, "definitions") {
-        if let Some((used, rest)) = d.split_once(" — ") {
-            k.definitions_used = used.split(", ").map(String::from).collect();
-            k.definitions_sha256 = rest
-                .rsplit(' ')
-                .next()
-                .map(|s| s.trim_end_matches(')').to_string());
+    if let Some(d) = &out.definitions {
+        // Registered provenance is not a proof verdict. Exploratory files
+        // cannot supply authoritative record pins.
+        if d.registration.as_ref().is_none_or(|r| r.is_registered()) {
+            k.definitions_file = Some(d.file.clone());
+            k.definitions_used = d.used.clone();
+            k.definitions_sha256 = Some(d.sha256.clone());
         }
     }
     k.checked_goal = line(r, "checked goal").map(String::from);
@@ -383,6 +384,17 @@ pub fn kernel_fields(out: &crate::CheckOutcome, rel: &str, sha: &str) -> KernelB
     k.rules_used = line(r, "rules used").map(String::from);
     k.theorems_cited = line(r, "theorems cited").map(String::from);
     k.steps = line(r, "steps").map(String::from);
+    k
+}
+
+/// Compatibility projection for dependency reports and composition v1.
+pub fn legacy_kernel_fields(out: &crate::CheckOutcome, rel: &str, sha: &str) -> KernelBlock {
+    let mut k = kernel_fields(out, rel, sha);
+    if out.definitions.as_ref().is_some_and(|d| d.registration.is_some()) {
+        k.definitions_file = None;
+        k.definitions_used.clear();
+        k.definitions_sha256 = None;
+    }
     k
 }
 
@@ -905,12 +917,12 @@ pub fn render_text(x: &Explanation) -> String {
                 row(&mut t, label, &one(v));
             }
         }
-        if let Some(d) = &k.definitions_sha256 {
+        if let (Some(file), Some(d)) = (&k.definitions_file, &k.definitions_sha256) {
             row(
                 &mut t,
                 "  definitions",
                 &format!(
-                    "{} (spec/definitions.rlt sha256 {d})",
+                    "{} ({file} sha256 {d})",
                     k.definitions_used.join(", ")
                 ),
             );
@@ -1195,13 +1207,13 @@ pub fn to_json(x: &Explanation) -> Json {
             ("convention", Json::opt(&k.convention)),
             (
                 "definitions",
-                match &k.definitions_sha256 {
-                    Some(h) => obj(vec![
-                        ("file", Json::s("spec/definitions.rlt")),
+                match (&k.definitions_file, &k.definitions_sha256) {
+                    (Some(file), Some(h)) => obj(vec![
+                        ("file", Json::s(file)),
                         ("sha256", Json::s(h)),
                         ("used", Json::strs(&k.definitions_used)),
                     ]),
-                    None => Json::Null,
+                    _ => Json::Null,
                 },
             ),
             ("checked_goal", Json::opt(&k.checked_goal)),
