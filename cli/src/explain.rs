@@ -390,7 +390,11 @@ pub fn kernel_fields(out: &crate::CheckOutcome, rel: &str, sha: &str) -> KernelB
 /// Compatibility projection for dependency reports and composition v1.
 pub fn legacy_kernel_fields(out: &crate::CheckOutcome, rel: &str, sha: &str) -> KernelBlock {
     let mut k = kernel_fields(out, rel, sha);
-    if out.definitions.as_ref().is_some_and(|d| d.registration.is_some()) {
+    if out
+        .definitions
+        .as_ref()
+        .is_some_and(|d| d.registration.is_some())
+    {
         k.definitions_file = None;
         k.definitions_used.clear();
         k.definitions_sha256 = None;
@@ -921,10 +925,7 @@ pub fn render_text(x: &Explanation) -> String {
             row(
                 &mut t,
                 "  definitions",
-                &format!(
-                    "{} ({file} sha256 {d})",
-                    k.definitions_used.join(", ")
-                ),
+                &format!("{} ({file} sha256 {d})", k.definitions_used.join(", ")),
             );
         }
         if let (Some(a), Some(h)) = (&k.axiom_set, &k.axiom_set_sha256) {
