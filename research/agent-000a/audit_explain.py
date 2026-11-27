@@ -50,6 +50,38 @@ def nonempty(value):
     return type(value) is str and bool(value.strip())
 
 
+def profile_details(x, r, k, s, m, p):
+    """Additional checks for the narrow experimental profile, not general RLT."""
+    def strings(v):
+        return type(v) is list and all(nonempty(item) for item in v)
+
+    def relative(v):
+        return (nonempty(v) and not any(ord(c) < 32 or ord(c) == 127 for c in v)
+                and not any(c in v for c in ('\\', ':'))
+                and all(part not in ('', '.', '..') for part in v.split('/')))
+
+    require(nonempty(r['id']) and nonempty(r['subject']) and relative(r['path']),
+            'invalid record identity')
+    require(relative(k['proof']), 'invalid proof path')
+    require(k['verdict_line'] in tuple(
+        'ACCEPT — ' + kind + ' theorem relative to registered axiom set ' + k['axiom_set']
+        for kind in ('conditional', 'unconditional')), 'inconsistent verdict line')
+    require(type(k['steps']) is str and re.fullmatch('[1-9][0-9]*', k['steps']) is not None,
+            'invalid step count')
+    for c in k['cites']:
+        require(relative(c['path']) and all(nonempty(c[key]) for key in
+                ('label', 'proof_id', 'proved')), 'invalid cited proof identity')
+    require(strings(m['matches']) and strings(m['differs']) and strings(m['stale_reasons']),
+            'invalid semantic lists')
+    require(s['registry_status'] in ('available', 'archived', 'transcribed')
+            and re.fullmatch('[0-9a-f]{40}|[0-9a-f]{64}', s['commit']) is not None,
+            'unsupported source pin')
+    require(nonempty(p['reason']), 'missing physical applicability reason')
+    require(strings(x['open_questions']), 'invalid open questions')
+    require(x['exit_meaning'] == '0 — record valid, its proof and specification pins current, and the RLT checker accepts the proof; semantic correspondence may be incomplete and physical correspondence unestablished',
+            'unexpected exit explanation')
+
+
 def audit(raw, process_exit, expected_sha):
     """Check only the stated profile; never return ACCEPT or a new theorem."""
     result = {'format': 'rlt-explain-structural-audit/experimental-1',
@@ -103,6 +135,7 @@ def audit(raw, process_exit, expected_sha):
         p = fields(x['physical'], 'applicability reason reading_point records')
         require(p['applicability'] == 'not-applicable' and p['records'] == []
                 and p['reading_point'] is None, 'unsupported physical correspondence')
+        profile_details(x, r, k, s, m, p)
         result['status'] = 'PINNED_STRUCTURE_MATCH'
         result['reported_kernel_verdict'] = 'ACCEPT'
     except (ValueError, TypeError, KeyError, RecursionError) as exc:
