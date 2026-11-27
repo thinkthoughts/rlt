@@ -44,7 +44,7 @@ def main():
     code, deps = run(['deps', PROOF, '--format', 'json'], evidence, 'deps', True)
     assert code == 0 and deps['root']['verdict'] == 'ACCEPT'
     template = """format: rlt-statement/1
-id: AG-F02-PROBE
+id: %s
 subject: "Synthetic provenance test only; no semantic source match claimed"
 source:
   registry: LEAN-CORE-NAT-DVD
@@ -69,13 +69,16 @@ physical:
     with tempfile.TemporaryDirectory(prefix='ag-f02-', dir=ROOT) as temp:
         for name, pin in [('correct-pin', PIN), ('omitted-pin', None),
                           ('wrong-pin', '0' * 64)]:
-            record = Path(temp) / (name + '.yaml')
-            record.write_text(template % (PROOF, sha(PROOF),
-                '  definitions_sha256: ' + pin + '\n' if pin else '',
+            record_id = 'AG-F02-' + name.upper()
+            record = Path(temp) / (record_id + '.yaml')
+            record.write_text(template % (record_id, PROOF, sha(PROOF),
+                '  definitions_sha256: "' + pin + '"\n' if pin else '',
                 json.dumps(goal, ensure_ascii=False)), encoding='utf-8')
             (evidence / record.name).write_bytes(record.read_bytes())
             code, report = run(['explain', str(record.relative_to(ROOT)), '--format', 'json'],
                                evidence, name, True)
+            if report['record']['state'] == 'invalid':
+                print('INVALID RECORD DIAGNOSTIC:', json.dumps(report, ensure_ascii=False), flush=True)
             k = report.get('kernel') or {}
             results[name] = {'exit': code, 'state': report['record']['state'],
                              'kernel_verdict': k.get('verdict'),
