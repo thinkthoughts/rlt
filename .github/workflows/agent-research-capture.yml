@@ -1,0 +1,77 @@
+name: RLT agent research capture
+
+on:
+  push:
+    branches: [rlt-agent-000d]
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Record build inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/rlt-agent-000d"
+          mkdir "$evidence"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          {
+            git rev-parse HEAD
+            git rev-parse HEAD^{tree}
+            rustc --version --verbose
+            cargo --version
+            python3 --version
+            uname -a
+            sha256sum Cargo.lock rust-toolchain.toml
+          } | tee "$evidence/build-inputs.txt"
+      - name: Build locked RLT
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --release --locked 2>&1 | tee "$RUNNER_TEMP/rlt-agent-000d/build.log"
+          sha256sum target/release/rlt | tee "$RUNNER_TEMP/rlt-agent-000d/binary.sha256"
+      - name: Run experimental Python tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -B -m unittest discover -s research/agent-000a -p 'test_*.py' -v 2>&1 | tee "$RUNNER_TEMP/rlt-agent-000d/auditor-tests.log"
+          python3 -B -m unittest discover -s research/agent-000c -p 'test_*.py' -v 2>&1 | tee "$RUNNER_TEMP/rlt-agent-000d/capture-tests.log"
+      - name: Capture real RLT explain
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          python3 -B research/agent-000c/capture.py target/release/rlt . statements/MOD30-CLASSIFICATION.yaml "$RUNNER_TEMP/rlt-agent-000d/capture"
+      - name: Compare exact golden and audit captured report
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/rlt-agent-000d"
+          golden=tests/explain-golden/MOD30-CLASSIFICATION.json
+          cmp "$golden" "$evidence/capture/stdout.bin"
+          python3 -B - "$evidence" <<'PY'
+          import hashlib, json, pathlib, sys
+          e = pathlib.Path(sys.argv[1])
+          m = json.loads((e / 'capture/capture.json').read_text())
+          assert m['process_exit'] == 0
+          for key, path in [('stdout_sha256', 'stdout.bin'), ('stderr_sha256', 'stderr.bin')]:
+              assert hashlib.sha256((e / 'capture' / path).read_bytes()).hexdigest() == m[key]
+          assert m['observed']['binary_sha256'] == hashlib.sha256(pathlib.Path('target/release/rlt').read_bytes()).hexdigest()
+          print('capture metadata and stream digests match')
+          PY
+          python3 -B research/agent-000a/audit_explain.py "$evidence/capture/stdout.bin" --process-exit 0 --expected-sha256 445d26c27ba42a545f36e13ce667bbaff5fdd17c0b0b1fbd02b636ec7b8c11b8 | tee "$evidence/structural-audit.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: rlt-agent-000d-evidence
+          path: ${{ runner.temp }}/rlt-agent-000d/
+          if-no-files-found: error
+          retention-days: 14
