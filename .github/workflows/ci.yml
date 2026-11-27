@@ -9,6 +9,13 @@ on:
     - cron: "17 4 * * 1"
   workflow_dispatch:
 
+# RLT-CI-001: only supersede push runs on our experimental branches.
+# All other events receive a unique run identity, including main, PRs,
+# scheduled provenance and manual verification.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'push' && (startsWith(github.ref, 'refs/heads/rlt-agent-') || startsWith(github.ref, 'refs/heads/rlt-doc-') || startsWith(github.ref, 'refs/heads/rlt-ci-')) && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'push' && (startsWith(github.ref, 'refs/heads/rlt-agent-') || startsWith(github.ref, 'refs/heads/rlt-doc-') || startsWith(github.ref, 'refs/heads/rlt-ci-')) }}
+
 jobs:
   check:
     if: github.event_name != 'schedule'
