@@ -73,6 +73,31 @@ class AuditTests(unittest.TestCase):
                 parent[path[-1]] = value
                 self.refuse(json.dumps(obj).encode())
 
+    def test_review_mutations(self):
+        cases = [
+            (('record', 'id'), None),
+            (('kernel', 'verdict_line'), 'REJECT'),
+            (('kernel', 'proof'), '../../outside.rlt'),
+            (('kernel', 'steps'), -1),
+            (('kernel', 'cites', 0, 'proved'), None),
+            (('semantic', 'matches'), False),
+            (('source', 'commit'), 'not a pin'),
+            (('physical', 'reason'), None),
+            (('open_questions',), 123),
+            (('exit_meaning',), 'Lean verified'),
+        ]
+        for path, value in cases:
+            with self.subTest(path=path):
+                obj = copy.deepcopy(self.report)
+                parent = obj
+                for key in path[:-1]:
+                    parent = parent[key]
+                parent[path[-1]] = value
+                if path == ('source', 'commit'):
+                    obj['source']['upstream'] = obj['source']['upstream'].replace(
+                        self.report['source']['commit'], value)
+                self.refuse(json.dumps(obj).encode())
+
     def test_missing_and_extra_fields(self):
         obj = copy.deepcopy(self.report)
         del obj['kernel']['assumptions']
